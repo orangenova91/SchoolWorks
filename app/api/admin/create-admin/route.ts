@@ -46,18 +46,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 학교 이름 중복 확인
-    const existingSchool = await prisma.school.findUnique({
-      where: { name: validatedData.schoolName },
-    });
-
-    if (existingSchool) {
-      return NextResponse.json(
-        { error: "이미 존재하는 학교 이름입니다." },
-        { status: 400 }
-      );
-    }
-
     // 비밀번호 해시
     const hashedPassword = await hashPassword(validatedData.adminPassword);
 

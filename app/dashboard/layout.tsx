@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
 import { getTranslations } from "@/lib/i18n";
-import SignOutButton from "@/components/dashboard/SignOutButton";
+import UserMenu from "@/components/dashboard/UserMenu";
 import { Sidebar } from "@/components/dashboard/Sidebar";
 import { Footer } from "@/components/dashboard/Footer";
 import { AnimatedBackground } from "@/components/ui/AnimatedBackground";
@@ -201,10 +201,11 @@ export default async function DashboardLayout({
               <h1 className="text-xl font-bold text-gray-900">SchoolHub</h1>
             </div>
             <div className="flex items-center space-x-4">
-              <span className="text-sm text-gray-700">
-                {session.user?.name || session.user.email}
-              </span>
-              <SignOutButton label={t.auth.logout} />
+              <UserMenu
+                userName={session.user?.name || ""}
+                userEmail={session.user?.email || ""}
+                userRole={session.user?.role || ""}
+              />
             </div>
           </div>
         </div>
