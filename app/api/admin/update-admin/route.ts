@@ -70,20 +70,8 @@ export async function PUT(request: NextRequest) {
       }
     }
 
-    // 학교 이름 중복 확인 (다른 학교가 사용 중인지)
+    // 현재 학교 정보 가져오기
     const currentSchool = existingAdmin.adminProfile?.school;
-    if (currentSchool && validatedData.schoolName !== currentSchool.name) {
-      const schoolExists = await prisma.school.findUnique({
-        where: { name: validatedData.schoolName },
-      });
-
-      if (schoolExists) {
-        return NextResponse.json(
-          { error: "이미 존재하는 학교 이름입니다." },
-          { status: 400 }
-        );
-      }
-    }
 
     // 총 학급수 및 학생수 계산
     const totalClasses = validatedData.gradeInfo.reduce((sum, grade) => sum + grade.classCount, 0);

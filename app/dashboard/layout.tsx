@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
 import { getTranslations } from "@/lib/i18n";
-import SignOutButton from "@/components/dashboard/SignOutButton";
+import UserMenu from "@/components/dashboard/UserMenu";
 import { Sidebar } from "@/components/dashboard/Sidebar";
 import { Footer } from "@/components/dashboard/Footer";
 import { AnimatedBackground } from "@/components/ui/AnimatedBackground";
@@ -21,6 +21,7 @@ import {
   HelpCircle,
   Shield,
   User,
+  MessageCircle,
 } from "lucide-react";
 
 export default async function DashboardLayout({
@@ -36,6 +37,25 @@ export default async function DashboardLayout({
 
   const t = getTranslations("ko");
   const role = session.user.role;
+
+  // Google Workspace 도메인 확인 (여러 도메인 지원: 쉼표로 구분)
+  const googleWorkspaceDomains = (process.env.GOOGLE_WORKSPACE_DOMAIN || "")
+    .split(",")
+    .map(domain => domain.trim())
+    .filter(domain => domain.length > 0);
+
+  const isGoogleWorkspaceUser = Boolean(
+    googleWorkspaceDomains.length > 0 &&
+    session.user.email &&
+    googleWorkspaceDomains.some(domain => 
+      session.user.email!.endsWith(`@${domain}`)
+    )
+  );
+  
+  // Google Chat 링크 생성
+  const googleChatLink = isGoogleWorkspaceUser 
+    ? "https://chat.google.com"
+    : "/dashboard/chat"; // 일반 사용자는 나중에 다른 채팅 솔루션으로 대체 가능
 
   const navItems =
     role === "teacher"
@@ -70,6 +90,12 @@ export default async function DashboardLayout({
             label: t.sidebar.teacher.announcements,
             icon: <Bell className="w-5 h-5" />
           },
+          {
+            href: googleChatLink,
+            label: isGoogleWorkspaceUser ? "Google Chat" : "메시지",
+            icon: <MessageCircle className="w-5 h-5" />,
+            external: isGoogleWorkspaceUser,
+          },
         ]
       : role === "student"
       ? [
@@ -102,6 +128,12 @@ export default async function DashboardLayout({
             href: "/dashboard/student/profile",
             label: "프로필 수정",
             icon: <User className="w-5 h-5" />
+          },
+          {
+            href: googleChatLink,
+            label: isGoogleWorkspaceUser ? "Google Chat" : "메시지",
+            icon: <MessageCircle className="w-5 h-5" />,
+            external: isGoogleWorkspaceUser,
           },
         ]
       : role === "admin"
@@ -136,6 +168,12 @@ export default async function DashboardLayout({
             label: "시스템 설정",
             icon: <Settings className="w-5 h-5" />,
           },
+          {
+            href: googleChatLink,
+            label: isGoogleWorkspaceUser ? "Google Chat" : "메시지",
+            icon: <MessageCircle className="w-5 h-5" />,
+            external: isGoogleWorkspaceUser,
+          },
         ]
       : role === "superadmin"
       ? [
@@ -143,6 +181,12 @@ export default async function DashboardLayout({
             href: "/dashboard/superadmin",
             label: "슈퍼어드민 대시보드",
             icon: <Shield className="w-5 h-5" />,
+          },
+          {
+            href: googleChatLink,
+            label: isGoogleWorkspaceUser ? "Google Chat" : "메시지",
+            icon: <MessageCircle className="w-5 h-5" />,
+            external: isGoogleWorkspaceUser,
           },
         ]
       : [];
@@ -157,10 +201,11 @@ export default async function DashboardLayout({
               <h1 className="text-xl font-bold text-gray-900">SchoolHub</h1>
             </div>
             <div className="flex items-center space-x-4">
-              <span className="text-sm text-gray-700">
-                {session.user?.name || session.user.email}
-              </span>
-              <SignOutButton label={t.auth.logout} />
+              <UserMenu
+                userName={session.user?.name || ""}
+                userEmail={session.user?.email || ""}
+                userRole={session.user?.role || ""}
+              />
             </div>
           </div>
         </div>

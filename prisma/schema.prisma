@@ -292,7 +292,7 @@ model Announcement {
 
 model School {
   id              String   @id @default(auto()) @map("_id") @db.ObjectId
-  name            String   @unique // 학교 이름
+  name            String   // 학교 이름
   adminUserId     String   @db.ObjectId // 담당 Admin 계정 ID
   admin           User     @relation("SchoolAdminUser", fields: [adminUserId], references: [id], onDelete: Cascade)
   createdBy       String?  @db.ObjectId // 생성한 슈퍼어드민 ID

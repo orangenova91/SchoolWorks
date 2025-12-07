@@ -34,6 +34,7 @@ export async function GET(request: NextRequest) {
         email: true,
         name: true,
         school: true,
+        region: true,
         role: true,
       },
     });
@@ -47,32 +48,120 @@ export async function GET(request: NextRequest) {
           },
           select: {
             userId: true,
-            grade: true,
-            classLabel: true,
             studentId: true,
+            major: true,
+            sex: true,
+            classOfficer: true,
+            specialEducation: true,
+            phoneNumber: true,
+            siblings: true,
+            academicStatus: true,
+            remarks: true,
+            club: true,
+            clubTeacher: true,
+            clubLocation: true,
+            dateOfBirth: true,
+            address: true,
+            residentRegistrationNumber: true,
+            motherName: true,
+            motherPhone: true,
+            motherRemarks: true,
+            fatherName: true,
+            fatherPhone: true,
+            fatherRemarks: true,
+            electiveSubjects: true,
           },
         })
       : [];
 
-    // 학생 프로필 맵 생성
+    // 해당 사용자들의 teacherProfile 가져오기
+    const teacherProfiles = userIds.length > 0
+      ? await prismaAny.teacherProfile.findMany({
+          where: {
+            userId: { in: userIds },
+          },
+          select: {
+            userId: true,
+            roleLabel: true,
+            major: true,
+            phoneNumber: true,
+            remarks: true,
+            club: true,
+            clubLocation: true,
+            dateOfBirth: true,
+            address: true,
+          },
+        })
+      : [];
+
+    // 프로필 맵 생성
     const studentProfileMap = new Map(
       studentProfiles.map((profile: any) => [profile.userId, profile])
     );
+    const teacherProfileMap = new Map(
+      teacherProfiles.map((profile: any) => [profile.userId, profile])
+    );
 
-    // CSV 헤더
-    const headers = ["email", "name", "school", "role", "studentId", "grade", "className"];
+    // CSV 헤더 (수정 템플릿: 이메일만 필수)
+    const headers = [
+      // User 필드
+      "(필수)이메일", "이름", "학교", "지역", "역할", "비밀번호",
+      // StudentProfile 필드
+      "학번",
+      "전공교과", "성별", "학급임원", "특수교육대상여부", "연락처",
+      "형제자매", "학적", "비고", "동아리", "동아리담당교사",
+      "동아리활동장소", "생년월일", "주소", "주민등록번호",
+      "어머니성함", "어머니연락처", "어머니관련비고",
+      "아버지성함", "아버지연락처", "아버지관련비고", "선택과목",
+      // TeacherProfile 필드
+      "직위"
+    ];
 
     // CSV 데이터 생성
     const csvRows = users.map((user) => {
       const studentProfile = studentProfileMap.get(user.id);
+      const teacherProfile = teacherProfileMap.get(user.id);
+      
+      // 선택과목은 배열이므로 쉼표로 구분된 문자열로 변환
+      const electiveSubjects = studentProfile?.electiveSubjects 
+        ? (Array.isArray(studentProfile.electiveSubjects) 
+            ? studentProfile.electiveSubjects.join(",") 
+            : studentProfile.electiveSubjects)
+        : "";
+
       return [
+        // User 필드
         user.email || "",
         user.name || "",
         user.school || "",
+        user.region || "",
         user.role || "",
+        "", // 비밀번호는 수정 템플릿에 포함하지 않음
+        // StudentProfile 필드
         user.role === "student" && studentProfile?.studentId ? studentProfile.studentId : "",
-        user.role === "student" && studentProfile?.grade ? studentProfile.grade : "",
-        user.role === "student" && studentProfile?.classLabel ? studentProfile.classLabel : "",
+        user.role === "student" && studentProfile?.major ? studentProfile.major : "",
+        user.role === "student" && studentProfile?.sex ? studentProfile.sex : "",
+        user.role === "student" && studentProfile?.classOfficer ? studentProfile.classOfficer : "",
+        user.role === "student" && studentProfile?.specialEducation ? studentProfile.specialEducation : "",
+        user.role === "student" && studentProfile?.phoneNumber ? studentProfile.phoneNumber : (user.role === "teacher" && teacherProfile?.phoneNumber ? teacherProfile.phoneNumber : ""),
+        user.role === "student" && studentProfile?.siblings ? studentProfile.siblings : "",
+        user.role === "student" && studentProfile?.academicStatus ? studentProfile.academicStatus : "",
+        user.role === "student" && studentProfile?.remarks ? studentProfile.remarks : (user.role === "teacher" && teacherProfile?.remarks ? teacherProfile.remarks : ""),
+        user.role === "student" && studentProfile?.club ? studentProfile.club : (user.role === "teacher" && teacherProfile?.club ? teacherProfile.club : ""),
+        user.role === "student" && studentProfile?.clubTeacher ? studentProfile.clubTeacher : "",
+        user.role === "student" && studentProfile?.clubLocation ? studentProfile.clubLocation : (user.role === "teacher" && teacherProfile?.clubLocation ? teacherProfile.clubLocation : ""),
+        user.role === "student" && studentProfile?.dateOfBirth ? studentProfile.dateOfBirth : (user.role === "teacher" && teacherProfile?.dateOfBirth ? teacherProfile.dateOfBirth : ""),
+        user.role === "student" && studentProfile?.address ? studentProfile.address : (user.role === "teacher" && teacherProfile?.address ? teacherProfile.address : ""),
+        user.role === "student" && studentProfile?.residentRegistrationNumber ? studentProfile.residentRegistrationNumber : "",
+        user.role === "student" && studentProfile?.motherName ? studentProfile.motherName : "",
+        user.role === "student" && studentProfile?.motherPhone ? studentProfile.motherPhone : "",
+        user.role === "student" && studentProfile?.motherRemarks ? studentProfile.motherRemarks : "",
+        user.role === "student" && studentProfile?.fatherName ? studentProfile.fatherName : "",
+        user.role === "student" && studentProfile?.fatherPhone ? studentProfile.fatherPhone : "",
+        user.role === "student" && studentProfile?.fatherRemarks ? studentProfile.fatherRemarks : "",
+        electiveSubjects,
+        // TeacherProfile 필드
+        user.role === "teacher" && teacherProfile?.roleLabel ? teacherProfile.roleLabel : "",
       ];
     });
 

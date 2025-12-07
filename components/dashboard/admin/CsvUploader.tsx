@@ -22,6 +22,7 @@ export function CsvUploader() {
   const [isDownloadingTemplate, setIsDownloadingTemplate] = useState(false);
   const [result, setResult] = useState<UploadResult | null>(null);
   const [showResult, setShowResult] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
@@ -33,6 +34,35 @@ export function CsvUploader() {
       } else {
         alert("CSV 파일만 업로드 가능합니다.");
         e.target.value = "";
+      }
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent<HTMLLabelElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent<HTMLLabelElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent<HTMLLabelElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+
+    const droppedFile = e.dataTransfer.files?.[0];
+    if (droppedFile) {
+      if (droppedFile.type === "text/csv" || droppedFile.name.endsWith(".csv")) {
+        setFile(droppedFile);
+        setResult(null);
+        setShowResult(false);
+      } else {
+        alert("CSV 파일만 업로드 가능합니다.");
       }
     }
   };
@@ -185,11 +215,49 @@ export function CsvUploader() {
       }
     } else {
       // 등록 모드: 빈 템플릿 생성
-      const headers = ["email", "name", "role", "school", "password"];
+      const headers = [
+        // User 필드
+        "(필수)이메일", "(필수)이름", "(필수)학교", "(필수)지역", "(필수)역할", "(필수)비밀번호",
+        // StudentProfile 필드
+        "학번",
+        "전공교과", "성별", "학급임원", "특수교육대상여부", "연락처",
+        "형제자매", "학적", "비고", "동아리", "동아리담당교사",
+        "동아리활동장소", "생년월일", "주소", "주민등록번호",
+        "어머니성함", "어머니연락처", "어머니관련비고",
+        "아버지성함", "아버지연락처", "아버지관련비고", "선택과목",
+        // TeacherProfile 필드
+        "직위"
+      ];
       const exampleRows = [
-        ["student1@example.com", "홍길동", "student", "서울고등학교", "MyPassword123!"],
-        ["teacher1@example.com", "김선생", "teacher", "서울고등학교", ""],
-        ["admin@example.com", "관리자", "admin", "서울고등학교", ""],
+        [
+          "student1@example.com", "홍길동", "서울고등학교", "서울", "student", "MyPassword123!",
+          "10101",
+          "인문계", "남", "Y", "N", "010-1234-5678",
+          "1", "재학", "", "축구부", "김선생",
+          "운동장", "2010-01-01", "서울시 강남구", "",
+          "홍어머니", "010-1111-1111", "",
+          "홍아버지", "010-2222-2222", "", "수학,영어", ""
+        ],
+        [
+          "teacher1@example.com", "김선생", "서울고등학교", "서울", "teacher", "",
+          "",
+          "수학", "", "", "", "010-3333-3333",
+          "", "", "", "", "",
+          "", "", "", "",
+          "", "", "",
+          "", "", "", "",
+          "교사"
+        ],
+        [
+          "admin@example.com", "관리자", "서울고등학교", "서울", "admin", "",
+          "",
+          "", "", "", "",
+          "", "", "", "", "",
+          "", "", "", "",
+          "", "", "",
+          "", "", "", "",
+          ""
+        ],
       ];
 
       // CSV 형식으로 변환
@@ -200,9 +268,19 @@ export function CsvUploader() {
         return value;
       };
 
+      // 디버깅: 헤더 개수 확인
+      console.log("CSV Headers count:", headers.length);
+      console.log("CSV Headers:", headers);
+
       const csvContent = [
         headers.join(","),
-        ...exampleRows.map((row) => row.map(escapeCsvValue).join(",")),
+        ...exampleRows.map((row) => {
+          // 각 행의 필드 개수 확인
+          if (row.length !== headers.length) {
+            console.warn(`Row field count mismatch: expected ${headers.length}, got ${row.length}`);
+          }
+          return row.map(escapeCsvValue).join(",");
+        }),
       ].join("\n");
 
       // BOM 추가 (한글 깨짐 방지)
@@ -274,7 +352,14 @@ export function CsvUploader() {
         <div className="flex items-center gap-4">
           <label
             htmlFor={`csv-file-input-${mode}`}
-            className="flex-1 cursor-pointer border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-blue-400 hover:bg-blue-50/50 transition-colors"
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+            className={`flex-1 cursor-pointer border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
+              isDragging
+                ? "border-blue-500 bg-blue-100"
+                : "border-gray-300 hover:border-blue-400 hover:bg-blue-50/50"
+            }`}
           >
             <input
               id={`csv-file-input-${mode}`}
@@ -306,7 +391,7 @@ export function CsvUploader() {
                 <span className="text-sm text-gray-600">CSV 파일을 선택하거나 드래그하세요</span>
                 <span className="text-xs text-gray-400">
                   {mode === "import"
-                    ? "필수 컬럼: email, name, role, school"
+                    ? "필수 컬럼: email (나머지는 선택사항이며, role에 따라 해당 Profile 필드만 사용됩니다)"
                     : "필수 컬럼: email (수정할 필드만 포함하면 됩니다)"}
                 </span>
               </div>

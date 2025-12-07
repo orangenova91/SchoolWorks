@@ -9,6 +9,7 @@ type SidebarItem = {
   href: string;
   label: string;
   icon?: React.ReactNode;
+  external?: boolean; // 외부 링크인지 여부 (새 탭에서 열기)
 };
 
 interface SidebarProps {
@@ -42,32 +43,58 @@ export function Sidebar({ items }: SidebarProps) {
             const targetPath = item.href.split("#")[0];
             const isBasePath = rootPaths.includes(targetPath);
             const isActive =
-              pathname === targetPath ||
-              (!isBasePath && pathname.startsWith(targetPath + "/"));
+              !item.external &&
+              (pathname === targetPath ||
+                (!isBasePath && pathname.startsWith(targetPath + "/")));
+            
+            const linkClassName = cn(
+              "flex items-center rounded-lg px-3 py-2 text-sm font-medium transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2",
+              isExpanded ? "gap-3 justify-start" : "gap-0 justify-center",
+              isActive
+                ? "bg-blue-100 text-blue-700 hover:bg-blue-100 hover:text-blue-700"
+                : "text-gray-600 hover:text-blue-700 hover:bg-blue-100"
+            );
+
             return (
               <li key={item.href}>
-                <Link
-                  href={item.href}
-                  className={cn(
-                    "flex items-center rounded-lg px-3 py-2 text-sm font-medium transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2",
-                    isExpanded ? "gap-3 justify-start" : "gap-0 justify-center",
-                    isActive
-                      ? "bg-blue-100 text-blue-700 hover:bg-blue-100 hover:text-blue-700"
-                      : "text-gray-600 hover:text-blue-700 hover:bg-blue-100"
-                  )}
-                >
-                  {item.icon && (
-                    <span className="w-5 h-5 flex-shrink-0 text-inherit">{item.icon}</span>
-                  )}
-                  <span
-                    className={cn(
-                      "whitespace-nowrap transition-all duration-200",
-                      isExpanded ? "opacity-100 max-w-[160px] ml-2" : "opacity-0 max-w-0"
-                    )}
+                {item.external ? (
+                  <a
+                    href={item.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={linkClassName}
+                    aria-label={`${item.label} (새 창에서 열림)`}
                   >
-                    {item.label}
-                  </span>
-                </Link>
+                    {item.icon && (
+                      <span className="w-5 h-5 flex-shrink-0 text-inherit">{item.icon}</span>
+                    )}
+                    <span
+                      className={cn(
+                        "whitespace-nowrap transition-all duration-200",
+                        isExpanded ? "opacity-100 max-w-[160px] ml-2" : "opacity-0 max-w-0"
+                      )}
+                    >
+                      {item.label}
+                    </span>
+                  </a>
+                ) : (
+                  <Link
+                    href={item.href}
+                    className={linkClassName}
+                  >
+                    {item.icon && (
+                      <span className="w-5 h-5 flex-shrink-0 text-inherit">{item.icon}</span>
+                    )}
+                    <span
+                      className={cn(
+                        "whitespace-nowrap transition-all duration-200",
+                        isExpanded ? "opacity-100 max-w-[160px] ml-2" : "opacity-0 max-w-0"
+                      )}
+                    >
+                      {item.label}
+                    </span>
+                  </Link>
+                )}
               </li>
             );
           })}
