@@ -205,6 +205,7 @@ export default async function DashboardLayout({
                 userName={session.user?.name || ""}
                 userEmail={session.user?.email || ""}
                 userRole={session.user?.role || ""}
+                schoolName={session.user?.school || null}
               />
             </div>
           </div>
