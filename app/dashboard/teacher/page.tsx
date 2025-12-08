@@ -5,6 +5,7 @@ import { authOptions } from "@/lib/auth";
 import { getTranslations } from "@/lib/i18n";
 import { prisma } from "@/lib/prisma";
 import WeeklyScheduleSection from "@/components/dashboard/WeeklyScheduleSection";
+import BannerSection from "@/components/dashboard/BannerSection";
 
 const t = getTranslations("ko");
 
@@ -153,7 +154,7 @@ const getKoreaMidnight = (date: Date): Date => {
   return new Date(koreaMidnightISO);
 };
 
-// 한국 시간 기준으로 주간 시작(월요일 자정)을 계산하는 함수
+// 한국 시간 기준으로 주간 시작(일요일 자정)을 계산하는 함수
 // 한국 시간 기준의 자정을 UTC로 변환하여 반환
 const getKoreaWeekStart = (): Date => {
   const now = new Date();
@@ -174,12 +175,12 @@ const getKoreaWeekStart = (): Date => {
   // 한국 시간 기준으로 현재 날짜 생성 (로컬 시간으로 해석)
   const koreaDate = new Date(koreaYear, koreaMonth - 1, koreaDay);
   const day = koreaDate.getDay(); // 0 (Sun) - 6 (Sat)
-  const offset = (day + 6) % 7; // convert to Monday-start (월요일 기준으로 변환)
+  const offset = day; // 일요일을 주 시작으로 사용
   
-  // 월요일 날짜 계산
+  // 주 시작(일요일) 날짜 계산
   koreaDate.setDate(koreaDate.getDate() - offset);
   
-  // 한국 시간 기준 월요일 자정(00:00:00 KST)을 UTC로 변환
+  // 한국 시간 기준 일요일 자정(00:00:00 KST)을 UTC로 변환
   // 한국 시간(UTC+9)에서 9시간을 빼서 UTC로 변환
   const year = koreaDate.getFullYear();
   const month = koreaDate.getMonth() + 1;
@@ -415,6 +416,8 @@ export default async function TeacherDashboardPage() {
       </header>
             
       <WeeklyScheduleSection schedule={weeklySchedule} todayIsoDate={isoToday} />
+
+      <BannerSection />
 
       <section className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
         <div className="flex items-center justify-between">

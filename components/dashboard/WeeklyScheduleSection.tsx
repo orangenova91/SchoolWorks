@@ -54,10 +54,16 @@ export default function WeeklyScheduleSection({
         <div className="hidden md:grid grid-cols-7 bg-gray-50 text-xs font-semibold uppercase tracking-wide text-gray-500">
           {schedule.map((day) => {
             const isToday = day.isoDate === todayIsoDate;
+            const isWeekend =
+              new Date(day.isoDate).getDay() === 0 ||
+              new Date(day.isoDate).getDay() === 6;
+            const weekendHeaderClass = isWeekend
+              ? "bg-orange-50 text-orange-700"
+              : "";
             return (
               <div
                 key={`${day.dateLabel}-header`}
-                className={`px-4 py-3 border-r border-gray-100 last:border-r-0 ${
+                className={`px-4 py-3 border-r border-gray-100 last:border-r-0 ${weekendHeaderClass} ${
                   isToday ? "bg-blue-100 text-blue-700" : ""
                 }`}
               >
@@ -79,10 +85,14 @@ export default function WeeklyScheduleSection({
         <div className="grid grid-cols-1 md:grid-cols-7 divide-y md:divide-y-0 md:divide-x divide-gray-100 max-h-[280px]">
           {schedule.map((day) => {
             const isToday = day.isoDate === todayIsoDate;
+            const isWeekend =
+              new Date(day.isoDate).getDay() === 0 ||
+              new Date(day.isoDate).getDay() === 6;
+            const weekendBodyClass = isWeekend ? "bg-orange-50/60" : "";
             return (
               <div
                 key={`${day.dateLabel}-body`}
-                className={`p-4 space-y-3 max-h-[240px] overflow-y-auto md:min-h-0 ${
+                className={`p-4 space-y-3 max-h-[240px] overflow-y-auto md:min-h-0 ${weekendBodyClass} ${
                   isToday ? "bg-blue-50" : ""
                 }`}
               >
@@ -101,26 +111,15 @@ export default function WeeklyScheduleSection({
                         onClick={() =>
                           setSelectedEvent(isSelected ? null : event)
                         }
-                        className={`w-full text-left rounded-lg border p-3 shadow-sm transition focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
+                        className={`w-full text-left rounded-lg border px-3 py-2 shadow-sm transition focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
                           isSelected
                             ? "border-blue-200 bg-white"
                             : "border-gray-100 bg-white/50 hover:bg-white hover:border-blue-200"
                         }`}
                       >
-                        <div className="flex items-center justify-between text-xs text-gray-500">
-                          <span>{event.displayTime}</span>
-                          <span className="text-[11px] font-medium text-blue-600">
-                            {event.eventType || "교과"}
-                          </span>
-                        </div>
-                        <p className="mt-2 text-sm font-semibold text-gray-900 line-clamp-2">
+                        <p className="text-sm font-semibold text-gray-900 truncate">
                           {event.title}
                         </p>
-                        {event.department && (
-                          <p className="text-[11px] text-gray-500 mt-1">
-                            담당: {event.department}
-                          </p>
-                        )}
                       </button>
                     );
                   })
