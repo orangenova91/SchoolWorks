@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { User, Mail, Building2, Shield, MapPin, Calendar, Clock, X } from "lucide-react";
+import { User, Mail, Building2, Shield, MapPin, Calendar, Clock, X, Edit2, Save, XCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface ProfileModalProps {
@@ -39,6 +39,17 @@ export default function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
+  const [isEditingTeacherProfile, setIsEditingTeacherProfile] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [classLabels, setClassLabels] = useState<string[]>([]);
+  
+  // 교사 프로필 수정용 상태
+  const [teacherFormData, setTeacherFormData] = useState({
+    major: "",
+    classLabel: "",
+    phoneNumber: "",
+    club: "",
+  });
 
   useEffect(() => {
     setMounted(true);
@@ -48,8 +59,22 @@ export default function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
   useEffect(() => {
     if (isOpen) {
       fetchProfile();
+      fetchClassLabels();
+      setIsEditingTeacherProfile(false);
     }
   }, [isOpen]);
+
+  // 교사 프로필 데이터가 로드되면 폼 데이터 초기화
+  useEffect(() => {
+    if (user?.teacherProfile) {
+      setTeacherFormData({
+        major: user.teacherProfile.major || "",
+        classLabel: user.teacherProfile.classLabel || "",
+        phoneNumber: user.teacherProfile.phoneNumber || "",
+        club: user.teacherProfile.club || "",
+      });
+    }
+  }, [user?.teacherProfile]);
 
   // ESC key to close modal
   useEffect(() => {
@@ -78,6 +103,21 @@ export default function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
       setError(err instanceof Error ? err.message : "오류가 발생했습니다.");
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const fetchClassLabels = async () => {
+    try {
+      const response = await fetch("/api/user/class-labels");
+      if (!response.ok) {
+        throw new Error("학반 목록을 불러오는데 실패했습니다.");
+      }
+      const data = await response.json();
+      setClassLabels(data.classLabels || []);
+    } catch (err) {
+      console.error("Failed to fetch class labels:", err);
+      // 에러가 발생해도 계속 진행 (빈 배열로 설정)
+      setClassLabels([]);
     }
   };
 
@@ -113,6 +153,50 @@ export default function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
         return "슈퍼관리자";
       default:
         return role || "-";
+    }
+  };
+
+  const handleEditTeacherProfile = () => {
+    setIsEditingTeacherProfile(true);
+  };
+
+  const handleCancelEdit = () => {
+    // 원래 데이터로 복원
+    if (user?.teacherProfile) {
+      setTeacherFormData({
+        major: user.teacherProfile.major || "",
+        classLabel: user.teacherProfile.classLabel || "",
+        phoneNumber: user.teacherProfile.phoneNumber || "",
+        club: user.teacherProfile.club || "",
+      });
+    }
+    setIsEditingTeacherProfile(false);
+  };
+
+  const handleSaveTeacherProfile = async () => {
+    setIsSaving(true);
+    setError(null);
+    try {
+      const response = await fetch("/api/user/profile", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(teacherFormData),
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || "프로필 업데이트에 실패했습니다.");
+      }
+
+      const data = await response.json();
+      setUser(data.user);
+      setIsEditingTeacherProfile(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "프로필 업데이트 중 오류가 발생했습니다.");
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -199,17 +283,15 @@ export default function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
                       </p>
                     </div>
                   </div>
-                  {user.region && (
-                    <div className="flex items-start space-x-3">
-                      <MapPin className="w-5 h-5 text-gray-400 mt-0.5" />
-                      <div>
-                        <p className="text-sm text-gray-500">지역</p>
-                        <p className="text-base font-medium text-gray-900">
-                          {user.region}
-                        </p>
-                      </div>
+                  <div className="flex items-start space-x-3">
+                    <MapPin className="w-5 h-5 text-gray-400 mt-0.5" />
+                    <div>
+                      <p className="text-sm text-gray-500">지역</p>
+                      <p className="text-base font-medium text-gray-900">
+                        {user.region || "-"}
+                      </p>
                     </div>
-                  )}
+                  </div>
                   <div className="flex items-start space-x-3">
                     <Calendar className="w-5 h-5 text-gray-400 mt-0.5" />
                     <div>
@@ -228,17 +310,15 @@ export default function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
                       </p>
                     </div>
                   </div>
-                  {user.emailVerified && (
-                    <div className="flex items-start space-x-3">
-                      <Mail className="w-5 h-5 text-green-500 mt-0.5" />
-                      <div>
-                        <p className="text-sm text-gray-500">이메일 인증</p>
-                        <p className="text-base font-medium text-green-600">
-                          인증 완료 ({formatDate(user.emailVerified)})
-                        </p>
-                      </div>
+                  <div className="flex items-start space-x-3">
+                    <Mail className={cn("w-5 h-5 mt-0.5", user.emailVerified ? "text-green-500" : "text-gray-400")} />
+                    <div>
+                      <p className="text-sm text-gray-500">이메일 인증</p>
+                      <p className={cn("text-base font-medium", user.emailVerified ? "text-green-600" : "text-gray-900")}>
+                        {user.emailVerified ? `인증 완료 (${formatDate(user.emailVerified)})` : "미인증"}
+                      </p>
                     </div>
-                  )}
+                  </div>
                 </div>
               </div>
 
@@ -249,62 +329,48 @@ export default function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
                     학생 프로필 정보
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {user.studentProfile.studentId && (
-                      <div>
-                        <p className="text-sm text-gray-500">학번</p>
-                        <p className="text-base font-medium text-gray-900">
-                          {user.studentProfile.studentId}
-                        </p>
-                      </div>
-                    )}
-                    {user.studentProfile.grade && (
-                      <div>
-                        <p className="text-sm text-gray-500">학년</p>
-                        <p className="text-base font-medium text-gray-900">
-                          {user.studentProfile.grade}
-                        </p>
-                      </div>
-                    )}
-                    {user.studentProfile.classLabel && (
-                      <div>
-                        <p className="text-sm text-gray-500">반</p>
-                        <p className="text-base font-medium text-gray-900">
-                          {user.studentProfile.classLabel}
-                        </p>
-                      </div>
-                    )}
-                    {user.studentProfile.section && (
-                      <div>
-                        <p className="text-sm text-gray-500">구분</p>
-                        <p className="text-base font-medium text-gray-900">
-                          {user.studentProfile.section}
-                        </p>
-                      </div>
-                    )}
-                    {user.studentProfile.major && (
-                      <div>
-                        <p className="text-sm text-gray-500">전공</p>
-                        <p className="text-base font-medium text-gray-900">
-                          {user.studentProfile.major}
-                        </p>
-                      </div>
-                    )}
-                    {user.studentProfile.phoneNumber && (
-                      <div>
-                        <p className="text-sm text-gray-500">전화번호</p>
-                        <p className="text-base font-medium text-gray-900">
-                          {user.studentProfile.phoneNumber}
-                        </p>
-                      </div>
-                    )}
-                    {user.studentProfile.club && (
-                      <div>
-                        <p className="text-sm text-gray-500">동아리</p>
-                        <p className="text-base font-medium text-gray-900">
-                          {user.studentProfile.club}
-                        </p>
-                      </div>
-                    )}
+                    <div>
+                      <p className="text-sm text-gray-500">학번</p>
+                      <p className="text-base font-medium text-gray-900">
+                        {user.studentProfile.studentId || "-"}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500">학년</p>
+                      <p className="text-base font-medium text-gray-900">
+                        {user.studentProfile.grade || "-"}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500">반</p>
+                      <p className="text-base font-medium text-gray-900">
+                        {user.studentProfile.classLabel || "-"}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500">구분</p>
+                      <p className="text-base font-medium text-gray-900">
+                        {user.studentProfile.section || "-"}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500">전공</p>
+                      <p className="text-base font-medium text-gray-900">
+                        {user.studentProfile.major || "-"}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500">전화번호</p>
+                      <p className="text-base font-medium text-gray-900">
+                        {user.studentProfile.phoneNumber || "-"}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500">동아리</p>
+                      <p className="text-base font-medium text-gray-900">
+                        {user.studentProfile.club || "-"}
+                      </p>
+                    </div>
                   </div>
                 </div>
               )}
@@ -312,51 +378,125 @@ export default function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
               {/* 교사 프로필 정보 */}
               {user.teacherProfile && (
                 <div className="bg-gray-50 rounded-lg p-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                    교사 프로필 정보
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {user.teacherProfile.roleLabel && (
-                      <div>
-                        <p className="text-sm text-gray-500">직책</p>
-                        <p className="text-base font-medium text-gray-900">
-                          {user.teacherProfile.roleLabel}
-                        </p>
-                      </div>
-                    )}
-                    {user.teacherProfile.major && (
-                      <div>
-                        <p className="text-sm text-gray-500">담당 과목</p>
-                        <p className="text-base font-medium text-gray-900">
-                          {user.teacherProfile.major}
-                        </p>
-                      </div>
-                    )}
-                    {user.teacherProfile.classLabel && (
-                      <div>
-                        <p className="text-sm text-gray-500">담당 반</p>
-                        <p className="text-base font-medium text-gray-900">
-                          {user.teacherProfile.classLabel}
-                        </p>
-                      </div>
-                    )}
-                    {user.teacherProfile.phoneNumber && (
-                      <div>
-                        <p className="text-sm text-gray-500">전화번호</p>
-                        <p className="text-base font-medium text-gray-900">
-                          {user.teacherProfile.phoneNumber}
-                        </p>
-                      </div>
-                    )}
-                    {user.teacherProfile.club && (
-                      <div>
-                        <p className="text-sm text-gray-500">담당 동아리</p>
-                        <p className="text-base font-medium text-gray-900">
-                          {user.teacherProfile.club}
-                        </p>
-                      </div>
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-semibold text-gray-900">
+                      교사 프로필 정보
+                    </h3>
+                    {!isEditingTeacherProfile && (
+                      <button
+                        onClick={handleEditTeacherProfile}
+                        className="flex items-center space-x-2 px-3 py-1.5 text-sm font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-md transition-colors"
+                      >
+                        <Edit2 className="w-4 h-4" />
+                        <span>수정</span>
+                      </button>
                     )}
                   </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div>
+                      <p className="text-sm text-gray-500">직책</p>
+                      <p className="text-base font-medium text-gray-900">
+                        {user.teacherProfile.roleLabel || "-"}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500">담당 과목</p>
+                      {isEditingTeacherProfile ? (
+                        <input
+                          type="text"
+                          value={teacherFormData.major}
+                          onChange={(e) =>
+                            setTeacherFormData({ ...teacherFormData, major: e.target.value })
+                          }
+                          className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md text-base focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          placeholder="담당 과목을 입력하세요"
+                        />
+                      ) : (
+                        <p className="text-base font-medium text-gray-900">
+                          {user.teacherProfile.major || "-"}
+                        </p>
+                      )}
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500">담당 반</p>
+                      {isEditingTeacherProfile ? (
+                        <select
+                          value={teacherFormData.classLabel}
+                          onChange={(e) =>
+                            setTeacherFormData({ ...teacherFormData, classLabel: e.target.value })
+                          }
+                          className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md text-base focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                        >
+                          <option value="">선택하세요</option>
+                          {classLabels.map((label) => (
+                            <option key={label} value={label}>
+                              {label}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <p className="text-base font-medium text-gray-900">
+                          {user.teacherProfile.classLabel || "-"}
+                        </p>
+                      )}
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500">전화번호</p>
+                      {isEditingTeacherProfile ? (
+                        <input
+                          type="tel"
+                          value={teacherFormData.phoneNumber}
+                          onChange={(e) =>
+                            setTeacherFormData({ ...teacherFormData, phoneNumber: e.target.value })
+                          }
+                          className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md text-base focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          placeholder="전화번호를 입력하세요"
+                        />
+                      ) : (
+                        <p className="text-base font-medium text-gray-900">
+                          {user.teacherProfile.phoneNumber || "-"}
+                        </p>
+                      )}
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500">담당 동아리</p>
+                      {isEditingTeacherProfile ? (
+                        <input
+                          type="text"
+                          value={teacherFormData.club}
+                          onChange={(e) =>
+                            setTeacherFormData({ ...teacherFormData, club: e.target.value })
+                          }
+                          className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md text-base focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          placeholder="담당 동아리를 입력하세요"
+                        />
+                      ) : (
+                        <p className="text-base font-medium text-gray-900">
+                          {user.teacherProfile.club || "-"}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  {isEditingTeacherProfile && (
+                    <div className="flex items-center justify-end space-x-3 mt-6 pt-4 border-t border-gray-200">
+                      <button
+                        onClick={handleCancelEdit}
+                        disabled={isSaving}
+                        className="flex items-center space-x-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <XCircle className="w-4 h-4" />
+                        <span>취소</span>
+                      </button>
+                      <button
+                        onClick={handleSaveTeacherProfile}
+                        disabled={isSaving}
+                        className="flex items-center space-x-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <Save className="w-4 h-4" />
+                        <span>{isSaving ? "저장 중..." : "저장"}</span>
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -367,51 +507,41 @@ export default function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
                     관리자 프로필 정보
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {user.adminProfile.school && (
-                      <div>
-                        <p className="text-sm text-gray-500">담당 학교</p>
-                        <p className="text-base font-medium text-gray-900">
-                          {user.adminProfile.school.name}
+                    <div>
+                      <p className="text-sm text-gray-500">담당 학교</p>
+                      <p className="text-base font-medium text-gray-900">
+                        {user.adminProfile.school?.name || "-"}
+                      </p>
+                      {user.adminProfile.school?.schoolType && (
+                        <p className="text-sm text-gray-500 mt-1">
+                          ({user.adminProfile.school.schoolType})
                         </p>
-                        {user.adminProfile.school.schoolType && (
-                          <p className="text-sm text-gray-500 mt-1">
-                            ({user.adminProfile.school.schoolType})
-                          </p>
-                        )}
-                      </div>
-                    )}
-                    {user.adminProfile.school?.contactName && (
-                      <div>
-                        <p className="text-sm text-gray-500">담당자 이름</p>
-                        <p className="text-base font-medium text-gray-900">
-                          {user.adminProfile.school.contactName}
-                        </p>
-                      </div>
-                    )}
-                    {user.adminProfile.phoneNumber && (
-                      <div>
-                        <p className="text-sm text-gray-500">전화번호</p>
-                        <p className="text-base font-medium text-gray-900">
-                          {user.adminProfile.phoneNumber}
-                        </p>
-                      </div>
-                    )}
-                    {user.adminProfile.school?.contactPhone && (
-                      <div>
-                        <p className="text-sm text-gray-500">담당자 전화번호</p>
-                        <p className="text-base font-medium text-gray-900">
-                          {user.adminProfile.school.contactPhone}
-                        </p>
-                      </div>
-                    )}
-                    {user.adminProfile.notes && (
-                      <div className="md:col-span-2">
-                        <p className="text-sm text-gray-500">메모</p>
-                        <p className="text-base font-medium text-gray-900">
-                          {user.adminProfile.notes}
-                        </p>
-                      </div>
-                    )}
+                      )}
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500">담당자 이름</p>
+                      <p className="text-base font-medium text-gray-900">
+                        {user.adminProfile.school?.contactName || "-"}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500">전화번호</p>
+                      <p className="text-base font-medium text-gray-900">
+                        {user.adminProfile.phoneNumber || "-"}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500">담당자 전화번호</p>
+                      <p className="text-base font-medium text-gray-900">
+                        {user.adminProfile.school?.contactPhone || "-"}
+                      </p>
+                    </div>
+                    <div className="md:col-span-2">
+                      <p className="text-sm text-gray-500">메모</p>
+                      <p className="text-base font-medium text-gray-900">
+                        {user.adminProfile.notes || "-"}
+                      </p>
+                    </div>
                   </div>
                 </div>
               )}

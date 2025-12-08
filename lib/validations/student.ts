@@ -33,7 +33,7 @@ export const updateStudentProfileSchema = z.object({
   fatherName: z.string().max(50, "아버지 이름은 50자 이하여야 합니다").optional().nullable(),
   fatherPhone: z.string().max(20, "아버지 전화번호는 20자 이하여야 합니다").optional().nullable(),
   fatherRemarks: z.string().max(500, "아버지 비고는 500자 이하여야 합니다").optional().nullable(),
-  electiveSubjects: z.array(z.string()).optional(),
+  electiveSubjects: z.union([z.array(z.string()), z.string()]).optional(),
 });
 
 export type UpdateStudentProfileInput = z.infer<typeof updateStudentProfileSchema>;

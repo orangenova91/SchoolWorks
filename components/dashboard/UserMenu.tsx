@@ -10,9 +10,10 @@ interface UserMenuProps {
   userName: string;
   userEmail: string;
   userRole: string;
+  schoolName?: string | null;
 }
 
-export default function UserMenu({ userName, userEmail, userRole }: UserMenuProps) {
+export default function UserMenu({ userName, userEmail, userRole, schoolName }: UserMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -51,7 +52,14 @@ export default function UserMenu({ userName, userEmail, userRole }: UserMenuProp
         onMouseEnter={() => setIsOpen(true)}
         className="flex items-center space-x-2 text-sm text-gray-700 hover:text-gray-900 transition-colors cursor-pointer"
       >
-        <span>{userName || userEmail}</span>
+        <div className="flex items-center space-x-2">
+          {schoolName && (
+            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+              {schoolName}
+            </span>
+          )}
+          <span>{userName || userEmail}</span>
+        </div>
         <svg
           className={cn(
             "w-4 h-4 transition-transform",

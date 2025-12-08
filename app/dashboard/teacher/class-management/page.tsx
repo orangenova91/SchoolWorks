@@ -6,6 +6,8 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getTranslations } from "@/lib/i18n";
 import CourseTabs from "@/components/dashboard/CourseTabs";
+import StudentListTable from "@/components/dashboard/StudentListTable";
+import WeeklyAttendanceTable from "@/components/dashboard/WeeklyAttendanceTable";
 
 export default async function ClassManagementPage() {
   const session = await getServerSession(authOptions);
@@ -31,35 +33,81 @@ export default async function ClassManagementPage() {
     },
   });
 
-  // 담임반 학생 목록 가져오기 (같은 학년, 반을 가진 학생들)
-  const homeroomStudents =
-    teacherProfile?.grade && teacherProfile?.classLabel
-      ? await (prisma as any).user.findMany({
-          where: {
-            role: "student",
-            studentProfile: {
-              grade: teacherProfile.grade,
-              classLabel: teacherProfile.classLabel,
-            },
-          },
+  // 담임반 학생 목록 가져오기 (교사의 classLabel과 동일한 학생들)
+  let homeroomStudents: any[] = [];
+  
+  if (teacherProfile?.classLabel) {
+    // MongoDB에서 nested 필터링이 제대로 작동하지 않을 수 있으므로
+    // studentProfile을 포함하여 가져온 후 필터링
+    const allStudents = await (prisma as any).user.findMany({
+      where: {
+        role: "student",
+        studentProfile: {
+          isNot: null, // studentProfile이 존재하는 학생만
+        },
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        studentProfile: {
           select: {
-            id: true,
-            name: true,
-            email: true,
-            studentProfile: {
-              select: {
-                studentId: true,
-                seatNumber: true,
-                classOfficer: true,
-              },
-            },
+            studentId: true,
+            school: true,
+            grade: true,
+            classLabel: true,
+            section: true,
+            seatNumber: true,
+            major: true,
+            sex: true,
+            classOfficer: true,
+            specialEducation: true,
+            phoneNumber: true,
+            siblings: true,
+            academicStatus: true,
+            remarks: true,
+            club: true,
+            clubTeacher: true,
+            clubLocation: true,
+            dateOfBirth: true,
+            address: true,
+            residentRegistrationNumber: true,
+            motherName: true,
+            motherPhone: true,
+            motherRemarks: true,
+            fatherName: true,
+            fatherPhone: true,
+            fatherRemarks: true,
+            electiveSubjects: true,
           },
-          orderBy: [
-            { studentProfile: { seatNumber: "asc" } },
-            { name: "asc" },
-          ],
-        })
-      : [];
+        },
+      },
+    });
+
+    // 교사의 classLabel과 동일한 학생만 필터링
+    const teacherClassLabel = teacherProfile.classLabel.trim();
+    
+    homeroomStudents = allStudents.filter((student: any) => {
+      const studentProfile = student.studentProfile;
+      if (!studentProfile) return false;
+      
+      const studentClassLabel = studentProfile.classLabel?.trim() || "";
+      
+      return studentClassLabel === teacherClassLabel;
+    });
+
+    // 좌석번호와 이름으로 정렬
+    homeroomStudents.sort((a, b) => {
+      const seatA = a.studentProfile?.seatNumber || "";
+      const seatB = b.studentProfile?.seatNumber || "";
+      if (seatA !== seatB) {
+        return seatA.localeCompare(seatB, undefined, { numeric: true, sensitivity: 'base' });
+      }
+      const nameA = a.name || "";
+      const nameB = b.name || "";
+      return nameA.localeCompare(nameB);
+    });
+  }
 
   // 담임반 정보 칩 생성
   const infoChips = [
@@ -154,11 +202,20 @@ export default async function ClassManagementPage() {
             >
               <header className="flex items-center justify-between">
                 <h2 className="text-lg font-semibold text-gray-900">학생 관리</h2>
+                {homeroomStudents.length > 0 && (
+                  <div className="text-sm text-gray-600">
+                    총 {homeroomStudents.length}명
+                  </div>
+                )}
               </header>
               <div className="space-y-4">
-                <div className="text-sm text-gray-600">
-                  <p>학생 관리 내용이 여기에 표시됩니다.</p>
-                </div>
+                {teacherProfile?.classLabel ? (
+                  <StudentListTable students={homeroomStudents} />
+                ) : (
+                  <div className="text-sm text-gray-600">
+                    <p>담임반 정보가 없습니다. 담임반을 먼저 설정해주세요.</p>
+                  </div>
+                )}
               </div>
             </article>,
             <article
@@ -169,9 +226,16 @@ export default async function ClassManagementPage() {
                 <h2 className="text-lg font-semibold text-gray-900">출결 관리</h2>
               </header>
               <div className="space-y-4">
-                <div className="text-sm text-gray-600">
-                  <p>출결 관리 내용이 여기에 표시됩니다.</p>
-                </div>
+                {teacherProfile?.classLabel ? (
+                  <WeeklyAttendanceTable
+                    students={homeroomStudents}
+                    classLabel={teacherProfile.classLabel}
+                  />
+                ) : (
+                  <div className="text-sm text-gray-600">
+                    <p>담임반 정보가 없습니다. 담임반을 먼저 설정해주세요.</p>
+                  </div>
+                )}
               </div>
             </article>,
             <article
