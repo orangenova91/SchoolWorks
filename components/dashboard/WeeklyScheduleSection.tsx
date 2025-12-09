@@ -47,6 +47,12 @@ export default function WeeklyScheduleSection({
     null
   );
 
+  // isoDate로부터 요일을 계산하는 함수 (0=일요일, 6=토요일)
+  const getDayOfWeek = (isoDate: string): number => {
+    const date = new Date(isoDate + "T00:00:00");
+    return date.getDay();
+  };
+
   return (
     <section className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
       <h3 className="text-lg font-semibold text-gray-900 mb-4">이번 주 학사일정</h3>
@@ -54,12 +60,27 @@ export default function WeeklyScheduleSection({
         <div className="hidden md:grid grid-cols-7 bg-gray-50 text-xs font-semibold uppercase tracking-wide text-gray-500">
           {schedule.map((day) => {
             const isToday = day.isoDate === todayIsoDate;
+            const dayOfWeek = getDayOfWeek(day.isoDate);
+            const isSunday = dayOfWeek === 0;
+            const isSaturday = dayOfWeek === 6;
+            
+            let headerBgClass = "";
+            let headerTextClass = "";
+            if (isToday) {
+              headerBgClass = "bg-blue-100";
+              headerTextClass = "text-blue-700";
+            } else if (isSunday) {
+              headerBgClass = "bg-red-50";
+              headerTextClass = "text-red-700";
+            } else if (isSaturday) {
+              headerBgClass = "bg-blue-50";
+              headerTextClass = "text-blue-600";
+            }
+            
             return (
               <div
                 key={`${day.dateLabel}-header`}
-                className={`px-4 py-3 border-r border-gray-100 last:border-r-0 ${
-                  isToday ? "bg-blue-100 text-blue-700" : ""
-                }`}
+                className={`px-4 py-3 border-r border-gray-100 last:border-r-0 ${headerBgClass} ${headerTextClass}`}
               >
                 {day.dateLabel}
               </div>
@@ -67,24 +88,51 @@ export default function WeeklyScheduleSection({
           })}
         </div>
         <div className="md:hidden grid grid-cols-2 text-xs font-semibold uppercase tracking-wide text-gray-500 bg-gray-50">
-          {schedule.map((day) => (
-            <div
-              key={`${day.dateLabel}-header-mobile`}
-              className="px-2 py-2 border-r border-gray-100 last:border-r-0"
-            >
-              {day.dateLabel}
-            </div>
-          ))}
+          {schedule.map((day) => {
+            const dayOfWeek = getDayOfWeek(day.isoDate);
+            const isSunday = dayOfWeek === 0;
+            const isSaturday = dayOfWeek === 6;
+            
+            let headerBgClass = "";
+            let headerTextClass = "";
+            if (isSunday) {
+              headerBgClass = "bg-red-50";
+              headerTextClass = "text-red-700";
+            } else if (isSaturday) {
+              headerBgClass = "bg-blue-50";
+              headerTextClass = "text-blue-600";
+            }
+            
+            return (
+              <div
+                key={`${day.dateLabel}-header-mobile`}
+                className={`px-2 py-2 border-r border-gray-100 last:border-r-0 ${headerBgClass} ${headerTextClass}`}
+              >
+                {day.dateLabel}
+              </div>
+            );
+          })}
         </div>
         <div className="grid grid-cols-1 md:grid-cols-7 divide-y md:divide-y-0 md:divide-x divide-gray-100 max-h-[280px]">
           {schedule.map((day) => {
             const isToday = day.isoDate === todayIsoDate;
+            const dayOfWeek = getDayOfWeek(day.isoDate);
+            const isSunday = dayOfWeek === 0;
+            const isSaturday = dayOfWeek === 6;
+            
+            let bodyBgClass = "";
+            if (isToday) {
+              bodyBgClass = "bg-blue-50";
+            } else if (isSunday) {
+              bodyBgClass = "bg-red-50/30";
+            } else if (isSaturday) {
+              bodyBgClass = "bg-blue-50/30";
+            }
+            
             return (
               <div
                 key={`${day.dateLabel}-body`}
-                className={`p-4 space-y-3 max-h-[240px] overflow-y-auto md:min-h-0 ${
-                  isToday ? "bg-blue-50" : ""
-                }`}
+                className={`p-4 space-y-3 max-h-[240px] overflow-y-auto md:min-h-0 ${bodyBgClass}`}
               >
                 <p className="md:hidden text-sm font-semibold text-gray-900">
                   {day.dateLabel}
@@ -101,26 +149,15 @@ export default function WeeklyScheduleSection({
                         onClick={() =>
                           setSelectedEvent(isSelected ? null : event)
                         }
-                        className={`w-full text-left rounded-lg border p-3 shadow-sm transition focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
+                        className={`w-full text-left rounded-lg border py-2 px-3 shadow-sm transition focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
                           isSelected
                             ? "border-blue-200 bg-white"
                             : "border-gray-100 bg-white/50 hover:bg-white hover:border-blue-200"
                         }`}
                       >
-                        <div className="flex items-center justify-between text-xs text-gray-500">
-                          <span>{event.displayTime}</span>
-                          <span className="text-[11px] font-medium text-blue-600">
-                            {event.eventType || "교과"}
-                          </span>
-                        </div>
-                        <p className="mt-2 text-sm font-semibold text-gray-900 line-clamp-2">
+                        <p className="text-sm font-semibold text-gray-900 line-clamp-2">
                           {event.title}
                         </p>
-                        {event.department && (
-                          <p className="text-[11px] text-gray-500 mt-1">
-                            담당: {event.department}
-                          </p>
-                        )}
                       </button>
                     );
                   })

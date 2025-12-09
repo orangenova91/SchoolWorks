@@ -2,6 +2,9 @@ import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
 import { FileText, Megaphone, Settings } from "lucide-react";
+import dynamic from "next/dynamic";
+
+const BannerSection = dynamic(() => import("@/components/dashboard/teacher/BannerSection"), { ssr: false });
 
 const contentPipeline = [
   {
@@ -45,6 +48,8 @@ export default async function AdminContentPage() {
         <h1 className="text-3xl font-bold mt-1 text-gray-900">콘텐츠 · 공지 파이프라인</h1>
         <p className="text-gray-500 mt-2">예약 발행, 템플릿, 도달률을 한 화면에서 조정합니다.</p>
       </header>
+
+      <BannerSection />
 
       <section className="grid gap-4 lg:grid-cols-3">
         <div className="lg:col-span-2 bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
