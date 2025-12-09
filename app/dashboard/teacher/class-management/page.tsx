@@ -42,6 +42,8 @@ export default async function ClassManagementPage() {
     const allStudents = await (prisma as any).user.findMany({
       where: {
         role: "student",
+        // 같은 학교의 학생만 조회
+        ...(session.user.school ? { school: session.user.school } : {}),
         studentProfile: {
           isNot: null, // studentProfile이 존재하는 학생만
         },
@@ -50,6 +52,7 @@ export default async function ClassManagementPage() {
         id: true,
         name: true,
         email: true,
+        school: true,
         studentProfile: {
           select: {
             studentId: true,
@@ -84,16 +87,22 @@ export default async function ClassManagementPage() {
       },
     });
 
-    // 교사의 classLabel과 동일한 학생만 필터링
+    // 교사의 classLabel과 동일하고 같은 학교인 학생만 필터링
     const teacherClassLabel = teacherProfile.classLabel.trim();
+    const teacherSchool = session.user.school || teacherProfile.school;
     
     homeroomStudents = allStudents.filter((student: any) => {
       const studentProfile = student.studentProfile;
       if (!studentProfile) return false;
       
       const studentClassLabel = studentProfile.classLabel?.trim() || "";
+      const studentSchool = student.school || studentProfile.school;
       
-      return studentClassLabel === teacherClassLabel;
+      // classLabel이 일치하고, 학교도 일치하는 경우만
+      const classLabelMatch = studentClassLabel === teacherClassLabel;
+      const schoolMatch = !teacherSchool || !studentSchool || studentSchool === teacherSchool;
+      
+      return classLabelMatch && schoolMatch;
     });
 
     // 좌석번호와 이름으로 정렬
