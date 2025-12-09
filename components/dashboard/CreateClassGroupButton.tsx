@@ -12,6 +12,7 @@ type Student = {
   email: string;
   studentProfile?: {
     studentId: string | null;
+    classLabel: string | null;
   } | null;
 };
 
@@ -151,6 +152,18 @@ export default function CreateClassGroupButton({
     return parseInt(period, 10) || 0;
   }, [period]);
 
+  // 학생들의 고유한 classLabel 목록
+  const uniqueClassLabels = useMemo(() => {
+    const labels = new Set<string>();
+    students.forEach((student) => {
+      const classLabel = student.studentProfile?.classLabel?.trim();
+      if (classLabel) {
+        labels.add(classLabel);
+      }
+    });
+    return Array.from(labels).sort();
+  }, [students]);
+
   // 학생이 속한 학반 매핑
   const studentClassGroupMap = useMemo(() => {
     const map = new Map<string, string>(); // studentId -> classGroupName
@@ -165,15 +178,12 @@ export default function CreateClassGroupButton({
   const filteredStudents = useMemo(() => {
     let result = students;
 
-    // 학반 필터 적용
+    // classLabel 필터 적용
     if (selectedClassGroupFilter) {
-      const selectedGroup = classGroups.find(
-        (g) => g.id === selectedClassGroupFilter
-      );
-      if (selectedGroup) {
-        const groupStudentIds = new Set(selectedGroup.studentIds);
-        result = result.filter((student) => groupStudentIds.has(student.id));
-      }
+      result = result.filter((student) => {
+        const studentClassLabel = student.studentProfile?.classLabel?.trim() || "";
+        return studentClassLabel === selectedClassGroupFilter;
+      });
     }
 
     // 검색 필터 적용 (콤마로 구분된 다중 검색어 지원)
@@ -197,8 +207,31 @@ export default function CreateClassGroupButton({
       }
     }
 
+    // 학번 순서로 정렬
+    result = [...result].sort((a, b) => {
+      const aStudentId = a.studentProfile?.studentId || "";
+      const bStudentId = b.studentProfile?.studentId || "";
+      
+      // 학번이 둘 다 있으면 숫자로 비교, 없으면 뒤로
+      if (aStudentId && bStudentId) {
+        // 숫자 부분 추출하여 비교
+        const aNum = parseInt(aStudentId.replace(/\D/g, "")) || 0;
+        const bNum = parseInt(bStudentId.replace(/\D/g, "")) || 0;
+        if (aNum !== bNum) {
+          return aNum - bNum;
+        }
+        // 숫자가 같으면 문자열로 비교
+        return aStudentId.localeCompare(bStudentId);
+      }
+      // 하나만 있으면 있는 것을 앞으로
+      if (aStudentId && !bStudentId) return -1;
+      if (!aStudentId && bStudentId) return 1;
+      // 둘 다 없으면 이름으로 정렬
+      return (a.name || "").localeCompare(b.name || "");
+    });
+
     return result;
-  }, [students, searchQuery, selectedClassGroupFilter, classGroups]);
+  }, [students, searchQuery, selectedClassGroupFilter]);
 
   const toggleStudent = useCallback((studentId: string) => {
     setSelectedStudentIds((prev) => {
@@ -494,14 +527,14 @@ export default function CreateClassGroupButton({
                       <Select
                         options={[
                           { value: "", label: "전체 학반" },
-                          ...classGroups.map((group) => ({
-                            value: group.id,
-                            label: group.name,
+                          ...uniqueClassLabels.map((label) => ({
+                            value: label,
+                            label: label,
                           })),
                         ]}
                         value={selectedClassGroupFilter}
                         onChange={(e) => setSelectedClassGroupFilter(e.target.value)}
-                        disabled={classGroups.length === 0}
+                        disabled={uniqueClassLabels.length === 0}
                       />
                     </div>
                   </div>
@@ -533,7 +566,7 @@ export default function CreateClassGroupButton({
                               <div className="text-sm font-medium text-gray-900">
                                 {student.studentProfile?.studentId && (
                                   <span className="text-gray-500 mr-1">
-                                    [{student.studentProfile.studentId}]
+                                    {student.studentProfile.studentId}
                                   </span>
                                 )}
                                 {student.name ?? "이름 없음"}
@@ -562,7 +595,7 @@ export default function CreateClassGroupButton({
                         {selectedFilteredCount > 0 && ` / ${selectedFilteredCount}명 선택됨`}
                         {searchQuery && ` / 검색: "${searchQuery}"`}
                         {selectedClassGroupFilter && 
-                          ` / 학반: ${classGroups.find(g => g.id === selectedClassGroupFilter)?.name || ""}`}
+                          ` / 학반: ${selectedClassGroupFilter}`}
                         )
                       </span>
                     )}

@@ -78,9 +78,13 @@ export default async function ManageClassDetailPage({
       orderBy: { name: "asc" },
     })) ?? [];
 
+  // 교사의 학교와 같은 학교의 학생만 조회
   const students =
     (await (prisma as any).user.findMany({
-      where: { role: "student" },
+      where: { 
+        role: "student",
+        ...(session.user.school ? { school: session.user.school } : {}),
+      },
       select: { 
         id: true, 
         name: true, 
@@ -88,6 +92,7 @@ export default async function ManageClassDetailPage({
         studentProfile: {
           select: {
             studentId: true,
+            classLabel: true,
           },
         },
       },

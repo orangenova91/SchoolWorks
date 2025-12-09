@@ -39,6 +39,7 @@ model User {
   adminProfile   AdminProfile?
   createdSchools School[]        @relation("SchoolCreator") // 슈퍼어드민이 생성한 학교
   adminSchools   School[]        @relation("SchoolAdminUser") // Admin이 담당하는 학교
+  teacherBanner  TeacherBanner?  @relation("TeacherBanners")
 
   @@map("users")
 }
@@ -336,4 +337,15 @@ model AdminProfile {
   
   @@map("admin_profiles")
   @@index([schoolId])
+}
+
+model TeacherBanner {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  teacherId   String   @unique @db.ObjectId
+  user        User     @relation("TeacherBanners", fields: [teacherId], references: [id], onDelete: Cascade)
+  banners     String   @default("[]") // JSON 배열: [{icon: "BookOpen", title: "수업 관리", url: "/dashboard/teacher/manage-classes"}, ...]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("teacher_banners")
 }

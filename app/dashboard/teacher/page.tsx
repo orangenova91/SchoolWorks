@@ -5,6 +5,7 @@ import { authOptions } from "@/lib/auth";
 import { getTranslations } from "@/lib/i18n";
 import { prisma } from "@/lib/prisma";
 import WeeklyScheduleSection from "@/components/dashboard/WeeklyScheduleSection";
+import BannerSection from "@/components/dashboard/teacher/BannerSection";
 
 const t = getTranslations("ko");
 
@@ -413,10 +414,7 @@ export default async function TeacherDashboardPage() {
           입니다.
         </div>
       </header>
-
-      <section className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
-      </section>
-            
+         
       <WeeklyScheduleSection schedule={weeklySchedule} todayIsoDate={isoToday} />
 
       <section className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
@@ -547,6 +545,8 @@ export default async function TeacherDashboardPage() {
           </div>
         )}
       </section>
+
+      <BannerSection isEditable={false} />
 
 
 
