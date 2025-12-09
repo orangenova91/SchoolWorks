@@ -413,6 +413,9 @@ export default async function TeacherDashboardPage() {
           입니다.
         </div>
       </header>
+
+      <section className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+      </section>
             
       <WeeklyScheduleSection schedule={weeklySchedule} todayIsoDate={isoToday} />
 
