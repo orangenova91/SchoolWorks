@@ -23,13 +23,13 @@ const eventFormSchema = z.object({
   endTime: z.string().optional(),
   eventType: z.preprocess(
     (val) => val === "" ? undefined : val,
-    z.enum(["자율*자치", "동아리", "진로", "봉사"]).optional()
+    z.enum(["자율*자치", "동아리", "진로", "봉사", "학사행사", "개인 일정"]).optional()
   ),
   scope: z.enum(["school", "personal"]).default("school"),
   allDay: z.boolean().default(true),
   department: z.string().trim().max(100, "담당 부서는 100자 이하여야 합니다").optional(),
   responsiblePerson: z.string().trim().max(100, "담당자는 100자 이하여야 합니다").optional(),
-  scheduleArea: z.enum(["창의적 체험활동", "교과"], {
+  scheduleArea: z.enum(["창의적 체험활동", "교과", "개인일정(나만 보기)"], {
     required_error: "일정 영역을 선택하세요",
   }).optional(),
   gradeLevels: z.array(z.enum(GRADE_VALUES)).optional(),
@@ -119,6 +119,8 @@ export default function EventModal({
 
   const allDay = watch("allDay");
   const scope = watch("scope");
+  const scheduleArea = watch("scheduleArea");
+  const hasScheduleArea = Boolean(scheduleArea);
 
   // ESC key to close modal
   useEffect(() => {
@@ -203,6 +205,15 @@ export default function EventModal({
     }
   }, [allDay, setValue]);
 
+  // 일정 구분에 따라 eventType 자동 설정
+  useEffect(() => {
+    if (scheduleArea === "교과") {
+      setValue("eventType", "학사행사" as any);
+    } else if (scheduleArea === "개인일정(나만 보기)") {
+      setValue("eventType", "개인 일정" as any);
+    }
+  }, [scheduleArea, setValue]);
+
   const onSubmit = async (values: EventFormValues) => {
     setIsSubmitting(true);
     try {
@@ -225,7 +236,7 @@ export default function EventModal({
         startDate: startDateTime,
         endDate: endDateTime ?? undefined,
         eventType: values.eventType || undefined,
-        scope: values.scope,
+        scope: values.scheduleArea === "개인일정(나만 보기)" ? "personal" : values.scope,
         allDay,
         department: values.department || undefined,
         responsiblePerson: values.responsiblePerson || undefined,
@@ -287,12 +298,21 @@ export default function EventModal({
 
   if (!isOpen) return null;
 
-  const eventTypeOptions = [
+  const allEventTypeOptions = [
     { value: "자율*자치", label: "자율*자치" },
     { value: "동아리", label: "동아리" },
     { value: "진로", label: "진로" },
     { value: "봉사", label: "봉사" },
+    { value: "학사행사", label: "학사행사" },
+    { value: "개인 일정", label: "개인 일정" },
   ];
+
+  // 일정 구분이 '창의적 체험활동'일 때는 '학사행사'와 '개인 일정' 옵션 제외
+  const eventTypeOptions = scheduleArea === "창의적 체험활동"
+    ? allEventTypeOptions.filter(
+        (option) => option.value !== "학사행사" && option.value !== "개인 일정"
+      )
+    : allEventTypeOptions;
 
   const scopeOptions = [
     { value: "personal", label: "개인 일정" },
@@ -302,6 +322,7 @@ export default function EventModal({
   const scheduleAreaOptions = [
     { value: "창의적 체험활동", label: "창의적 체험활동" },
     { value: "교과", label: "교과" },
+    { value: "개인일정(나만 보기)", label: "개인일정(나만 보기)" },
   ];
 
   return (
@@ -352,9 +373,13 @@ export default function EventModal({
               label="일정 유형"
               options={eventTypeOptions}
               error={errors.eventType?.message}
-              required={watch("scheduleArea") !== "교과"}
+              required={scheduleArea !== "교과" && hasScheduleArea}
               placeholder="선택"
-              disabled={watch("scheduleArea") === "교과"}
+              disabled={
+                !hasScheduleArea ||
+                scheduleArea === "교과" ||
+                scheduleArea === "개인일정(나만 보기)"
+              }
             />
           </div>
 
