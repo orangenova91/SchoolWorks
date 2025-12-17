@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { getServerSession } from "next-auth";
 import { notFound, redirect } from "next/navigation";
 
@@ -12,6 +11,7 @@ import CourseOverview from "@/components/dashboard/CourseOverview";
 import CreateClassGroupButton from "@/components/dashboard/CreateClassGroupButton";
 import ClassGroupList from "@/components/dashboard/ClassGroupList";
 import AttendanceSection from "@/components/dashboard/AttendanceSection";
+import ClassGroupBadges from "@/components/dashboard/ClassGroupBadges";
 
 interface ManageClassDetailPageProps {
   params: {
@@ -121,23 +121,6 @@ export default async function ManageClassDetailPage({
 
   return (
     <div className="space-y-6">
-      <nav className="text-sm text-gray-500">
-        <ol className="flex items-center gap-2">
-          <li>
-            <Link
-              href="/dashboard/teacher/manage-classes"
-              className="hover:text-blue-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 rounded-md px-1"
-            >
-              내 수업 목록
-            </Link>
-          </li>
-          <li aria-hidden="true">/</li>
-          <li className="text-gray-700 font-medium truncate">
-            {course.subject}
-          </li>
-        </ol>
-      </nav>
-
       <header className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm space-y-4">
       {infoChips.length > 0 && (
           <div className="flex flex-wrap items-center gap-2">
@@ -162,16 +145,11 @@ export default async function ManageClassDetailPage({
                 <span className="font-medium text-gray-700">
                   학반 ({classGroups.length}개)
                 </span>
-                <div className="flex flex-wrap gap-1">
-                  {classGroups.map((group: { id: string; name: string }) => (
-                    <span
-                      key={group.id}
-                      className="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-700 border border-gray-200"
-                    >
-                      {group.name}
-                    </span>
-                  ))}
-                </div>
+                <ClassGroupBadges
+                  classGroups={classGroups}
+                  courseId={course.id}
+                  students={students}
+                />
               </div>
             )}
           </div>

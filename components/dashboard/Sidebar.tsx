@@ -9,6 +9,7 @@ type SidebarItem = {
   href: string;
   label: string;
   icon?: React.ReactNode;
+  iconName?: string; // CurrentPageNav에서 사용
   external?: boolean; // 외부 링크인지 여부 (새 탭에서 열기)
 };
 

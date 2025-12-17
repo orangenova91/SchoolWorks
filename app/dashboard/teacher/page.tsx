@@ -390,6 +390,80 @@ export default async function TeacherDashboardPage() {
     };
   });
 
+  // 주간 시간표 데이터 생성
+  const weekDays = ["월", "화", "수", "목", "금"];
+  const periods = ["1", "2", "3", "4", "점심", "5", "6", "7"];
+
+  // 현재 시간에 해당하는 교시 계산
+  const getCurrentPeriod = (): string | null => {
+    const koreaNow = getKoreaTime();
+    const hour = koreaNow.getHours();
+    const minute = koreaNow.getMinutes();
+    const timeInMinutes = hour * 60 + minute;
+
+    // 일반적인 교시 시간표 (한국 시간대 기준)
+    // 1교시: 08:40-09:30
+    // 2교시: 09:40-10:30
+    // 3교시: 10:40-11:30
+    // 4교시: 11:40-12:30
+    // 점심: 12:30-13:30
+    // 5교시: 13:30-14:20
+    // 6교시: 14:30-15:20
+    // 7교시: 15:40-16:30
+    
+    if (timeInMinutes >= 8 * 60 + 40 && timeInMinutes < 9 * 60 + 30) return "1";
+    if (timeInMinutes >= 9 * 60 + 40 && timeInMinutes < 10 * 60 + 30) return "2";
+    if (timeInMinutes >= 10 * 60 + 40 && timeInMinutes < 11 * 60 + 30) return "3";
+    if (timeInMinutes >= 11 * 60 + 40 && timeInMinutes < 12 * 60 + 30) return "4";
+    if (timeInMinutes >= 12 * 60 + 30 && timeInMinutes < 13 * 60 + 30) return "점심";
+    if (timeInMinutes >= 13 * 60 + 30 && timeInMinutes < 14 * 60 + 20) return "5";
+    if (timeInMinutes >= 14 * 60 + 30 && timeInMinutes < 15 * 60 + 20) return "6";
+    if (timeInMinutes >= 15 * 60 + 40 && timeInMinutes < 16 * 60 + 30) return "7";
+    
+    return null;
+  };
+
+  const currentPeriod = getCurrentPeriod();
+
+  type ScheduleCell = {
+    courseId: string;
+    courseSubject: string;
+    groupId: string;
+    groupName: string;
+    classroom: string;
+  };
+
+  const weeklyScheduleTable: Record<string, Record<string, ScheduleCell[]>> = {};
+  
+  // 초기화
+  weekDays.forEach((day) => {
+    weeklyScheduleTable[day] = {};
+    periods.forEach((period) => {
+      weeklyScheduleTable[day][period] = [];
+    });
+  });
+
+  // 모든 수업의 스케줄을 시간표에 매핑
+  classes.forEach((course) => {
+    course.classGroups.forEach((group) => {
+      const schedules = parseSchedules(group.schedules);
+      schedules.forEach((schedule) => {
+        const day = schedule.day;
+        const period = schedule.period;
+        
+        if (weekDays.includes(day) && periods.includes(period)) {
+          weeklyScheduleTable[day][period].push({
+            courseId: course.id,
+            courseSubject: course.subject,
+            groupId: group.id,
+            groupName: group.name,
+            classroom: course.classroom,
+          });
+        }
+      });
+    });
+  });
+
   return (
     <div className="space-y-6">
       <header className="border-4 border-dashed border-gray-200 rounded-lg p-8 bg-white">
@@ -415,7 +489,89 @@ export default async function TeacherDashboardPage() {
         </div>
       </header>
          
-      <WeeklyScheduleSection schedule={weeklySchedule} todayIsoDate={isoToday} />
+      <div className="flex gap-6 items-start">
+        {/* 주간 시간표 섹션 */}
+        <section className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm w-1/3 flex-shrink-0">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-gray-900">주간 시간표</h2>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse text-sm">
+            <thead>
+              <tr>
+                <th className="border border-gray-300 bg-gray-50 px-1 py-2 font-semibold text-gray-700 min-w-[30px]">
+                  교시
+                </th>
+                {weekDays.map((day) => (
+                  <th
+                    key={day}
+                    className={`border border-gray-300 bg-gray-50 px-1 py-2 font-semibold text-gray-700 min-w-[60px] ${
+                      day === todayDay ? "bg-blue-100" : ""
+                    }`}
+                  >
+                    {day}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {periods.map((period) => {
+                const isCurrentPeriod = currentPeriod === period;
+                return (
+                <tr key={period}>
+                  <td className={`border border-gray-300 px-1 py-2 text-center font-medium ${
+                    isCurrentPeriod
+                      ? "bg-yellow-100 text-yellow-900 border-yellow-300" 
+                      : "bg-gray-50 text-gray-700"
+                  }`}>
+                    {period}
+                  </td>
+                  {weekDays.map((day) => {
+                    const cells = weeklyScheduleTable[day][period];
+                    const isToday = day === todayDay;
+                    const isCurrentCell = isToday && isCurrentPeriod;
+                    return (
+                      <td
+                        key={`${day}-${period}`}
+                        className={`border border-gray-300 px-1 py-2 align-top min-h-[80px] ${
+                          isCurrentCell 
+                            ? "bg-yellow-200 border-yellow-400 ring-2 ring-yellow-400" 
+                            : "bg-white"
+                        }`}
+                      >
+                        {cells.length > 0 ? (
+                          <div className="space-y-1">
+                            {cells.map((cell, idx) => (
+                              <Link
+                                key={`${cell.courseId}-${cell.groupId}-${idx}`}
+                                href={`/dashboard/teacher/manage-classes/${cell.courseId}`}
+                                className="block rounded-md bg-blue-100 hover:bg-blue-200 px-1 py-2 transition-colors cursor-pointer border border-blue-200"
+                              >
+                                <div className="font-medium text-blue-900 text-xs leading-tight">
+                                  {cell.courseSubject}
+                                </div>
+                                <div className="text-xs text-blue-700 mt-1 leading-tight">
+                                  {cell.groupName}
+                                </div>
+                              </Link>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="text-gray-400 text-xs text-center py-2">-</div>
+                        )}
+                      </td>
+                    );
+                  })}
+                </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+        </section>
+
+        <WeeklyScheduleSection schedule={weeklySchedule} todayIsoDate={isoToday} />
+      </div>
 
       <section className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
         <div className="flex items-center justify-between">

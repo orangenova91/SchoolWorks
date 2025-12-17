@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 
@@ -133,23 +132,6 @@ export default async function ClassManagementPage() {
 
   return (
     <div className="space-y-6">
-      <nav className="text-sm text-gray-500">
-        <ol className="flex items-center gap-2">
-          <li>
-            <Link
-              href="/dashboard/teacher"
-              className="hover:text-blue-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 rounded-md px-1"
-            >
-              선생님 대시보드
-            </Link>
-          </li>
-          <li aria-hidden="true">/</li>
-          <li className="text-gray-700 font-medium truncate">
-            {t.sidebar.teacher.classManagement}
-          </li>
-        </ol>
-      </nav>
-
       <header className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm space-y-4">
         {infoChips.length > 0 && (
           <div className="flex flex-wrap items-center gap-2">

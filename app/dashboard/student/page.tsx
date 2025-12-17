@@ -73,7 +73,7 @@ const getKoreaTime = (): Date => {
   return new Date(koreaTimeISO);
 };
 
-// 한국 시간 기준으로 주간 시작(월요일 자정)을 계산하는 함수
+// 한국 시간 기준으로 주간 시작(일요일 자정)을 계산하는 함수
 // 한국 시간 기준의 자정을 UTC로 변환하여 반환
 const getKoreaWeekStart = (): Date => {
   const now = new Date();
@@ -94,12 +94,12 @@ const getKoreaWeekStart = (): Date => {
   // 한국 시간 기준으로 현재 날짜 생성 (로컬 시간으로 해석)
   const koreaDate = new Date(koreaYear, koreaMonth - 1, koreaDay);
   const day = koreaDate.getDay(); // 0 (Sun) - 6 (Sat)
-  const offset = (day + 6) % 7; // convert to Monday-start (월요일 기준으로 변환)
+  const offset = day; // convert to Sunday-start (일요일 기준으로 변환)
   
-  // 월요일 날짜 계산
+  // 일요일 날짜 계산
   koreaDate.setDate(koreaDate.getDate() - offset);
   
-  // 한국 시간 기준 월요일 자정(00:00:00 KST)을 UTC로 변환
+  // 한국 시간 기준 일요일 자정(00:00:00 KST)을 UTC로 변환
   // 한국 시간(UTC+9)에서 9시간을 빼서 UTC로 변환
   const year = koreaDate.getFullYear();
   const month = koreaDate.getMonth() + 1;
@@ -168,11 +168,11 @@ export default async function StudentDashboardPage() {
   const now = getKoreaTime();
   const today = getKoreaTime();
 
-  // 한국 시간 기준으로 주간 시작(월요일 자정) 계산
+  // 한국 시간 기준으로 주간 시작(일요일 자정) 계산
   const weekStart = getKoreaWeekStart();
 
-  // 한국 시간 기준으로 주간 종료(다음 주 월요일 자정) 계산
-  // weekStart는 이미 한국 시간 기준의 UTC 변환된 값이므로, 7일을 더하면 다음 주 월요일이 됨
+  // 한국 시간 기준으로 주간 종료(다음 주 일요일 자정) 계산
+  // weekStart는 이미 한국 시간 기준의 UTC 변환된 값이므로, 7일을 더하면 다음 주 일요일이 됨
   const weekEnd = new Date(weekStart.getTime() + 7 * 24 * 60 * 60 * 1000);
 
   // 학교 범위의 주간 학사일정 가져오기

@@ -19,6 +19,10 @@ type Student = {
   id: string;
   name: string | null;
   email: string;
+  studentProfile?: {
+    studentId: string | null;
+    classLabel: string | null;
+  } | null;
 };
 
 type ClassGroupListProps = {

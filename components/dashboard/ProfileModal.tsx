@@ -344,13 +344,13 @@ export default function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
                     <div>
                       <p className="text-sm text-gray-500">반</p>
                       <p className="text-base font-medium text-gray-900">
-                        {user.studentProfile.classLabel || "-"}
+                        {user.studentProfile.section || "-"}
                       </p>
                     </div>
                     <div>
-                      <p className="text-sm text-gray-500">구분</p>
+                      <p className="text-sm text-gray-500">학반</p>
                       <p className="text-base font-medium text-gray-900">
-                        {user.studentProfile.section || "-"}
+                        {user.studentProfile.classLabel || "-"}
                       </p>
                     </div>
                     <div>
