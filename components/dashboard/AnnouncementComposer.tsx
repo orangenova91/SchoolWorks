@@ -1,24 +1,52 @@
 "use client";
 
-import { FormEvent, useState, useEffect } from "react";
+import { FormEvent, useState, useEffect, useRef } from "react";
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
 import Link from "@tiptap/extension-link";
-import { Bold, Italic, List, ListOrdered, Quote, Link as LinkIcon, Undo, Redo, Heading2, Send } from "lucide-react";
+import { Bold, Italic, List, ListOrdered, Quote, Link as LinkIcon, Undo, Redo, Heading2, Send, ChevronDown, X, Check } from "lucide-react";
 import { Input } from "@/components/ui/Input";
-import { Select } from "@/components/ui/Select";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/utils";
 
-const audienceOptions = [
-  { value: "all", label: "전교생" },
-  { value: "grade-1", label: "1학년" },
-  { value: "grade-2", label: "2학년" },
-  { value: "grade-3", label: "3학년" },
+const targetOptions = [
+  { value: "students", label: "재학생" },
   { value: "parents", label: "학부모" },
   { value: "teachers", label: "교직원" },
 ];
+
+// 선택된 대상들을 audience 값으로 변환
+const convertTargetsToAudience = (selectedTargets: string[]): string => {
+  if (selectedTargets.length === 0) return "";
+  if (selectedTargets.length === 1) {
+    return selectedTargets[0] === "students" ? "all" : selectedTargets[0];
+  }
+  // 여러 개 선택된 경우 첫 번째 값을 사용 (하위 호환성)
+  return selectedTargets[0] === "students" ? "all" : selectedTargets[0];
+};
+
+// audience 값을 선택된 대상들로 변환
+const convertAudienceToTargets = (audience: string): string[] => {
+  if (!audience) return [];
+  if (audience === "all" || audience.startsWith("grade-")) {
+    return ["students"];
+  }
+  if (audience === "parents" || audience === "teachers") {
+    return [audience];
+  }
+  return [];
+};
+
+interface SelectedClass {
+  grade: string;
+  classNumber: string;
+}
+
+const GRADES = ["1", "2", "3"];
+const CLASS_NUMBERS = Array.from({ length: 7 }, (_, i) => 
+  String(i + 1).padStart(2, "0")
+);
 
 const getDefaultPublishAt = () =>
   new Date(Date.now() + 60 * 60 * 1000).toISOString().slice(0, 16);
@@ -30,6 +58,7 @@ interface AnnouncementComposerPayload {
   content: string;
   isScheduled: boolean;
   publishAt?: string;
+  selectedClasses?: SelectedClass[];
 }
 
 interface AnnouncementComposerProps {
@@ -77,12 +106,17 @@ function AnnouncementComposerForm({
   onEditComplete,
 }: AnnouncementComposerProps & { onClose: () => void; editId?: string; onEditComplete?: () => void }) {
   const [title, setTitle] = useState("");
-  const [audience, setAudience] = useState("");
+  const [selectedTargets, setSelectedTargets] = useState<string[]>([]);
+  const [selectedClasses, setSelectedClasses] = useState<SelectedClass[]>([]);
+  const [isTargetModalOpen, setIsTargetModalOpen] = useState(false);
+  const [isClassSelectionOpen, setIsClassSelectionOpen] = useState(false);
   const [useSchedule, setUseSchedule] = useState(false);
   const [publishAt, setPublishAt] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(!!editId);
+  const targetModalRef = useRef<HTMLDivElement>(null);
+  const classSelectionRef = useRef<HTMLDivElement>(null);
 
   const editor = useEditor({
     extensions: [
@@ -124,7 +158,20 @@ function AnnouncementComposerForm({
 
           const announcement = data.announcement;
           setTitle(announcement.title);
-          setAudience(announcement.audience);
+          setSelectedTargets(convertAudienceToTargets(announcement.audience));
+          // 선택된 학급 정보 로드 (있는 경우)
+          if (announcement.selectedClasses) {
+            try {
+              const classes = typeof announcement.selectedClasses === 'string' 
+                ? JSON.parse(announcement.selectedClasses) 
+                : announcement.selectedClasses;
+              setSelectedClasses(Array.isArray(classes) ? classes : []);
+            } catch (e) {
+              setSelectedClasses([]);
+            }
+          } else {
+            setSelectedClasses([]);
+          }
           setUseSchedule(announcement.isScheduled);
           setPublishAt(announcement.publishAt ? new Date(announcement.publishAt).toISOString().slice(0, 16) : "");
           editor.commands.setContent(announcement.content);
@@ -140,10 +187,129 @@ function AnnouncementComposerForm({
     }
   }, [editId, editor]);
 
+  // 모달 외부 클릭 시 닫기
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (targetModalRef.current && !targetModalRef.current.contains(event.target as Node)) {
+        setIsTargetModalOpen(false);
+      }
+      if (classSelectionRef.current && !classSelectionRef.current.contains(event.target as Node)) {
+        setIsClassSelectionOpen(false);
+      }
+    };
+
+    if (isTargetModalOpen || isClassSelectionOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [isTargetModalOpen, isClassSelectionOpen]);
+
   // 제목이 비어있거나 알림 대상이 없거나 제출 중일 때 비활성화
   const hasTitle = title.trim().length > 0;
-  const hasAudience = Boolean(audience) && String(audience).trim().length > 0;
-  const isDisabled = !hasTitle || !hasAudience || isSubmitting;
+  const hasTargets = selectedTargets.length > 0;
+  const isDisabled = !hasTitle || !hasTargets || isSubmitting;
+
+  // 대상 선택 핸들러
+  const handleTargetToggle = (value: string) => {
+    if (selectedTargets.includes(value)) {
+      setSelectedTargets(selectedTargets.filter(t => t !== value));
+      // 재학생 선택 해제 시 학급 선택도 초기화
+      if (value === "students") {
+        setSelectedClasses([]);
+        setIsClassSelectionOpen(false);
+      }
+    } else {
+      setSelectedTargets([...selectedTargets, value]);
+      // 재학생 선택 시 바로 그리드 표시
+      if (value === "students") {
+        setIsClassSelectionOpen(true);
+      }
+    }
+  };
+
+  // 학급 선택/해제 핸들러
+  const handleClassToggle = (grade: string, classNumber: string) => {
+    const key = `${grade}-${classNumber}`;
+    const exists = selectedClasses.some(
+      (c) => c.grade === grade && c.classNumber === classNumber
+    );
+
+    if (exists) {
+      setSelectedClasses(selectedClasses.filter(
+        (c) => !(c.grade === grade && c.classNumber === classNumber)
+      ));
+    } else {
+      setSelectedClasses([...selectedClasses, { grade, classNumber }]);
+    }
+  };
+
+  // 학년 전체 선택/해제
+  const handleGradeToggle = (grade: string) => {
+    const gradeClasses = CLASS_NUMBERS.map(cn => ({ grade, classNumber: cn }));
+    const allSelected = gradeClasses.every(gc =>
+      selectedClasses.some(sc => sc.grade === gc.grade && sc.classNumber === gc.classNumber)
+    );
+
+    if (allSelected) {
+      // 모두 해제
+      setSelectedClasses(selectedClasses.filter(
+        c => !(c.grade === grade)
+      ));
+    } else {
+      // 모두 선택
+      const newClasses = gradeClasses.filter(gc =>
+        !selectedClasses.some(sc => sc.grade === gc.grade && sc.classNumber === gc.classNumber)
+      );
+      setSelectedClasses([...selectedClasses, ...newClasses]);
+    }
+  };
+
+  // 전체 선택/해제
+  const handleSelectAll = () => {
+    const allClasses: SelectedClass[] = [];
+    GRADES.forEach(grade => {
+      CLASS_NUMBERS.forEach(classNumber => {
+        allClasses.push({ grade, classNumber });
+      });
+    });
+    setSelectedClasses(allClasses);
+  };
+
+  const handleClearAll = () => {
+    setSelectedClasses([]);
+  };
+
+  // 특정 학급이 선택되었는지 확인
+  const isClassSelected = (grade: string, classNumber: string) => {
+    return selectedClasses.some(
+      c => c.grade === grade && c.classNumber === classNumber
+    );
+  };
+
+  // 특정 학년의 모든 반이 선택되었는지 확인
+  const isGradeAllSelected = (grade: string) => {
+    return CLASS_NUMBERS.every(classNumber =>
+      isClassSelected(grade, classNumber)
+    );
+  };
+
+  // 선택된 대상 표시 텍스트
+  const getTargetDisplayText = () => {
+    if (selectedTargets.length === 0) {
+      return "알림 대상을 선택하세요";
+    }
+    const texts = selectedTargets.map(target => {
+      const option = targetOptions.find(opt => opt.value === target);
+      if (target === "students" && selectedClasses.length > 0) {
+        return `${option?.label} (${selectedClasses.length}개 학급)`;
+      }
+      return option?.label;
+    }).filter(Boolean);
+    return texts.join(", ");
+  };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -160,6 +326,13 @@ function AnnouncementComposerForm({
     setError(null);
     setIsSubmitting(true);
 
+    // 재학생이 선택되고 학급이 선택된 경우, 첫 번째 학급의 학년으로 audience 설정
+    let audience = convertTargetsToAudience(selectedTargets);
+    if (selectedTargets.includes("students") && selectedClasses.length > 0) {
+      const firstGrade = selectedClasses[0].grade;
+      audience = `grade-${firstGrade}`;
+    }
+
     const payload: AnnouncementComposerPayload = {
       title: title.trim(),
       audience,
@@ -167,6 +340,7 @@ function AnnouncementComposerForm({
       content,
       isScheduled: useSchedule,
       publishAt: useSchedule ? publishAt : undefined,
+      selectedClasses: selectedTargets.includes("students") ? selectedClasses : [],
     };
 
     try {
@@ -202,6 +376,8 @@ function AnnouncementComposerForm({
       // 폼 초기화
       editor.commands.clearContent(true);
       setTitle("");
+      setSelectedTargets([]);
+      setSelectedClasses([]);
       setUseSchedule(false);
       setPublishAt("");
       setIsSubmitting(false);
@@ -316,13 +492,168 @@ function AnnouncementComposerForm({
 
         <div className="grid gap-4 md:grid-cols-[1fr_1fr_1.2fr]">
           <Input label="작성자" value={authorName} readOnly />
-          <Select
-            label="알림 대상"
-            value={audience}
-            onChange={(event) => setAudience(event.target.value)}
-            options={audienceOptions}
-            placeholder="알림 대상을 선택하세요"
-          />
+          <div className="relative">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              알림 대상
+            </label>
+            <button
+              type="button"
+              onClick={() => setIsTargetModalOpen(!isTargetModalOpen)}
+              className={cn(
+                "flex h-10 w-full items-center justify-between rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900",
+                "focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2",
+                "hover:border-gray-400",
+                selectedTargets.length === 0 && "text-gray-500"
+              )}
+            >
+              <span className="truncate">{getTargetDisplayText()}</span>
+              <ChevronDown
+                className={cn(
+                  "h-4 w-4 text-gray-500 transition-transform",
+                  isTargetModalOpen && "transform rotate-180"
+                )}
+              />
+            </button>
+
+            {isTargetModalOpen && (
+              <div
+                ref={targetModalRef}
+                className="absolute top-full left-0 z-50 mt-1 w-full rounded-lg border border-gray-200 bg-white shadow-lg"
+              >
+                <div className="p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-sm font-semibold text-gray-900">알림 대상 선택</h3>
+                    <button
+                      type="button"
+                      onClick={() => setIsTargetModalOpen(false)}
+                      className="text-gray-400 hover:text-gray-600"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                  <div className="space-y-2">
+                    {targetOptions.map((option) => (
+                      <div key={option.value}>
+                        <label
+                          className="flex items-center gap-2 cursor-pointer p-2 rounded-md hover:bg-gray-50"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={selectedTargets.includes(option.value)}
+                            onChange={() => handleTargetToggle(option.value)}
+                            className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                          />
+                          <span className="text-sm text-gray-700 flex-1">{option.label}</span>
+                          {option.value === "students" && selectedTargets.includes("students") && selectedClasses.length > 0 && (
+                            <span className="text-xs text-gray-500 px-2 py-1">
+                              {selectedClasses.length}개 학급 선택됨
+                            </span>
+                          )}
+                        </label>
+                        {option.value === "students" && selectedTargets.includes("students") && isClassSelectionOpen && (
+                          <div
+                            ref={classSelectionRef}
+                            className="mt-2 ml-6 p-4 bg-gray-50 rounded-lg border border-gray-200"
+                          >
+                            <div className="flex items-center justify-between mb-3">
+                              <div className="flex items-center gap-2">
+                                <Button
+                                  type="button"
+                                  variant="primary"
+                                  size="sm"
+                                  onClick={() => setIsClassSelectionOpen(false)}
+                                  className="text-xs h-7 px-2"
+                                >
+                                  <Check className="h-3 w-3 mr-1" />
+                                  선택 완료
+                                </Button>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={handleClearAll}
+                                  className="text-xs h-7 px-2"
+                                >
+                                  <X className="h-3 w-3 mr-1" />
+                                  모두 지움
+                                </Button>
+                              </div>
+                              <h4 className="text-xs font-semibold text-gray-900">대상 학급</h4>
+                            </div>
+                            <div className="overflow-x-auto">
+                              <table className="w-full border-collapse text-xs">
+                                <thead>
+                                  <tr>
+                                    <th className="border border-gray-200 bg-gray-100 px-2 py-1.5 text-left font-medium text-gray-700">
+                                      반
+                                    </th>
+                                    {GRADES.map((grade) => (
+                                      <th
+                                        key={grade}
+                                        className="border border-gray-200 bg-gray-100 px-2 py-1.5 text-center font-medium text-gray-700"
+                                      >
+                                        <label className="flex items-center justify-center cursor-pointer">
+                                          <input
+                                            type="checkbox"
+                                            checked={isGradeAllSelected(grade)}
+                                            onChange={() => handleGradeToggle(grade)}
+                                            className="h-3 w-3 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                          />
+                                          <span className="ml-1">{grade}학년</span>
+                                        </label>
+                                      </th>
+                                    ))}
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {CLASS_NUMBERS.map((classNumber) => (
+                                    <tr key={classNumber}>
+                                      <td className="border border-gray-200 bg-gray-100 px-2 py-1.5 text-center font-medium text-gray-700">
+                                        {classNumber}반
+                                      </td>
+                                      {GRADES.map((grade) => {
+                                        const selected = isClassSelected(grade, classNumber);
+                                        return (
+                                          <td
+                                            key={`${grade}-${classNumber}`}
+                                            className="border border-gray-200 px-2 py-1.5 text-center bg-white"
+                                          >
+                                            <label className="flex items-center justify-center cursor-pointer">
+                                              <input
+                                                type="checkbox"
+                                                checked={selected}
+                                                onChange={() => handleClassToggle(grade, classNumber)}
+                                                className="h-3 w-3 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                              />
+                                            </label>
+                                          </td>
+                                        );
+                                      })}
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-4 pt-3 border-t border-gray-200">
+                    <Button
+                      type="button"
+                      variant="primary"
+                      size="sm"
+                      onClick={() => setIsTargetModalOpen(false)}
+                      className="w-full"
+                    >
+                      선택 완료
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
           <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
             <div className="flex items-center justify-between gap-2">
               <div>

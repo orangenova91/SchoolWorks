@@ -6,6 +6,11 @@ import { prisma } from "@/lib/prisma";
 
 const AUDIENCE_VALUES = ["all", "grade-1", "grade-2", "grade-3", "parents", "teachers"] as const;
 
+const selectedClassSchema = z.object({
+  grade: z.string(),
+  classNumber: z.string(),
+});
+
 const updateAnnouncementSchema = z.object({
   title: z.string().trim().min(1, "제목을 입력하세요").max(200, "제목은 200자 이하여야 합니다"),
   content: z.string().trim().min(1, "본문을 입력하세요"),
@@ -13,6 +18,7 @@ const updateAnnouncementSchema = z.object({
   author: z.string().trim().min(1, "작성자를 입력하세요"),
   isScheduled: z.boolean().default(false),
   publishAt: z.string().datetime().optional(),
+  selectedClasses: z.array(selectedClassSchema).optional(),
 });
 
 export const dynamic = 'force-dynamic';
@@ -137,6 +143,7 @@ export async function PUT(
       author: validatedData.author,
       isScheduled: validatedData.isScheduled,
       publishAt: validatedData.publishAt ? new Date(validatedData.publishAt) : null,
+      selectedClasses: validatedData.selectedClasses ? JSON.stringify(validatedData.selectedClasses) : null,
     };
 
     // 예약 발행 상태 변경 처리

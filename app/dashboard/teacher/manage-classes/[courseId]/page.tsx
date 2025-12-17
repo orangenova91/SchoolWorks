@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { getServerSession } from "next-auth";
 import { notFound, redirect } from "next/navigation";
 
@@ -13,7 +12,6 @@ import CreateClassGroupButton from "@/components/dashboard/CreateClassGroupButto
 import ClassGroupList from "@/components/dashboard/ClassGroupList";
 import AttendanceSection from "@/components/dashboard/AttendanceSection";
 import ClassGroupBadges from "@/components/dashboard/ClassGroupBadges";
-import CourseDropdown from "@/components/dashboard/CourseDropdown";
 
 interface ManageClassDetailPageProps {
   params: {
@@ -73,14 +71,6 @@ export default async function ManageClassDetailPage({
     notFound();
   }
 
-  // 교사의 모든 수업 목록 가져오기 (드롭다운용)
-  const allCourses =
-    (await (prisma as any).course.findMany({
-      where: { teacherId: session.user.id },
-      select: { id: true, subject: true },
-      orderBy: { createdAt: "desc" },
-    })) ?? [];
-
   const classGroups =
     (await (prisma as any).classGroup.findMany({
       where: { courseId: course.id },
@@ -131,27 +121,6 @@ export default async function ManageClassDetailPage({
 
   return (
     <div className="space-y-6">
-      <nav className="text-sm text-gray-500">
-        <ol className="flex items-center gap-2">
-          <li>
-            <Link
-              href="/dashboard/teacher/manage-classes"
-              className="hover:text-blue-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 rounded-md px-1"
-            >
-              내 수업 목록
-            </Link>
-          </li>
-          <li aria-hidden="true">/</li>
-          <li>
-            <CourseDropdown
-              courses={allCourses}
-              currentCourseId={course.id}
-              currentCourseName={course.subject}
-            />
-          </li>
-        </ol>
-      </nav>
-
       <header className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm space-y-4">
       {infoChips.length > 0 && (
           <div className="flex flex-wrap items-center gap-2">
