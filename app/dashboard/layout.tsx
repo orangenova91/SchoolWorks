@@ -7,6 +7,7 @@ import UserMenu from "@/components/dashboard/UserMenu";
 import { Sidebar } from "@/components/dashboard/Sidebar";
 import { Footer } from "@/components/dashboard/Footer";
 import { AnimatedBackground } from "@/components/ui/AnimatedBackground";
+import CurrentPageNav from "@/components/dashboard/CurrentPageNav";
 import {
   Home,
   Calendar,
@@ -63,37 +64,44 @@ export default async function DashboardLayout({
           { 
             href: "/dashboard/teacher", 
             label: t.sidebar.teacher.overview,
-            icon: <Home className="w-5 h-5" />
+            icon: <Home className="w-5 h-5" />,
+            iconName: "Home"
           },
           {
             href: "/dashboard/teacher/schedule",
             label: t.sidebar.teacher.schedule,
-            icon: <Calendar className="w-5 h-5" />
+            icon: <Calendar className="w-5 h-5" />,
+            iconName: "Calendar"
           },
           {
             href: "/dashboard/teacher/manage-classes",
             label: t.sidebar.teacher.manageClasses,
-            icon: <BookOpen className="w-5 h-5" />
+            icon: <BookOpen className="w-5 h-5" />,
+            iconName: "BookOpen"
           },
           {
             href: "/dashboard/teacher/class-management",
             label: t.sidebar.teacher.classManagement,
-            icon: <Users className="w-5 h-5" />
+            icon: <Users className="w-5 h-5" />,
+            iconName: "Users"
           },
           {
             href: "/dashboard/teacher/student-progress",
             label: t.sidebar.teacher.studentProgress,
-            icon: <TrendingUp className="w-5 h-5" />
+            icon: <TrendingUp className="w-5 h-5" />,
+            iconName: "TrendingUp"
           },
           {
             href: "/dashboard/teacher/announcements",
             label: t.sidebar.teacher.announcements,
-            icon: <Bell className="w-5 h-5" />
+            icon: <Bell className="w-5 h-5" />,
+            iconName: "Bell"
           },
           {
             href: googleChatLink,
             label: isGoogleWorkspaceUser ? "Google Chat" : "메시지",
             icon: <MessageCircle className="w-5 h-5" />,
+            iconName: "MessageCircle",
             external: isGoogleWorkspaceUser,
           },
         ]
@@ -102,37 +110,44 @@ export default async function DashboardLayout({
           { 
             href: "/dashboard/student", 
             label: t.sidebar.student.overview,
-            icon: <Home className="w-5 h-5" />
+            icon: <Home className="w-5 h-5" />,
+            iconName: "Home"
           },
           {
             href: "/dashboard/student/schedule",
             label: t.sidebar.student.todaysSchedule,
-            icon: <Calendar className="w-5 h-5" />
+            icon: <Calendar className="w-5 h-5" />,
+            iconName: "Calendar"
           },
           {
             href: "/dashboard/student/assignments",
             label: t.sidebar.student.assignments,
-            icon: <FileText className="w-5 h-5" />
+            icon: <FileText className="w-5 h-5" />,
+            iconName: "FileText"
           },
           {
             href: "/dashboard/student/announcements",
             label: t.sidebar.student.announcements,
-            icon: <Bell className="w-5 h-5" />
+            icon: <Bell className="w-5 h-5" />,
+            iconName: "Bell"
           },
           {
             href: "/dashboard/student/support",
             label: t.sidebar.student.support,
-            icon: <HelpCircle className="w-5 h-5" />
+            icon: <HelpCircle className="w-5 h-5" />,
+            iconName: "HelpCircle"
           },
           {
             href: "/dashboard/student/profile",
             label: "프로필 수정",
-            icon: <User className="w-5 h-5" />
+            icon: <User className="w-5 h-5" />,
+            iconName: "User"
           },
           {
             href: googleChatLink,
             label: isGoogleWorkspaceUser ? "Google Chat" : "메시지",
             icon: <MessageCircle className="w-5 h-5" />,
+            iconName: "MessageCircle",
             external: isGoogleWorkspaceUser,
           },
         ]
@@ -142,36 +157,43 @@ export default async function DashboardLayout({
             href: "/dashboard/admin/overview",
             label: "운영 현황",
             icon: <Shield className="w-5 h-5" />,
+            iconName: "Shield"
           },
           {
             href: "/dashboard/admin/users",
             label: "사용자 관리",
             icon: <Users className="w-5 h-5" />,
+            iconName: "Users"
           },
           {
             href: "/dashboard/admin/content",
             label: "콘텐츠·공지",
             icon: <Folder className="w-5 h-5" />,
+            iconName: "Folder"
           },
           {
             href: "/dashboard/admin/alerts",
             label: "알림 센터",
             icon: <Bell className="w-5 h-5" />,
+            iconName: "Bell"
           },
           {
             href: "/dashboard/admin/reports",
             label: "리포트",
             icon: <BarChart className="w-5 h-5" />,
+            iconName: "BarChart"
           },
           {
             href: "/dashboard/admin/system",
             label: "시스템 설정",
             icon: <Settings className="w-5 h-5" />,
+            iconName: "Settings"
           },
           {
             href: googleChatLink,
             label: isGoogleWorkspaceUser ? "Google Chat" : "메시지",
             icon: <MessageCircle className="w-5 h-5" />,
+            iconName: "MessageCircle",
             external: isGoogleWorkspaceUser,
           },
         ]
@@ -181,11 +203,13 @@ export default async function DashboardLayout({
             href: "/dashboard/superadmin",
             label: "슈퍼어드민 대시보드",
             icon: <Shield className="w-5 h-5" />,
+            iconName: "Shield"
           },
           {
             href: googleChatLink,
             label: isGoogleWorkspaceUser ? "Google Chat" : "메시지",
             icon: <MessageCircle className="w-5 h-5" />,
+            iconName: "MessageCircle",
             external: isGoogleWorkspaceUser,
           },
         ]
@@ -199,6 +223,7 @@ export default async function DashboardLayout({
           <div className="flex justify-between h-16">
             <div className="flex items-center">
               <h1 className="text-xl font-bold text-gray-900">SchoolHub</h1>
+              <CurrentPageNav items={navItems} />
             </div>
             <div className="flex items-center space-x-4">
               <UserMenu

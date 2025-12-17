@@ -12,6 +12,8 @@ import CourseOverview from "@/components/dashboard/CourseOverview";
 import CreateClassGroupButton from "@/components/dashboard/CreateClassGroupButton";
 import ClassGroupList from "@/components/dashboard/ClassGroupList";
 import AttendanceSection from "@/components/dashboard/AttendanceSection";
+import ClassGroupBadges from "@/components/dashboard/ClassGroupBadges";
+import CourseDropdown from "@/components/dashboard/CourseDropdown";
 
 interface ManageClassDetailPageProps {
   params: {
@@ -70,6 +72,14 @@ export default async function ManageClassDetailPage({
   if (!course) {
     notFound();
   }
+
+  // 교사의 모든 수업 목록 가져오기 (드롭다운용)
+  const allCourses =
+    (await (prisma as any).course.findMany({
+      where: { teacherId: session.user.id },
+      select: { id: true, subject: true },
+      orderBy: { createdAt: "desc" },
+    })) ?? [];
 
   const classGroups =
     (await (prisma as any).classGroup.findMany({
@@ -132,8 +142,12 @@ export default async function ManageClassDetailPage({
             </Link>
           </li>
           <li aria-hidden="true">/</li>
-          <li className="text-gray-700 font-medium truncate">
-            {course.subject}
+          <li>
+            <CourseDropdown
+              courses={allCourses}
+              currentCourseId={course.id}
+              currentCourseName={course.subject}
+            />
           </li>
         </ol>
       </nav>
@@ -162,16 +176,11 @@ export default async function ManageClassDetailPage({
                 <span className="font-medium text-gray-700">
                   학반 ({classGroups.length}개)
                 </span>
-                <div className="flex flex-wrap gap-1">
-                  {classGroups.map((group: { id: string; name: string }) => (
-                    <span
-                      key={group.id}
-                      className="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-700 border border-gray-200"
-                    >
-                      {group.name}
-                    </span>
-                  ))}
-                </div>
+                <ClassGroupBadges
+                  classGroups={classGroups}
+                  courseId={course.id}
+                  students={students}
+                />
               </div>
             )}
           </div>
