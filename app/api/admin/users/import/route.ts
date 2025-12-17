@@ -40,6 +40,9 @@ type CsvRow = {
   
   // TeacherProfile 필드 (role이 "teacher"일 때)
   "직위"?: string;
+  
+  // ParentProfile 필드 (role이 "parent"일 때)
+  "자녀이메일"?: string; // 쉼표로 구분된 자녀 학생들의 이메일
 };
 
 const DEFAULT_PASSWORD = "Abcd1234!@";
@@ -111,7 +114,7 @@ export async function POST(request: NextRequest) {
 
       // 역할 검증
       const role = row["(필수)역할"]?.trim() || null;
-      if (role && !["student", "teacher", "admin"].includes(role)) {
+      if (role && !["student", "teacher", "admin", "parent"].includes(role)) {
         errors.push(`줄 ${lineNumber}: 유효하지 않은 역할입니다 (${role}).`);
         continue;
       }
@@ -259,7 +262,46 @@ export async function POST(request: NextRequest) {
               address: row["주소"]?.trim() || null,
             },
           });
+        } else if (user.role === "parent") {
+          // ParentProfile 생성 (자녀이메일로 자녀 학생 찾기)
+          const row = userData.row;
+          const childEmailsFromCsv = row["자녀이메일"]?.trim();
+          const studentUserIds: string[] = [];
+
+          if (childEmailsFromCsv) {
+            // 쉼표로 구분된 이메일들을 분리
+            const childEmails = childEmailsFromCsv
+              .split(",")
+              .map((email) => email.trim().toLowerCase())
+              .filter((email) => email.length > 0);
+
+            if (childEmails.length > 0) {
+              // 이메일로 학생 찾기
+              const students = await prisma.user.findMany({
+                where: {
+                  email: { in: childEmails },
+                  role: "student",
+                },
+                select: { id: true },
+              });
+
+              // User.id 수집
+              studentUserIds.push(...students.map((s) => s.id));
+            }
+          }
+
+          // ParentProfile 생성 (학생이 없어도 생성)
+          const prismaAny = prisma as any;
+          await prismaAny.parentProfile.create({
+            data: {
+              userId: user.id,
+              studentIds: studentUserIds,
+              phoneNumber: row["연락처"]?.trim() || null,
+              relationship: "parent", // 기본값
+            },
+          });
         }
+        // admin role은 Profile이 없으므로 User만 생성됨
 
         created += 1;
       } catch (individualError: any) {

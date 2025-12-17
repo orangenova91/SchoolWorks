@@ -149,6 +149,7 @@ export function EditUserModal({ user, isOpen, onClose, onSuccess }: EditUserModa
                 <option value="student">학생</option>
                 <option value="teacher">교사</option>
                 <option value="admin">관리자</option>
+                <option value="parent">학부모</option>
               </select>
             </div>
 
