@@ -164,8 +164,59 @@ export async function PUT(
     // StudentProfile 업데이트할 데이터 준비
     const profileUpdateData: any = {};
     
+    // 기존 프로필 데이터 가져오기 (자동 생성 로직을 위해 필요)
+    const currentGrade = student.studentProfile?.grade;
+    const currentSection = student.studentProfile?.section;
+    const currentStudentId = student.studentProfile?.studentId;
+    
+    // 학번이 변경되었을 때 grade와 section 자동 추출
+    let extractedGrade: string | null | undefined = validatedData.grade;
+    let extractedSection: string | null | undefined = validatedData.section;
+    
+    if (validatedData.studentId !== undefined && validatedData.studentId !== currentStudentId) {
+      const studentId = validatedData.studentId;
+      // 학번의 첫 번째 글자를 학년으로 자동 추출
+      if (studentId && studentId.length > 0) {
+        extractedGrade = studentId[0];
+      }
+      
+      // 학번의 2,3번째 값을 숫자로 변환하여 반(section) 필드에 저장
+      if (studentId && studentId.length >= 3) {
+        const sectionValue = parseInt(studentId.substring(1, 3), 10);
+        if (!isNaN(sectionValue)) {
+          extractedSection = String(sectionValue);
+        }
+      }
+    }
+    
+    // 최종 grade와 section 값 결정 (추출된 값이 있으면 그것을, 없으면 업데이트 값, 없으면 기존 값 사용)
+    const finalGrade = extractedGrade !== undefined ? extractedGrade : (validatedData.grade !== undefined ? validatedData.grade : currentGrade);
+    const finalSection = extractedSection !== undefined ? extractedSection : (validatedData.section !== undefined ? validatedData.section : currentSection);
+    
+    // classLabel 자동 생성 로직
+    // grade와 section이 모두 있으면 항상 자동 생성 (학번 변경 시 추출된 값 또는 명시적으로 제공된 값 사용)
+    if (finalGrade && finalSection) {
+      // 학번이 변경되었거나, grade 또는 section이 변경되었는지 확인
+      const studentIdChanged = validatedData.studentId !== undefined && validatedData.studentId !== currentStudentId;
+      const gradeChanged = (extractedGrade !== undefined || validatedData.grade !== undefined) && finalGrade !== currentGrade;
+      const sectionChanged = (extractedSection !== undefined || validatedData.section !== undefined) && finalSection !== currentSection;
+      
+      // 학번 변경 시 또는 최초 생성 시 또는 변경 시 항상 자동 생성
+      if (studentIdChanged || !currentGrade || !currentSection || gradeChanged || sectionChanged) {
+        profileUpdateData.classLabel = `${finalGrade}-${finalSection}`;
+      }
+    }
+    
+    // 학번에서 추출된 grade와 section을 profileUpdateData에 추가
+    if (extractedGrade !== undefined) {
+      profileUpdateData.grade = extractedGrade;
+    }
+    if (extractedSection !== undefined) {
+      profileUpdateData.section = extractedSection;
+    }
+    
     const profileFields = [
-      "studentId", "grade", "classLabel", "section", "seatNumber",
+      "studentId", "grade", "section", "seatNumber",
       "major", "sex", "classOfficer", "specialEducation", "phoneNumber",
       "siblings", "academicStatus", "remarks", "club", "clubTeacher",
       "clubLocation", "dateOfBirth", "address", "residentRegistrationNumber",

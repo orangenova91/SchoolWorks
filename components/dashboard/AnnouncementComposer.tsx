@@ -108,12 +108,14 @@ function AnnouncementComposerForm({
   const [title, setTitle] = useState("");
   const [selectedTargets, setSelectedTargets] = useState<string[]>([]);
   const [selectedClasses, setSelectedClasses] = useState<SelectedClass[]>([]);
+  const [isTargetModalOpen, setIsTargetModalOpen] = useState(false);
   const [isClassSelectionOpen, setIsClassSelectionOpen] = useState(false);
   const [useSchedule, setUseSchedule] = useState(false);
   const [publishAt, setPublishAt] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(!!editId);
+  const targetModalRef = useRef<HTMLDivElement>(null);
   const classSelectionRef = useRef<HTMLDivElement>(null);
 
   const editor = useEditor({
@@ -185,22 +187,25 @@ function AnnouncementComposerForm({
     }
   }, [editId, editor]);
 
-  // 학급 선택 영역 외부 클릭 시 닫기
+  // 모달 외부 클릭 시 닫기
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
+      if (targetModalRef.current && !targetModalRef.current.contains(event.target as Node)) {
+        setIsTargetModalOpen(false);
+      }
       if (classSelectionRef.current && !classSelectionRef.current.contains(event.target as Node)) {
         setIsClassSelectionOpen(false);
       }
     };
 
-    if (isClassSelectionOpen) {
+    if (isTargetModalOpen || isClassSelectionOpen) {
       document.addEventListener("mousedown", handleClickOutside);
     }
 
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
-  }, [isClassSelectionOpen]);
+  }, [isTargetModalOpen, isClassSelectionOpen]);
 
   // 제목이 비어있거나 알림 대상이 없거나 제출 중일 때 비활성화
   const hasTitle = title.trim().length > 0;
@@ -487,129 +492,167 @@ function AnnouncementComposerForm({
 
         <div className="grid gap-4 md:grid-cols-[1fr_1fr_1.2fr]">
           <Input label="작성자" value={authorName} readOnly />
-          <div>
+          <div className="relative">
             <label className="block text-sm font-medium text-gray-700 mb-1">
               알림 대상
             </label>
-            <div
+            <button
+              type="button"
+              onClick={() => setIsTargetModalOpen(!isTargetModalOpen)}
               className={cn(
-                "rounded-md border border-gray-300 bg-white p-3",
-                selectedTargets.length === 0 && "border-dashed"
+                "flex h-10 w-full items-center justify-between rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900",
+                "focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2",
+                "hover:border-gray-400",
+                selectedTargets.length === 0 && "text-gray-500"
               )}
             >
-              <div className="flex flex-wrap items-center gap-4">
-                {targetOptions.map((option) => (
-                  <label
-                    key={option.value}
-                    className="flex items-center gap-2 cursor-pointer px-1 py-0.5 rounded-md hover:bg-gray-50"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={selectedTargets.includes(option.value)}
-                      onChange={() => handleTargetToggle(option.value)}
-                      className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                    />
-                    <span className="text-sm text-gray-700 whitespace-nowrap">
-                      {option.label}
-                    </span>
-                    {option.value === "students" &&
-                      selectedTargets.includes("students") &&
-                      selectedClasses.length > 0 && (
-                        <span className="text-xs text-gray-500 px-2 py-1 whitespace-nowrap">
-                          {selectedClasses.length}개 학급 선택됨
-                        </span>
-                      )}
-                  </label>
-                ))}
-              </div>
+              <span className="truncate">{getTargetDisplayText()}</span>
+              <ChevronDown
+                className={cn(
+                  "h-4 w-4 text-gray-500 transition-transform",
+                  isTargetModalOpen && "transform rotate-180"
+                )}
+              />
+            </button>
 
-              {selectedTargets.includes("students") && isClassSelectionOpen && (
-                <div
-                  ref={classSelectionRef}
-                  className="mt-3 p-4 bg-gray-50 rounded-lg border border-gray-200"
-                >
+            {isTargetModalOpen && (
+              <div
+                ref={targetModalRef}
+                className="absolute top-full left-0 z-50 mt-1 w-full rounded-lg border border-gray-200 bg-white shadow-lg"
+              >
+                <div className="p-4">
                   <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-2">
-                      <Button
-                        type="button"
-                        variant="primary"
-                        size="sm"
-                        onClick={() => setIsClassSelectionOpen(false)}
-                        className="text-xs h-7 px-2"
-                      >
-                        <Check className="h-3 w-3 mr-1" />
-                        선택 완료
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={handleClearAll}
-                        className="text-xs h-7 px-2"
-                      >
-                        <X className="h-3 w-3 mr-1" />
-                        모두 지움
-                      </Button>
-                    </div>
-                    <h4 className="text-xs font-semibold text-gray-900">대상 학급</h4>
+                    <h3 className="text-sm font-semibold text-gray-900">알림 대상 선택</h3>
+                    <button
+                      type="button"
+                      onClick={() => setIsTargetModalOpen(false)}
+                      className="text-gray-400 hover:text-gray-600"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
                   </div>
-                  <div className="overflow-x-auto">
-                    <table className="w-full border-collapse text-xs">
-                      <thead>
-                        <tr>
-                          <th className="border border-gray-200 bg-gray-100 px-2 py-1.5 text-left font-medium text-gray-700">
-                            반
-                          </th>
-                          {GRADES.map((grade) => (
-                            <th
-                              key={grade}
-                              className="border border-gray-200 bg-gray-100 px-2 py-1.5 text-center font-medium text-gray-700"
-                            >
-                              <label className="flex items-center justify-center cursor-pointer">
-                                <input
-                                  type="checkbox"
-                                  checked={isGradeAllSelected(grade)}
-                                  onChange={() => handleGradeToggle(grade)}
-                                  className="h-3 w-3 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                                />
-                                <span className="ml-1">{grade}학년</span>
-                              </label>
-                            </th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {CLASS_NUMBERS.map((classNumber) => (
-                          <tr key={classNumber}>
-                            <td className="border border-gray-200 bg-gray-100 px-2 py-1.5 text-center font-medium text-gray-700">
-                              {classNumber}반
-                            </td>
-                            {GRADES.map((grade) => {
-                              const selected = isClassSelected(grade, classNumber);
-                              return (
-                                <td
-                                  key={`${grade}-${classNumber}`}
-                                  className="border border-gray-200 px-2 py-1.5 text-center bg-white"
+                  <div className="flex flex-wrap items-center gap-4">
+                    {targetOptions.map((option) => (
+                      <div key={option.value}>
+                        <label
+                          className="flex items-center gap-2 cursor-pointer p-2 rounded-md hover:bg-gray-50"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={selectedTargets.includes(option.value)}
+                            onChange={() => handleTargetToggle(option.value)}
+                            className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                          />
+                          <span className="text-sm text-gray-700 whitespace-nowrap">{option.label}</span>
+                          {option.value === "students" && selectedTargets.includes("students") && selectedClasses.length > 0 && (
+                            <span className="text-xs text-gray-500 px-2 py-1 whitespace-nowrap">
+                              {selectedClasses.length}개 학급 선택됨
+                            </span>
+                          )}
+                        </label>
+                        {option.value === "students" && selectedTargets.includes("students") && isClassSelectionOpen && (
+                          <div
+                            ref={classSelectionRef}
+                            className="mt-2 ml-6 p-4 bg-gray-50 rounded-lg border border-gray-200"
+                          >
+                            <div className="flex items-center justify-between mb-3">
+                              <div className="flex items-center gap-2">
+                                <Button
+                                  type="button"
+                                  variant="primary"
+                                  size="sm"
+                                  onClick={() => setIsClassSelectionOpen(false)}
+                                  className="text-xs h-7 px-2"
                                 >
-                                  <label className="flex items-center justify-center cursor-pointer">
-                                    <input
-                                      type="checkbox"
-                                      checked={selected}
-                                      onChange={() => handleClassToggle(grade, classNumber)}
-                                      className="h-3 w-3 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                                    />
-                                  </label>
-                                </td>
-                              );
-                            })}
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                                  <Check className="h-3 w-3 mr-1" />
+                                  선택 완료
+                                </Button>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={handleClearAll}
+                                  className="text-xs h-7 px-2"
+                                >
+                                  <X className="h-3 w-3 mr-1" />
+                                  모두 지움
+                                </Button>
+                              </div>
+                              <h4 className="text-xs font-semibold text-gray-900">대상 학급</h4>
+                            </div>
+                            <div className="overflow-x-auto">
+                              <table className="w-full border-collapse text-xs">
+                                <thead>
+                                  <tr>
+                                    <th className="border border-gray-200 bg-gray-100 px-2 py-1.5 text-left font-medium text-gray-700">
+                                      반
+                                    </th>
+                                    {GRADES.map((grade) => (
+                                      <th
+                                        key={grade}
+                                        className="border border-gray-200 bg-gray-100 px-2 py-1.5 text-center font-medium text-gray-700"
+                                      >
+                                        <label className="flex items-center justify-center cursor-pointer">
+                                          <input
+                                            type="checkbox"
+                                            checked={isGradeAllSelected(grade)}
+                                            onChange={() => handleGradeToggle(grade)}
+                                            className="h-3 w-3 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                          />
+                                          <span className="ml-1">{grade}학년</span>
+                                        </label>
+                                      </th>
+                                    ))}
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {CLASS_NUMBERS.map((classNumber) => (
+                                    <tr key={classNumber}>
+                                      <td className="border border-gray-200 bg-gray-100 px-2 py-1.5 text-center font-medium text-gray-700">
+                                        {classNumber}반
+                                      </td>
+                                      {GRADES.map((grade) => {
+                                        const selected = isClassSelected(grade, classNumber);
+                                        return (
+                                          <td
+                                            key={`${grade}-${classNumber}`}
+                                            className="border border-gray-200 px-2 py-1.5 text-center bg-white"
+                                          >
+                                            <label className="flex items-center justify-center cursor-pointer">
+                                              <input
+                                                type="checkbox"
+                                                checked={selected}
+                                                onChange={() => handleClassToggle(grade, classNumber)}
+                                                className="h-3 w-3 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                              />
+                                            </label>
+                                          </td>
+                                        );
+                                      })}
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-4 pt-3 border-t border-gray-200">
+                    <Button
+                      type="button"
+                      variant="primary"
+                      size="sm"
+                      onClick={() => setIsTargetModalOpen(false)}
+                      className="w-full"
+                    >
+                      선택 완료
+                    </Button>
                   </div>
                 </div>
-              )}
-            </div>
+              </div>
+            )}
           </div>
           <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
             <div className="flex items-center justify-between gap-2">
