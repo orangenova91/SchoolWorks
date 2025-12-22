@@ -94,12 +94,50 @@ export async function GET(request: NextRequest) {
         })
       : [];
 
+    // 해당 사용자들의 parentProfile 가져오기
+    const parentProfiles = userIds.length > 0
+      ? await prismaAny.parentProfile.findMany({
+          where: {
+            userId: { in: userIds },
+          },
+          select: {
+            userId: true,
+            studentIds: true,
+          },
+        })
+      : [];
+
     // 프로필 맵 생성
     const studentProfileMap = new Map(
       studentProfiles.map((profile: any) => [profile.userId, profile])
     );
     const teacherProfileMap = new Map(
       teacherProfiles.map((profile: any) => [profile.userId, profile])
+    );
+    const parentProfileMap = new Map(
+      parentProfiles.map((profile: any) => [profile.userId, profile])
+    );
+
+    // studentIds로 학생 이메일 맵 생성
+    const allStudentIds = Array.from(
+      new Set(
+        parentProfiles.flatMap((profile: any) => profile.studentIds || [])
+      )
+    );
+    const studentUsers = allStudentIds.length > 0
+      ? await prisma.user.findMany({
+          where: {
+            id: { in: allStudentIds },
+            role: "student",
+          },
+          select: {
+            id: true,
+            email: true,
+          },
+        })
+      : [];
+    const studentIdToEmailMap = new Map(
+      studentUsers.map((student) => [student.id, student.email])
     );
 
     // CSV 헤더 (수정 템플릿: 이메일만 필수)
@@ -114,13 +152,16 @@ export async function GET(request: NextRequest) {
       "어머니성함", "어머니연락처", "어머니관련비고",
       "아버지성함", "아버지연락처", "아버지관련비고", "선택과목",
       // TeacherProfile 필드
-      "직위"
+      "직위",
+      // ParentProfile 필드
+      "자녀이메일"
     ];
 
     // CSV 데이터 생성
     const csvRows = users.map((user) => {
       const studentProfile = studentProfileMap.get(user.id);
       const teacherProfile = teacherProfileMap.get(user.id);
+      const parentProfile = parentProfileMap.get(user.id);
       
       // 선택과목은 배열이므로 쉼표로 구분된 문자열로 변환
       const electiveSubjects = studentProfile?.electiveSubjects 
@@ -128,6 +169,16 @@ export async function GET(request: NextRequest) {
             ? studentProfile.electiveSubjects.join(",") 
             : studentProfile.electiveSubjects)
         : "";
+
+      // 자녀이메일: parentProfile의 studentIds로 학생 이메일 찾기
+      let childEmails = "";
+      if (user.role === "parent" && parentProfile?.studentIds && parentProfile.studentIds.length > 0) {
+        const emails = parentProfile.studentIds
+          .map((studentId: string) => studentIdToEmailMap.get(studentId))
+          .filter((email) => email)
+          .join(", ");
+        childEmails = emails;
+      }
 
       return [
         // User 필드
@@ -162,6 +213,8 @@ export async function GET(request: NextRequest) {
         electiveSubjects,
         // TeacherProfile 필드
         user.role === "teacher" && teacherProfile?.roleLabel ? teacherProfile.roleLabel : "",
+        // ParentProfile 필드
+        childEmails,
       ];
     });
 

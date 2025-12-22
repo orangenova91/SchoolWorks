@@ -169,9 +169,10 @@ export async function PUT(
     const currentSection = student.studentProfile?.section;
     const currentStudentId = student.studentProfile?.studentId;
     
-    // 학번이 변경되었을 때 grade와 section 자동 추출
+    // 학번이 변경되었을 때 grade, section, seatNumber 자동 추출
     let extractedGrade: string | null | undefined = validatedData.grade;
     let extractedSection: string | null | undefined = validatedData.section;
+    let extractedSeatNumber: string | null | undefined = validatedData.seatNumber;
     
     if (validatedData.studentId !== undefined && validatedData.studentId !== currentStudentId) {
       const studentId = validatedData.studentId;
@@ -185,6 +186,14 @@ export async function PUT(
         const sectionValue = parseInt(studentId.substring(1, 3), 10);
         if (!isNaN(sectionValue)) {
           extractedSection = String(sectionValue);
+        }
+      }
+      
+      // 학번의 뒤 두 자리를 좌석번호(seatNumber)로 자동 추출
+      if (studentId && studentId.length >= 2) {
+        const seatValue = parseInt(studentId.substring(studentId.length - 2), 10);
+        if (!isNaN(seatValue)) {
+          extractedSeatNumber = String(seatValue);
         }
       }
     }
@@ -207,16 +216,25 @@ export async function PUT(
       }
     }
     
-    // 학번에서 추출된 grade와 section을 profileUpdateData에 추가
+    // 학번에서 추출된 grade, section, seatNumber를 profileUpdateData에 추가
     if (extractedGrade !== undefined) {
       profileUpdateData.grade = extractedGrade;
     }
     if (extractedSection !== undefined) {
       profileUpdateData.section = extractedSection;
     }
+    if (extractedSeatNumber !== undefined) {
+      profileUpdateData.seatNumber = extractedSeatNumber;
+    }
+    
+    // seatNumber는 학번에서 자동 추출되므로, 명시적으로 제공된 경우에만 사용
+    // (학번 변경 시 자동 추출된 값이 우선)
+    if (extractedSeatNumber === undefined && validatedData.seatNumber !== undefined) {
+      profileUpdateData.seatNumber = validatedData.seatNumber;
+    }
     
     const profileFields = [
-      "studentId", "grade", "section", "seatNumber",
+      "studentId", "grade", "section",
       "major", "sex", "classOfficer", "specialEducation", "phoneNumber",
       "siblings", "academicStatus", "remarks", "club", "clubTeacher",
       "clubLocation", "dateOfBirth", "address", "residentRegistrationNumber",

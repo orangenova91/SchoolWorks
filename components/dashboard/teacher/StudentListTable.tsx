@@ -5,44 +5,20 @@ import { useRouter } from "next/navigation";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Button } from "@/components/ui/Button";
-import { Download, Edit2, Save, X } from "lucide-react";
-import { useToastContext } from "@/components/providers/ToastProvider";
-
-type StudentWithProfile = {
-  id: string;
-  name: string;
-  email: string;
-  school: string;
-  studentId: string;
-  grade: string;
-  classLabel: string;
-  section: string;
-  sex: string;
-  phoneNumber: string;
-  createdAt: Date;
-};
+import { Download, Edit2 } from "lucide-react";
+import { EditStudentModal, type StudentWithProfile } from "./EditStudentModal";
 
 type StudentListTableProps = {
   students: StudentWithProfile[];
 };
 
-type EditingStudentData = {
-  studentId: string;
-  name: string;
-  sex: string;
-  classLabel: string;
-  phoneNumber: string;
-};
-
 export default function StudentListTable({ students }: StudentListTableProps) {
   const router = useRouter();
-  const { showToast } = useToastContext();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedGradeFilter, setSelectedGradeFilter] = useState<string>("");
   const [selectedClassLabelFilter, setSelectedClassLabelFilter] = useState<string>("");
-  const [editingStudentId, setEditingStudentId] = useState<string | null>(null);
-  const [editingData, setEditingData] = useState<EditingStudentData | null>(null);
-  const [isSaving, setIsSaving] = useState(false);
+  const [selectedStudent, setSelectedStudent] = useState<StudentWithProfile | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   // 학생들의 고유한 학년 목록
   const uniqueGrades = useMemo(() => {
@@ -124,65 +100,20 @@ export default function StudentListTable({ students }: StudentListTableProps) {
 
   // 편집 시작
   const handleStartEdit = (student: StudentWithProfile) => {
-    setEditingStudentId(student.id);
-    setEditingData({
-      studentId: student.studentId === "-" ? "" : student.studentId,
-      name: student.name,
-      sex: student.sex === "-" ? "" : student.sex,
-      classLabel: student.classLabel === "-" ? "" : student.classLabel,
-      phoneNumber: student.phoneNumber === "-" ? "" : student.phoneNumber,
-    });
+    setSelectedStudent(student);
+    setIsModalOpen(true);
   };
 
-  // 편집 취소
-  const handleCancelEdit = () => {
-    setEditingStudentId(null);
-    setEditingData(null);
+  // 모달 닫기
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setSelectedStudent(null);
   };
 
-  // 편집 저장
-  const handleSaveEdit = async (studentId: string) => {
-    if (!editingData) return;
-
-    setIsSaving(true);
-    try {
-      const response = await fetch(`/api/teacher/students/${studentId}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          studentId: editingData.studentId || undefined,
-          name: editingData.name || undefined,
-          sex: editingData.sex || undefined,
-          classLabel: editingData.classLabel || undefined,
-          phoneNumber: editingData.phoneNumber || undefined,
-        }),
-      });
-
-      const responseBody = await response.json().catch(() => null);
-
-      if (!response.ok) {
-        const errorMessage =
-          responseBody?.error ??
-          "학생 정보 수정 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.";
-        throw new Error(errorMessage);
-      }
-
-      showToast("학생 정보가 성공적으로 수정되었습니다.", "success");
-      setEditingStudentId(null);
-      setEditingData(null);
-      router.refresh();
-    } catch (error) {
-      console.error(error);
-      const message =
-        error instanceof Error
-          ? error.message
-          : "학생 정보 수정 중 오류가 발생했습니다.";
-      showToast(message, "error");
-    } finally {
-      setIsSaving(false);
-    }
+  // 저장 성공 핸들러
+  const handleSaveSuccess = () => {
+    router.refresh();
+    handleCloseModal();
   };
 
   // CSV 다운로드 함수
@@ -356,9 +287,6 @@ export default function StudentListTable({ students }: StudentListTableProps) {
                 성별
               </th>
               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                학반
-              </th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                 이메일
               </th>
               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
@@ -372,143 +300,38 @@ export default function StudentListTable({ students }: StudentListTableProps) {
           <tbody className="divide-y divide-gray-200">
             {filteredStudents.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-sm text-gray-500">
+                <td colSpan={6} className="px-4 py-8 text-center text-sm text-gray-500">
                   {searchQuery.trim() ? "검색 결과가 없습니다." : "등록된 학생이 없습니다."}
                 </td>
               </tr>
             ) : (
               filteredStudents.map((student) => {
-                const isEditing = editingStudentId === student.id;
-                const editData = editingData;
-
                 return (
                   <tr key={student.id} className="hover:bg-gray-50">
                     <td className="px-4 py-3 text-sm text-gray-900">
-                      {isEditing && editData ? (
-                        <div className="w-full">
-                          <input
-                            type="text"
-                            value={editData.studentId}
-                            onChange={(e) =>
-                              setEditingData({ ...editData, studentId: e.target.value })
-                            }
-                            className="w-full h-8 px-2 text-sm rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
-                            placeholder="학번"
-                          />
-                        </div>
-                      ) : (
-                        student.studentId
-                      )}
+                      {student.studentId}
                     </td>
                     <td className="px-4 py-3 text-sm font-medium text-gray-900">
-                      {isEditing && editData ? (
-                        <div className="w-full">
-                          <input
-                            type="text"
-                            value={editData.name}
-                            onChange={(e) =>
-                              setEditingData({ ...editData, name: e.target.value })
-                            }
-                            className="w-full h-8 px-2 text-sm rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
-                            placeholder="이름"
-                          />
-                        </div>
-                      ) : (
-                        student.name
-                      )}
+                      {student.name}
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-700">
-                      {isEditing && editData ? (
-                        <div className="w-full">
-                          <select
-                            value={editData.sex}
-                            onChange={(e) =>
-                              setEditingData({ ...editData, sex: e.target.value })
-                            }
-                            className="w-full h-8 px-2 text-sm rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 bg-white"
-                          >
-                            <option value="">선택</option>
-                            <option value="남">남</option>
-                            <option value="여">여</option>
-                          </select>
-                        </div>
-                      ) : (
-                        student.sex
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-700">
-                      {isEditing && editData ? (
-                        <div className="w-full">
-                          <input
-                            type="text"
-                            value={editData.classLabel}
-                            onChange={(e) =>
-                              setEditingData({
-                                ...editData,
-                                classLabel: e.target.value,
-                              })
-                            }
-                            className="w-full h-8 px-2 text-sm rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
-                            placeholder="학반"
-                          />
-                        </div>
-                      ) : (
-                        student.classLabel
-                      )}
+                      {student.sex}
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-600">
                       {student.email}
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-600">
-                      {isEditing && editData ? (
-                        <div className="w-full">
-                          <input
-                            type="text"
-                            value={editData.phoneNumber}
-                            onChange={(e) =>
-                              setEditingData({
-                                ...editData,
-                                phoneNumber: e.target.value,
-                              })
-                            }
-                            className="w-full h-8 px-2 text-sm rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
-                            placeholder="연락처"
-                          />
-                        </div>
-                      ) : (
-                        student.phoneNumber
-                      )}
+                      {student.phoneNumber}
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-center gap-1">
-                        {isEditing ? (
-                          <>
-                            <button
-                              onClick={() => handleSaveEdit(student.id)}
-                              disabled={isSaving}
-                              className="p-1.5 text-green-600 hover:bg-green-50 rounded transition-colors disabled:opacity-50"
-                              title="저장"
-                            >
-                              <Save className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={handleCancelEdit}
-                              disabled={isSaving}
-                              className="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors disabled:opacity-50"
-                              title="취소"
-                            >
-                              <X className="w-4 h-4" />
-                            </button>
-                          </>
-                        ) : (
-                          <button
-                            onClick={() => handleStartEdit(student)}
-                            className="p-1.5 text-gray-600 hover:bg-gray-100 rounded transition-colors"
-                            title="편집"
-                          >
-                            <Edit2 className="w-4 h-4" />
-                          </button>
-                        )}
+                        <button
+                          onClick={() => handleStartEdit(student)}
+                          className="p-1.5 text-gray-600 hover:bg-gray-100 rounded transition-colors"
+                          title="편집"
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -518,6 +341,13 @@ export default function StudentListTable({ students }: StudentListTableProps) {
           </tbody>
         </table>
       </div>
+
+      <EditStudentModal
+        student={selectedStudent}
+        isOpen={isModalOpen}
+        onClose={handleCloseModal}
+        onSuccess={handleSaveSuccess}
+      />
     </section>
   );
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Upload, X, CheckCircle, AlertCircle, Download } from "lucide-react";
+import { Upload, X, CheckCircle, AlertCircle, Download, UserPlus } from "lucide-react";
 
 type UploadResult = {
   success: boolean;
@@ -15,7 +15,11 @@ type UploadResult = {
 
 type Mode = "import" | "update";
 
-export function CsvUploader() {
+type CsvUploaderProps = {
+  onAddUser?: () => void;
+};
+
+export function CsvUploader({ onAddUser }: CsvUploaderProps) {
   const [mode, setMode] = useState<Mode>("import");
   const [file, setFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -322,19 +326,31 @@ export function CsvUploader() {
             CSV 파일을 업로드하여 여러 사용자를 한 번에 등록하거나 수정할 수 있습니다.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={handleDownloadTemplate}
-          disabled={isDownloadingTemplate}
-          className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:bg-gray-100 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-blue-500"
-        >
-          <Download className="w-4 h-4" />
-          {isDownloadingTemplate 
-            ? "다운로드 중..." 
-            : mode === "update" 
-            ? "수정 템플릿 다운로드" 
-            : "등록 템플릿 다운로드"}
-        </button>
+        <div className="flex items-center gap-3">
+          {onAddUser && (
+            <button
+              type="button"
+              onClick={onAddUser}
+              className="inline-flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <UserPlus className="w-4 h-4" />
+              개별 사용자 등록
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={handleDownloadTemplate}
+            disabled={isDownloadingTemplate}
+            className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:bg-gray-100 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <Download className="w-4 h-4" />
+            {isDownloadingTemplate 
+              ? "다운로드 중..." 
+              : mode === "update" 
+              ? "수정 템플릿 다운로드" 
+              : "등록 템플릿 다운로드"}
+          </button>
+        </div>
       </div>
 
       {/* 탭 */}

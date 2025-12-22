@@ -28,7 +28,7 @@ async function main() {
     trim: true,
   }) as CsvRow[];
 
-  const DEFAULT_PASSWORD = "Abcd1234!@";
+  const DEFAULT_PASSWORD = "abcd1234!@";
   const defaultHash = await bcrypt.hash(DEFAULT_PASSWORD, 12);
 
   const rawUsers = rows

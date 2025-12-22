@@ -45,7 +45,7 @@ type CsvRow = {
   "자녀이메일"?: string; // 쉼표로 구분된 자녀 학생들의 이메일
 };
 
-const DEFAULT_PASSWORD = "Abcd1234!@";
+const DEFAULT_PASSWORD = "abcd1234!@";
 
 export async function POST(request: NextRequest) {
   try {
