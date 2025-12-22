@@ -86,7 +86,7 @@ export const translations = {
           action: "공지 작성",
         },
       },
-      teacherScheduleTitle: "다가오는 일정",
+      teacherScheduleTitle: "학사 일정",
       teacherScheduleEmpty: "등록된 일정이 없습니다. 새 수업을 추가해보세요.",
       studentTitle: "학생용 대시보드",
       studentDescription: "오늘 할 일과 수업 일정을 빠르게 확인하세요.",

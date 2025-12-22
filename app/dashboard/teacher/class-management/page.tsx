@@ -121,13 +121,13 @@ export default async function ClassManagementPage() {
   const infoChips = [
     teacherProfile?.grade?.trim() ? `${teacherProfile.grade.trim()}학년` : null,
     teacherProfile?.classLabel?.trim()
-      ? `${teacherProfile.classLabel.trim()}반`
+      ? `${teacherProfile.classLabel.trim()}학반`
       : null,
     teacherProfile?.section?.trim() ? teacherProfile.section.trim() : null,
   ].filter(Boolean) as string[];
 
   const homeroomTitle = teacherProfile?.grade && teacherProfile?.classLabel
-    ? `${teacherProfile.grade}학년 ${teacherProfile.classLabel}반`
+    ? `${teacherProfile.grade}학년 ${teacherProfile.classLabel}학반`
     : "담임반 관리";
 
   return (

@@ -213,6 +213,34 @@ export default async function DashboardLayout({
             external: isGoogleWorkspaceUser,
           },
         ]
+      : role === "parent"
+      ? [
+          {
+            href: "/dashboard/parent",
+            label: "대시보드",
+            icon: <Home className="w-5 h-5" />,
+            iconName: "Home",
+          },
+          {
+            href: "/dashboard/parent/announcements",
+            label: "공지사항",
+            icon: <Bell className="w-5 h-5" />,
+            iconName: "Bell",
+          },
+          {
+            href: "/dashboard/parent/schedule",
+            label: "학사일정",
+            icon: <Calendar className="w-5 h-5" />,
+            iconName: "Calendar",
+          },
+          {
+            href: googleChatLink,
+            label: isGoogleWorkspaceUser ? "Google Chat" : "메시지",
+            icon: <MessageCircle className="w-5 h-5" />,
+            iconName: "MessageCircle",
+            external: isGoogleWorkspaceUser,
+          },
+        ]
       : [];
 
   return (

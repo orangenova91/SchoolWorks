@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { ChevronDown, ChevronUp, Filter, X, Edit } from "lucide-react";
+import { useMemo, useState, useImperativeHandle, forwardRef } from "react";
+import { ChevronDown, ChevronUp, Filter, X, Edit, UserPlus } from "lucide-react";
 import { EditUserModal } from "./EditUserModal";
 
 type SortKey = "name" | "school" | "role" | "studentId" | "createdAt" | "email" | "grade" | "className";
@@ -22,6 +22,7 @@ type UsersTableProps = {
   rows: UsersTableRow[];
   initialPageSize?: number;
   pageSizeOptions?: number[];
+  adminSchool?: string;
 };
 
 const columnConfig: Array<{
@@ -55,11 +56,10 @@ type FilterState = {
   name: string;
 };
 
-export function UsersTable({
-  rows,
-  initialPageSize = 20,
-  pageSizeOptions = [10, 20, 50],
-}: UsersTableProps) {
+export const UsersTable = forwardRef<
+  { openAddUserModal: () => void },
+  UsersTableProps
+>(({ rows, initialPageSize = 20, pageSizeOptions = [10, 20, 50], adminSchool }, ref) => {
   const [sortConfig, setSortConfig] = useState<{ key: SortKey; direction: "asc" | "desc" }>({
     key: "name",
     direction: "asc",
@@ -169,6 +169,30 @@ export function UsersTable({
     return Array.from(roles).sort();
   }, [rows]);
 
+  // 역할 한글 매핑 함수
+  const getRoleLabel = (role: string) => {
+    const roleMap: Record<string, string> = {
+      student: "학생",
+      teacher: "교사",
+      admin: "관리자",
+      parent: "학부모",
+      superadmin: "슈퍼관리자",
+    };
+    return roleMap[role] || role;
+  };
+
+  // 역할 뱃지 색상 매핑 함수
+  const getRoleBadgeStyle = (role: string) => {
+    const styleMap: Record<string, string> = {
+      student: "bg-green-100 text-green-700", // 학생: 초록색
+      teacher: "bg-pink-100 text-pink-700", // 교사: 분홍색
+      admin: "bg-purple-100 text-purple-700", // 관리자: 보라색
+      parent: "bg-blue-100 text-blue-700", // 학부모: 파란색
+      superadmin: "bg-red-100 text-red-700", // 슈퍼관리자: 빨간색
+    };
+    return styleMap[role] || "bg-slate-100 text-slate-700";
+  };
+
   // 학반 목록 추출
   const availableClassNames = useMemo(() => {
     const classNames = new Set(
@@ -209,6 +233,15 @@ export function UsersTable({
     const csvContent = [header, ...lines].join("\n");
     triggerDownload("\uFEFF" + csvContent, "text/csv;charset=utf-8;", "users.csv");
   };
+
+  const handleAddUser = () => {
+    setEditingUser(null);
+    setIsEditModalOpen(true);
+  };
+
+  useImperativeHandle(ref, () => ({
+    openAddUserModal: handleAddUser,
+  }));
 
   return (
     <div className="space-y-4">
@@ -251,7 +284,7 @@ export function UsersTable({
                 <option value="">전체</option>
                 {availableRoles.map((role) => (
                   <option key={role} value={role}>
-                    {role}
+                    {getRoleLabel(role)}
                   </option>
                 ))}
               </select>
@@ -296,16 +329,29 @@ export function UsersTable({
             </div>
           </div>
         )}
-      </div>
-
-      <div className="flex flex-wrap justify-end gap-3">
-        <button
-          type="button"
-          onClick={handleDownloadCsv}
-          className="inline-flex items-center rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:border-blue-400 hover:text-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
-        >
-          CSV 다운로드
-        </button>
+        {/* 필터 결과 정보 및 CSV 다운로드 */}
+        <div className="pt-3 border-t border-gray-200 mt-3">
+          <div className="flex items-center justify-end gap-4">
+            <div className="text-sm text-gray-600">
+              {hasActiveFilters ? (
+                <>
+                  필터 결과: {filteredRows.length}명 / 전체: {rows.length}명
+                </>
+              ) : (
+                <>
+                  총 {rows.length}명 · 페이지 {currentPage}/{totalPages}
+                </>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={handleDownloadCsv}
+              className="inline-flex items-center rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:border-blue-400 hover:text-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              CSV 다운로드
+            </button>
+          </div>
+        </div>
       </div>
 
       <table className="min-w-full divide-y divide-gray-200 text-sm">
@@ -333,8 +379,12 @@ export function UsersTable({
               <td className="px-4 py-3 text-gray-600">{row.studentId}</td>
               <td className="px-4 py-3 font-medium text-gray-900">{row.name}</td>
               <td className="px-4 py-3 text-center">
-                <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-slate-100 text-slate-700">
-                  {row.role}
+                <span
+                  className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getRoleBadgeStyle(
+                    row.role,
+                  )}`}
+                >
+                  {getRoleLabel(row.role)}
                 </span>
               </td>
               <td className="px-4 py-3 text-gray-500">
@@ -366,18 +416,7 @@ export function UsersTable({
         </tbody>
       </table>
 
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between text-sm text-gray-600">
-        <div>
-          {hasActiveFilters ? (
-            <>
-              필터 결과: {filteredRows.length}명 / 전체: {rows.length}명 · 페이지 {currentPage}/{totalPages}
-            </>
-          ) : (
-            <>
-              총 {rows.length}명 · 페이지 {currentPage}/{totalPages}
-            </>
-          )}
-        </div>
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end text-sm text-gray-600">
         <div className="inline-flex items-center gap-3 flex-wrap sm:flex-nowrap">
           <button
             type="button"
@@ -445,10 +484,13 @@ export function UsersTable({
         onSuccess={() => {
           window.location.reload();
         }}
+        adminSchool={adminSchool}
       />
     </div>
   );
-}
+});
+
+UsersTable.displayName = "UsersTable";
 
 function compareValues(
   a: UsersTableRow,

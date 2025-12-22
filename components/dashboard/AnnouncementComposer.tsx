@@ -531,7 +531,7 @@ function AnnouncementComposerForm({
                       <X className="h-4 w-4" />
                     </button>
                   </div>
-                  <div className="space-y-2">
+                  <div className="flex flex-wrap items-center gap-4">
                     {targetOptions.map((option) => (
                       <div key={option.value}>
                         <label
@@ -543,9 +543,9 @@ function AnnouncementComposerForm({
                             onChange={() => handleTargetToggle(option.value)}
                             className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                           />
-                          <span className="text-sm text-gray-700 flex-1">{option.label}</span>
+                          <span className="text-sm text-gray-700 whitespace-nowrap">{option.label}</span>
                           {option.value === "students" && selectedTargets.includes("students") && selectedClasses.length > 0 && (
-                            <span className="text-xs text-gray-500 px-2 py-1">
+                            <span className="text-xs text-gray-500 px-2 py-1 whitespace-nowrap">
                               {selectedClasses.length}개 학급 선택됨
                             </span>
                           )}

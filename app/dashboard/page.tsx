@@ -17,7 +17,6 @@ export default async function DashboardIndexPage() {
   if (role === "teacher") {
     redirect("/dashboard/teacher");
   }
-
   if (role === "student") {
     redirect("/dashboard/student");
   }
@@ -28,6 +27,10 @@ export default async function DashboardIndexPage() {
 
   if (role === "superadmin") {
     redirect("/dashboard/superadmin");
+  }
+
+  if (role === "parent") {
+    redirect("/dashboard/parent");
   }
 
   return (
