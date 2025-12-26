@@ -2,8 +2,8 @@ import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import StaffListTable from "@/components/dashboard/teacher/StaffListTable";
+import { RosterToggle } from "@/components/dashboard/teacher/RosterToggle";
 
 export const dynamic = 'force-dynamic';
 
@@ -13,7 +13,6 @@ export default async function TeacherStaffPage() {
   if (!session) {
     redirect("/login");
   }
-
   if (session.user.role !== "teacher") {
     redirect("/dashboard");
   }
@@ -62,8 +61,18 @@ export default async function TeacherStaffPage() {
       })
     : [];
 
-  const profileMap = new Map(
-    teacherProfiles.map((profile: { userId: string; roleLabel: string | null; major: string | null; classLabel: string | null; grade: string | null; section: string | null; phoneNumber: string | null }) => [
+  type TeacherProfileSummary = {
+    userId: string;
+    roleLabel: string | null;
+    major: string | null;
+    classLabel: string | null;
+    grade: string | null;
+    section: string | null;
+    phoneNumber: string | null;
+  };
+
+  const profileMap = new Map<string, TeacherProfileSummary>(
+    teacherProfiles.map((profile: TeacherProfileSummary) => [
       profile.userId,
       profile,
     ])
@@ -87,111 +96,19 @@ export default async function TeacherStaffPage() {
     };
   });
 
-  const getRoleDisplay = (role: string | null) => {
-    switch (role) {
-      case "teacher":
-        return "교사";
-      case "admin":
-        return "관리자";
-      default:
-        return role ?? "-";
-    }
-  };
-
   return (
     <div className="space-y-6">
       <header className="border-4 border-dashed border-gray-200 rounded-lg p-8 bg-white">
-        <Link
-          href="/dashboard/teacher"
-          className="inline-flex items-center text-sm text-gray-600 hover:text-gray-900 mb-4"
-        >
-          <ArrowLeft className="w-4 h-4 mr-2" />
-          대시보드로 돌아가기
-        </Link>
+        <RosterToggle currentPage="staff" />
         <h1 className="text-2xl font-bold text-gray-900">교직원 명렬</h1>
         <p className="mt-2 text-sm text-gray-600">
           학교 교직원 목록을 확인할 수 있습니다.
         </p>
-        <div className="mt-4 text-sm text-gray-500">
-          총 {staffWithProfiles.length}명
-        </div>
       </header>
 
-      <section className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
-        <div className="overflow-x-auto">
-          <table className="w-full border-collapse">
-            <thead>
-              <tr className="border-b border-gray-200">
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                  이름
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                  역할
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                  직책
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                  담당 과목/분야
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                  담당 학년/학반
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                  이메일
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                  전화번호
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                  학교
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {staffWithProfiles.length === 0 ? (
-                <tr>
-                  <td colSpan={8} className="px-4 py-8 text-center text-sm text-gray-500">
-                    등록된 교직원이 없습니다.
-                  </td>
-                </tr>
-              ) : (
-                staffWithProfiles.map((member) => (
-                  <tr key={member.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 text-sm font-medium text-gray-900">
-                      {member.name}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-700">
-                      {getRoleDisplay(member.role)}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-700">
-                      {member.roleLabel}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-700">
-                      {member.major}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-700">
-                      {member.grade !== "-" && member.classLabel !== "-"
-                        ? `${member.grade}학년 ${member.classLabel}학반${member.section !== "-" ? ` ${member.section}` : ""}`
-                        : "-"}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-600">
-                      {member.email}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-600">
-                      {member.phoneNumber}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-600">
-                      {member.school}
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </section>
+      <StaffListTable staff={staffWithProfiles} />
     </div>
   );
 }
+
 

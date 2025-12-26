@@ -43,10 +43,20 @@ export function Sidebar({ items }: SidebarProps) {
           {items.map((item) => {
             const targetPath = item.href.split("#")[0];
             const isBasePath = rootPaths.includes(targetPath);
-            const isActive =
-              !item.external &&
-              (pathname === targetPath ||
-                (!isBasePath && pathname.startsWith(targetPath + "/")));
+            
+            // "구성원 조회" 메뉴는 students와 staff 둘 다에서 활성화
+            let isActive = false;
+            if (!item.external) {
+              if (targetPath === "/dashboard/teacher/students") {
+                isActive = pathname === "/dashboard/teacher/students" || 
+                          pathname === "/dashboard/teacher/staff" ||
+                          pathname.startsWith("/dashboard/teacher/students/") ||
+                          pathname.startsWith("/dashboard/teacher/staff/");
+              } else {
+                isActive = pathname === targetPath ||
+                          (!isBasePath && pathname.startsWith(targetPath + "/"));
+              }
+            }
             
             const linkClassName = cn(
               "flex items-center rounded-lg px-3 py-2 text-sm font-medium transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2",

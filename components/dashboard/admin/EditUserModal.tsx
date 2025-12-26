@@ -24,6 +24,7 @@ export function EditUserModal({ user, isOpen, onClose, onSuccess, adminSchool }:
     grade: "",
     className: "",
     childEmails: "", // 학부모의 자녀 이메일 (쉼표로 구분)
+    roleLabel: "", // 교사의 직책
   });
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -45,6 +46,7 @@ export function EditUserModal({ user, isOpen, onClose, onSuccess, adminSchool }:
         grade: user.grade || "",
         className: user.className || "",
         childEmails: "", // 초기값은 빈 문자열, API에서 가져옴
+        roleLabel: "", // 편집 모드에서는 API에서 가져와야 할 수도 있음
       });
       setError(null);
       
@@ -66,6 +68,7 @@ export function EditUserModal({ user, isOpen, onClose, onSuccess, adminSchool }:
         grade: "",
         className: "",
         childEmails: "",
+        roleLabel: "",
       });
       setError(null);
       setChildStudents([]);
@@ -120,6 +123,7 @@ export function EditUserModal({ user, isOpen, onClose, onSuccess, adminSchool }:
             grade: formData.grade,
             className: formData.className,
             childEmails: formData.childEmails, // 학부모의 자녀 이메일
+            roleLabel: formData.roleLabel, // 교사의 직책
             // email과 school은 편집 모드에서 제외 (변경 불가)
           };
 
@@ -258,10 +262,12 @@ export function EditUserModal({ user, isOpen, onClose, onSuccess, adminSchool }:
                   type="email"
                   value={formData.email}
                   onChange={(e) => handleChange("email", e.target.value)}
-                  required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-gray-100"
-                  disabled={true}
-                  readOnly={true}
+                  required={isCreateMode}
+                  className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 ${
+                    isCreateMode ? "bg-white" : "bg-gray-100"
+                  }`}
+                  disabled={!isCreateMode}
+                  readOnly={!isCreateMode}
                 />
                 {!isCreateMode && (
                   <p className="text-xs text-gray-500 mt-1">
@@ -322,19 +328,55 @@ export function EditUserModal({ user, isOpen, onClose, onSuccess, adminSchool }:
               </div>
             ) : (
               <>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    이름 <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.name}
-                    onChange={(e) => handleChange("name", e.target.value)}
-                    required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
-                    disabled={isSaving}
-                  />
-                </div>
+                {/* 교사 역할일 때 직책과 이름을 나란히 배치 */}
+                {formData.role === "teacher" ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        직책
+                      </label>
+                      <select
+                        value={formData.roleLabel}
+                        onChange={(e) => handleChange("roleLabel", e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                        disabled={isSaving}
+                      >
+                        <option value="">선택 안 함</option>
+                        <option value="교사">교사</option>
+                        <option value="교감">교감</option>
+                        <option value="교장">교장</option>
+                        <option value="행정실">행정실</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        이름 <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.name}
+                        onChange={(e) => handleChange("name", e.target.value)}
+                        required
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                        disabled={isSaving}
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      이름 <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.name}
+                      onChange={(e) => handleChange("name", e.target.value)}
+                      required
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                      disabled={isSaving}
+                    />
+                  </div>
+                )}
                 {/* 학부모 역할일 때 자녀 학생 정보 표시 */}
                 {formData.role === "parent" && (
                   <div>

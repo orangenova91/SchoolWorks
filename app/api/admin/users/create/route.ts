@@ -113,6 +113,7 @@ export async function POST(request: NextRequest) {
         data: {
           userId: user.id,
           school: body.school?.trim() || null,
+          roleLabel: body.roleLabel?.trim() || null,
         },
       });
     } else if (user.role === "parent") {
