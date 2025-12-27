@@ -6,6 +6,11 @@ import { Calendar, User, Eye, ChevronDown, ChevronUp, Edit, Trash2, ChevronLeft,
 import { cn } from "@/lib/utils";
 import { Select } from "@/components/ui/Select";
 
+interface SelectedClass {
+  grade: string;
+  classNumber: string;
+}
+
 interface Announcement {
   id: string;
   title: string;
@@ -17,6 +22,8 @@ interface Announcement {
   publishedAt: string | null;
   createdAt: string;
   updatedAt: string;
+  selectedClasses: string | null;
+  parentSelectedClasses: string | null;
 }
 
 interface AnnouncementListProps {
@@ -36,6 +43,110 @@ const audienceLabels: Record<string, string> = {
   "grade-3": "3학년",
   parents: "학부모",
   teachers: "교직원",
+};
+
+// 선택된 학반 정보를 텍스트로 변환
+const formatSelectedClasses = (selectedClassesStr: string | null): string | null => {
+  if (!selectedClassesStr) return null;
+  try {
+    const classes: SelectedClass[] = JSON.parse(selectedClassesStr);
+    if (classes.length === 0) return null;
+
+    // 학년별로 그룹화
+    const groupedByGrade: Record<string, string[]> = {};
+    classes.forEach((cls) => {
+      if (!groupedByGrade[cls.grade]) {
+        groupedByGrade[cls.grade] = [];
+      }
+      groupedByGrade[cls.grade].push(cls.classNumber);
+    });
+
+    // 전체 반 수: 7개
+    const TOTAL_CLASSES_PER_GRADE = 7;
+
+    // 학년별로 정렬하고 텍스트 생성
+    const gradeTexts = Object.keys(groupedByGrade)
+      .sort()
+      .map((grade) => {
+        const classNumbers = groupedByGrade[grade].sort();
+        // 해당 학년의 모든 반(7개)이 선택된 경우 "X학년 전체"로 표시
+        if (classNumbers.length === TOTAL_CLASSES_PER_GRADE) {
+          return `${grade}학년 전체`;
+        }
+        // 일부 반만 선택된 경우
+        // 반 번호를 숫자로 변환하여 정렬 (01 -> 1)
+        const sortedClassNumbers = classNumbers.sort((a, b) => parseInt(a) - parseInt(b));
+        return `${grade}학년 ${sortedClassNumbers.join(", ")}반`;
+      });
+
+    return gradeTexts.join(" / ");
+  } catch (error) {
+    console.error("Error parsing selectedClasses:", error);
+    return null;
+  }
+};
+
+// 모든 학반이 선택되었는지 확인 (3학년 * 7반 = 21개)
+const isAllClassesSelected = (selectedClassesStr: string | null): boolean => {
+  if (!selectedClassesStr) return false;
+  try {
+    const classes: SelectedClass[] = JSON.parse(selectedClassesStr);
+    // 전체 학반 수: 3학년 * 7반 = 21개
+    return classes.length === 21;
+  } catch (error) {
+    return false;
+  }
+};
+
+// 대상 필드 텍스트 생성
+const getAudienceDisplayText = (announcement: Announcement): string => {
+  const baseLabel = audienceLabels[announcement.audience] || announcement.audience;
+  
+  // 재학생과 학부모 텍스트 생성
+  const getStudentText = (): string | null => {
+    if (!announcement.selectedClasses) return null;
+    if (isAllClassesSelected(announcement.selectedClasses)) {
+      return "모든 재학생";
+    }
+    const selectedClassesText = formatSelectedClasses(announcement.selectedClasses);
+    if (selectedClassesText) {
+      return `재학생 (${selectedClassesText})`;
+    }
+    return null;
+  };
+
+  const getParentText = (): string | null => {
+    if (!announcement.parentSelectedClasses) return null;
+    if (isAllClassesSelected(announcement.parentSelectedClasses)) {
+      return "모든 학부모";
+    }
+    const parentSelectedClassesText = formatSelectedClasses(announcement.parentSelectedClasses);
+    if (parentSelectedClassesText) {
+      return `학부모 (${parentSelectedClassesText})`;
+    }
+    return null;
+  };
+
+  const studentText = getStudentText();
+  const parentText = getParentText();
+
+  // 재학생과 학부모가 모두 있는 경우
+  if (studentText && parentText) {
+    return `${studentText} / ${parentText}`;
+  }
+
+  // 재학생만 있는 경우
+  if (studentText) {
+    return studentText;
+  }
+
+  // 학부모만 있는 경우
+  if (parentText) {
+    return parentText;
+  }
+
+  // 둘 다 없는 경우 (기존 데이터일 수 있음)
+  return baseLabel;
 };
 
 export function AnnouncementList({ includeScheduled = false, audience, refreshKey, onEdit, showEditButton = false, onDelete, showDeleteButton = false }: AnnouncementListProps) {
@@ -71,6 +182,7 @@ export function AnnouncementList({ includeScheduled = false, audience, refreshKe
       }
 
       console.log("Announcements fetched:", data.announcements?.length || 0, "items");
+      console.log("Sample announcement:", data.announcements?.[0]);
       setAnnouncements(data.announcements || []);
     } catch (err: any) {
       console.error("Failed to fetch announcements:", err);
@@ -295,10 +407,10 @@ export function AnnouncementList({ includeScheduled = false, audience, refreshKe
       <div className="bg-gray-50 border-b border-gray-200">
         <div className="grid grid-cols-12 gap-4 px-4 py-3 text-xs font-semibold text-gray-700">
           <div className="col-span-1 text-center">번호</div>
-          <div className="col-span-6">제목</div>
+          <div className="col-span-5">제목</div>
           <div className="col-span-2 text-center">작성자</div>
           <div className="col-span-2 text-center">작성일</div>
-          <div className="col-span-1 text-center">대상</div>
+          <div className="col-span-2 text-center">대상</div>
         </div>
       </div>
 
@@ -330,7 +442,7 @@ export function AnnouncementList({ includeScheduled = false, audience, refreshKe
                 <div className="col-span-1 text-center text-gray-500">
                   {filteredAnnouncements.length - globalIndex}
                 </div>
-                <div className="col-span-6 flex items-center gap-2 min-w-0">
+                <div className="col-span-5 flex items-center gap-2 min-w-0">
                   <span className="font-medium text-gray-900 truncate">{announcement.title}</span>
                   {isScheduled && (
                     <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800 whitespace-nowrap">
@@ -347,10 +459,65 @@ export function AnnouncementList({ includeScheduled = false, audience, refreshKe
                 <div className="col-span-2 text-center text-gray-500 text-xs">
                   {formatDateShort(displayDate)}
                 </div>
-                <div className="col-span-1 text-center">
-                  <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
-                    {audienceLabels[announcement.audience] || announcement.audience}
-                  </span>
+                <div className="col-span-2 text-center min-w-0 flex items-center justify-center gap-1 flex-wrap">
+                  {(() => {
+                    const hasStudents = announcement.selectedClasses && 
+                      (isAllClassesSelected(announcement.selectedClasses) || formatSelectedClasses(announcement.selectedClasses));
+                    const hasParents = announcement.parentSelectedClasses && 
+                      (isAllClassesSelected(announcement.parentSelectedClasses) || formatSelectedClasses(announcement.parentSelectedClasses));
+                    
+                    const displayText = getAudienceDisplayText(announcement);
+                    
+                    // 재학생과 학부모가 모두 있는 경우 두 개의 뱃지로 표시
+                    if (hasStudents && hasParents) {
+                      const studentText = (() => {
+                        if (isAllClassesSelected(announcement.selectedClasses)) return "모든 재학생";
+                        const text = formatSelectedClasses(announcement.selectedClasses);
+                        return text ? `재학생 (${text})` : null;
+                      })();
+                      const parentText = (() => {
+                        if (isAllClassesSelected(announcement.parentSelectedClasses)) return "모든 학부모";
+                        const text = formatSelectedClasses(announcement.parentSelectedClasses);
+                        return text ? `학부모 (${text})` : null;
+                      })();
+                      
+                      return (
+                        <>
+                          {studentText && (
+                            <span 
+                              className="inline-block px-1.5 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800 max-w-full truncate" 
+                              title={studentText}
+                            >
+                              {studentText}
+                            </span>
+                          )}
+                          {parentText && (
+                            <span 
+                              className="inline-block px-1.5 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 max-w-full truncate" 
+                              title={parentText}
+                            >
+                              {parentText}
+                            </span>
+                          )}
+                        </>
+                      );
+                    }
+                    
+                    // 하나만 있는 경우 하나의 뱃지로 표시
+                    return (
+                      <span 
+                        className={cn(
+                          "inline-block px-1.5 py-0.5 rounded text-xs font-medium max-w-full truncate",
+                          hasStudents
+                            ? "bg-green-100 text-green-800"
+                            : "bg-blue-100 text-blue-800"
+                        )}
+                        title={displayText}
+                      >
+                        {displayText}
+                      </span>
+                    );
+                  })()}
                 </div>
               </div>
 

@@ -4,7 +4,7 @@ import { z } from "zod";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
-const AUDIENCE_VALUES = ["all", "grade-1", "grade-2", "grade-3", "parents", "teachers"] as const;
+const AUDIENCE_VALUES = ["all", "grade-1", "grade-2", "grade-3", "parents"] as const;
 
 const selectedClassSchema = z.object({
   grade: z.string(),
@@ -13,12 +13,14 @@ const selectedClassSchema = z.object({
 
 const createAnnouncementSchema = z.object({
   title: z.string().trim().min(1, "제목을 입력하세요").max(200, "제목은 200자 이하여야 합니다"),
+  category: z.string().optional(),
   content: z.string().trim().min(1, "본문을 입력하세요"),
   audience: z.enum(AUDIENCE_VALUES),
   author: z.string().trim().min(1, "작성자를 입력하세요"),
   isScheduled: z.boolean().default(false),
   publishAt: z.string().datetime().optional(),
   selectedClasses: z.array(selectedClassSchema).optional(),
+  parentSelectedClasses: z.array(selectedClassSchema).optional(),
 });
 
 export const dynamic = 'force-dynamic';
@@ -60,6 +62,7 @@ export async function POST(request: NextRequest) {
     const announcement = await (prisma as any).announcement.create({
       data: {
         title: validatedData.title,
+        category: validatedData.category || null,
         content: validatedData.content,
         audience: validatedData.audience,
         author: validatedData.author,
@@ -69,6 +72,7 @@ export async function POST(request: NextRequest) {
         publishedAt: validatedData.isScheduled ? null : new Date(), // 예약이 아니면 즉시 발행
         school: session.user.school || null,
         selectedClasses: validatedData.selectedClasses ? JSON.stringify(validatedData.selectedClasses) : null,
+        parentSelectedClasses: validatedData.parentSelectedClasses ? JSON.stringify(validatedData.parentSelectedClasses) : null,
       },
     });
 
@@ -176,7 +180,7 @@ export async function GET(request: NextRequest) {
     });
 
     return NextResponse.json({
-      announcements: announcements.map((a) => ({
+      announcements: announcements.map((a: any) => ({
         id: a.id,
         title: a.title,
         content: a.content,
@@ -187,6 +191,8 @@ export async function GET(request: NextRequest) {
         publishedAt: a.publishedAt?.toISOString() || null,
         createdAt: a.createdAt.toISOString(),
         updatedAt: a.updatedAt.toISOString(),
+        selectedClasses: a.selectedClasses || null,
+        parentSelectedClasses: a.parentSelectedClasses || null,
       })),
     });
   } catch (error) {

@@ -272,18 +272,21 @@ model CalendarEvent {
 }
 
 model Announcement {
-  id          String   @id @default(auto()) @map("_id") @db.ObjectId
-  title       String
-  content     String   // HTML 형식의 본문
-  audience    String   // "all", "grade-1", "grade-2", "grade-3", "parents", "teachers"
-  author      String   // 작성자 이름
-  authorId    String   @db.ObjectId // 작성자 User ID
-  isScheduled Boolean  @default(false)
-  publishAt   DateTime? // 예약 발행 시각
-  publishedAt DateTime? // 실제 발행 시각
-  school      String?  // 학교 필터링
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id                  String   @id @default(auto()) @map("_id") @db.ObjectId
+  title               String
+  category            String?  // "notice", "survey", "consent" (단순 알림, 설문 조사, 동의서)
+  content             String   // HTML 형식의 본문
+  audience            String   // "all", "grade-1", "grade-2", "grade-3", "parents"
+  author              String   // 작성자 이름
+  authorId            String   @db.ObjectId // 작성자 User ID
+  isScheduled         Boolean  @default(false)
+  publishAt           DateTime? // 예약 발행 시각
+  publishedAt         DateTime? // 실제 발행 시각
+  school              String?  // 학교 필터링
+  selectedClasses     String?  // 재학생 학급 선택 정보 (JSON 배열)
+  parentSelectedClasses String? // 학부모 학급 선택 정보 (JSON 배열)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
 
   @@map("announcements")
   @@index([audience])
