@@ -469,7 +469,7 @@ export default async function TeacherDashboardPage() {
     <div className="space-y-6">
       <header className="border-4 border-dashed border-gray-200 rounded-lg p-8 bg-white">
         <h2 className="text-2xl font-bold text-gray-900 mb-2">
-          안녕하세요 {session.user.name ?? t.dashboard.roleTeacher} 선생님 반갑습니다. :)
+          안녕하세요 {session.user.name ?? t.dashboard.roleTeacher} 선생님
         </h2>
 
         <div className="mt-6 bg-blue-50 border border-blue-100 rounded-lg p-4 text-sm text-blue-800">
@@ -490,53 +490,8 @@ export default async function TeacherDashboardPage() {
         </div>
       </header>
 
-      <section className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">바로가기</h2>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <Link
-            href="/dashboard/teacher/schedule"
-            className="flex flex-col items-center justify-center p-6 rounded-lg border border-gray-200 bg-white hover:bg-blue-50 hover:border-blue-300 transition-all duration-200 cursor-pointer group"
-          >
-            <Calendar className="w-8 h-8 text-blue-600 mb-3 group-hover:text-blue-700" />
-            <span className="text-sm font-medium text-gray-700 group-hover:text-blue-900">
-              학사일정
-            </span>
-          </Link>
+      <WeeklyScheduleSection schedule={weeklySchedule} todayIsoDate={isoToday} />
 
-          <Link
-            href="/dashboard/teacher/students"
-            className="flex flex-col items-center justify-center p-6 rounded-lg border border-gray-200 bg-white hover:bg-green-50 hover:border-green-300 transition-all duration-200 cursor-pointer group"
-          >
-            <Users className="w-8 h-8 text-green-600 mb-3 group-hover:text-green-700" />
-            <span className="text-sm font-medium text-gray-700 group-hover:text-green-900">
-              학생명렬
-            </span>
-          </Link>
-
-          <Link
-            href="/dashboard/teacher/staff"
-            className="flex flex-col items-center justify-center p-6 rounded-lg border border-gray-200 bg-white hover:bg-purple-50 hover:border-purple-300 transition-all duration-200 cursor-pointer group"
-          >
-            <UserCheck className="w-8 h-8 text-purple-600 mb-3 group-hover:text-purple-700" />
-            <span className="text-sm font-medium text-gray-700 group-hover:text-purple-900">
-              교직원 명렬
-            </span>
-          </Link>
-
-          <Link
-            href="/dashboard/chat"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex flex-col items-center justify-center p-6 rounded-lg border border-gray-200 bg-white hover:bg-orange-50 hover:border-orange-300 transition-all duration-200 cursor-pointer group"
-          >
-            <MessageSquare className="w-8 h-8 text-orange-600 mb-3 group-hover:text-orange-700" />
-            <span className="text-sm font-medium text-gray-700 group-hover:text-orange-900">
-              채팅하기
-            </span>
-          </Link>
-        </div>
-      </section>
-         
       <div className="flex gap-6 items-start">
         {/* 주간 시간표 섹션 */}
         <section className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm w-1/3 flex-shrink-0">
@@ -618,7 +573,52 @@ export default async function TeacherDashboardPage() {
         </div>
         </section>
 
-        <WeeklyScheduleSection schedule={weeklySchedule} todayIsoDate={isoToday} />
+        <section className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">바로가기</h2>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <Link
+              href="/dashboard/teacher/schedule"
+              className="flex flex-col items-center justify-center p-6 rounded-lg border border-gray-200 bg-white hover:bg-blue-50 hover:border-blue-300 transition-all duration-200 cursor-pointer group"
+            >
+              <Calendar className="w-8 h-8 text-blue-600 mb-3 group-hover:text-blue-700" />
+              <span className="text-sm font-medium text-gray-700 group-hover:text-blue-900">
+                학사일정
+              </span>
+            </Link>
+
+            <Link
+              href="/dashboard/teacher/students"
+              className="flex flex-col items-center justify-center p-6 rounded-lg border border-gray-200 bg-white hover:bg-green-50 hover:border-green-300 transition-all duration-200 cursor-pointer group"
+            >
+              <Users className="w-8 h-8 text-green-600 mb-3 group-hover:text-green-700" />
+              <span className="text-sm font-medium text-gray-700 group-hover:text-green-900">
+                학생명렬
+              </span>
+            </Link>
+
+            <Link
+              href="/dashboard/teacher/staff"
+              className="flex flex-col items-center justify-center p-6 rounded-lg border border-gray-200 bg-white hover:bg-purple-50 hover:border-purple-300 transition-all duration-200 cursor-pointer group"
+            >
+              <UserCheck className="w-8 h-8 text-purple-600 mb-3 group-hover:text-purple-700" />
+              <span className="text-sm font-medium text-gray-700 group-hover:text-purple-900">
+                교직원 명렬
+              </span>
+            </Link>
+
+            <Link
+              href="/dashboard/chat"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex flex-col items-center justify-center p-6 rounded-lg border border-gray-200 bg-white hover:bg-orange-50 hover:border-orange-300 transition-all duration-200 cursor-pointer group"
+            >
+              <MessageSquare className="w-8 h-8 text-orange-600 mb-3 group-hover:text-orange-700" />
+              <span className="text-sm font-medium text-gray-700 group-hover:text-orange-900">
+                채팅하기
+              </span>
+            </Link>
+          </div>
+        </section>
       </div>
 
       <section className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">

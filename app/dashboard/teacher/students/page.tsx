@@ -181,7 +181,7 @@ export default async function TeacherStudentsPage() {
             <RosterToggle currentPage="students" />
             <h1 className="text-2xl font-bold text-gray-900">학생명렬</h1>
             <p className="mt-2 text-sm text-gray-600">
-              학교 학생 목록을 확인할 수 있습니다.
+              학생 목록을 확인할 수 있습니다.
             </p>
           </div>
           
