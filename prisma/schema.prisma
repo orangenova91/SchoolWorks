@@ -285,6 +285,8 @@ model Announcement {
   school              String?  // 학교 필터링
   selectedClasses     String?  // 재학생 학급 선택 정보 (JSON 배열)
   parentSelectedClasses String? // 학부모 학급 선택 정보 (JSON 배열)
+  surveyData          String?  // 설문 조사 질문 데이터 (JSON 배열)
+  consentData         String?  // 동의서 서명 데이터 (JSON 객체: {signatureImage: string, signedAt?: string})
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 

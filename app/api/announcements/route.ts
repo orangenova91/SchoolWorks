@@ -11,6 +11,19 @@ const selectedClassSchema = z.object({
   classNumber: z.string(),
 });
 
+const surveyQuestionSchema = z.object({
+  id: z.string(),
+  type: z.enum(["single", "multiple", "text", "textarea"]),
+  question: z.string(),
+  options: z.array(z.string()).optional(),
+  required: z.boolean(),
+});
+
+const consentDataSchema = z.object({
+  signatureImage: z.string(), // Base64 이미지
+  signedAt: z.string().optional(),
+});
+
 const createAnnouncementSchema = z.object({
   title: z.string().trim().min(1, "제목을 입력하세요").max(200, "제목은 200자 이하여야 합니다"),
   category: z.string().optional(),
@@ -21,6 +34,8 @@ const createAnnouncementSchema = z.object({
   publishAt: z.string().datetime().optional(),
   selectedClasses: z.array(selectedClassSchema).optional(),
   parentSelectedClasses: z.array(selectedClassSchema).optional(),
+  surveyData: z.array(surveyQuestionSchema).optional(),
+  consentData: consentDataSchema.optional(),
 });
 
 export const dynamic = 'force-dynamic';
@@ -73,6 +88,8 @@ export async function POST(request: NextRequest) {
         school: session.user.school || null,
         selectedClasses: validatedData.selectedClasses ? JSON.stringify(validatedData.selectedClasses) : null,
         parentSelectedClasses: validatedData.parentSelectedClasses ? JSON.stringify(validatedData.parentSelectedClasses) : null,
+        surveyData: validatedData.surveyData ? JSON.stringify(validatedData.surveyData) : null,
+        consentData: validatedData.consentData ? JSON.stringify(validatedData.consentData) : null,
       },
     });
 
@@ -193,6 +210,9 @@ export async function GET(request: NextRequest) {
         updatedAt: a.updatedAt.toISOString(),
         selectedClasses: a.selectedClasses || null,
         parentSelectedClasses: a.parentSelectedClasses || null,
+        category: a.category || null,
+        surveyData: a.surveyData || null,
+        consentData: a.consentData || null,
       })),
     });
   } catch (error) {
