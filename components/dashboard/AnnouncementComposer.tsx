@@ -5,18 +5,25 @@ import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
 import Link from "@tiptap/extension-link";
-import { Bold, Italic, List, ListOrdered, Quote, Link as LinkIcon, Undo, Redo, Heading2, Send, ChevronDown, X, Check } from "lucide-react";
+import { Bold, Italic, List, ListOrdered, Quote, Link as LinkIcon, Undo, Redo, Heading2, Send, ChevronDown, X, Check, Plus, Trash2 } from "lucide-react";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
+import { Select } from "@/components/ui/Select";
 import { cn } from "@/lib/utils";
 
 const targetOptions = [
-  { value: "students", label: "재학생" },
-  { value: "parents", label: "학부모" },
-  { value: "teachers", label: "교직원" },
+  { value: "students", label: "모든 재학생" },
+  { value: "parents", label: "모든 학부모" },
 ];
 
-// 선택된 대상들을 audience 값으로 변환
+const categoryOptions = [
+  { value: "", label: "선택 안함" },
+  { value: "notice", label: "단순 알림" },
+  { value: "survey", label: "설문 조사" },
+  { value: "consent", label: "동의서" },
+];
+
+// 선택된 대상들을 audience 값으로 변환 (기본값 계산)
 const convertTargetsToAudience = (selectedTargets: string[]): string => {
   if (selectedTargets.length === 0) return "";
   if (selectedTargets.length === 1) {
@@ -24,6 +31,58 @@ const convertTargetsToAudience = (selectedTargets: string[]): string => {
   }
   // 여러 개 선택된 경우 첫 번째 값을 사용 (하위 호환성)
   return selectedTargets[0] === "students" ? "all" : selectedTargets[0];
+};
+
+// selectedClasses와 parentSelectedClasses를 기반으로 정확한 audience 값 계산
+const calculateAudienceFromClasses = (
+  selectedTargets: string[],
+  selectedClasses: SelectedClass[],
+  parentSelectedClasses: SelectedClass[]
+): string => {
+  const hasStudents = selectedTargets.includes("students");
+  const hasParents = selectedTargets.includes("parents");
+
+  // 학부모만 선택된 경우
+  if (!hasStudents && hasParents) {
+    return "parents";
+  }
+
+  // 재학생이 선택된 경우
+  if (hasStudents && selectedClasses.length > 0) {
+    const TOTAL_CLASSES = 21; // 3학년 * 7반
+    const CLASSES_PER_GRADE = 7; // 학년당 7반
+
+    // 모든 학반이 선택된 경우
+    if (selectedClasses.length === TOTAL_CLASSES) {
+      return "all";
+    }
+
+    // 학년별로 그룹화
+    const grades = Array.from(new Set(selectedClasses.map(c => c.grade))).sort();
+    
+    // 하나의 학년만 선택된 경우
+    if (grades.length === 1) {
+      const grade = grades[0];
+      const gradeClasses = selectedClasses.filter(c => c.grade === grade);
+      // 해당 학년의 모든 반이 선택된 경우
+      if (gradeClasses.length === CLASSES_PER_GRADE) {
+        return `grade-${grade}`;
+      }
+    }
+
+    // 여러 학년이 선택되거나 일부 반만 선택된 경우
+    // 첫 번째 학년을 기준으로 설정 (기존 로직 유지)
+    const firstGrade = selectedClasses[0].grade;
+    return `grade-${firstGrade}`;
+  }
+
+  // 재학생이 선택되었지만 학급이 선택되지 않은 경우 (기본값)
+  if (hasStudents) {
+    return "all";
+  }
+
+  // 기본값 반환 (이 경우는 발생하지 않아야 함)
+  return convertTargetsToAudience(selectedTargets);
 };
 
 // audience 값을 선택된 대상들로 변환
@@ -43,6 +102,14 @@ interface SelectedClass {
   classNumber: string;
 }
 
+interface SurveyQuestion {
+  id: string;
+  type: "single" | "multiple" | "text" | "textarea";
+  question: string;
+  options?: string[];
+  required: boolean;
+}
+
 const GRADES = ["1", "2", "3"];
 const CLASS_NUMBERS = Array.from({ length: 7 }, (_, i) => 
   String(i + 1).padStart(2, "0")
@@ -51,14 +118,23 @@ const CLASS_NUMBERS = Array.from({ length: 7 }, (_, i) =>
 const getDefaultPublishAt = () =>
   new Date(Date.now() + 60 * 60 * 1000).toISOString().slice(0, 16);
 
+interface ConsentData {
+  signatureImage: string; // Base64 이미지
+  signedAt?: string; // 서명 일시 (선택사항)
+}
+
 interface AnnouncementComposerPayload {
   title: string;
+  category?: string;
   audience: string;
   author: string;
   content: string;
   isScheduled: boolean;
   publishAt?: string;
   selectedClasses?: SelectedClass[];
+  parentSelectedClasses?: SelectedClass[];
+  surveyData?: SurveyQuestion[];
+  consentData?: ConsentData;
 }
 
 interface AnnouncementComposerProps {
@@ -106,10 +182,14 @@ function AnnouncementComposerForm({
   onEditComplete,
 }: AnnouncementComposerProps & { onClose: () => void; editId?: string; onEditComplete?: () => void }) {
   const [title, setTitle] = useState("");
+  const [category, setCategory] = useState<string>("");
   const [selectedTargets, setSelectedTargets] = useState<string[]>([]);
   const [selectedClasses, setSelectedClasses] = useState<SelectedClass[]>([]);
+  const [parentSelectedClasses, setParentSelectedClasses] = useState<SelectedClass[]>([]);
+  const [surveyQuestions, setSurveyQuestions] = useState<SurveyQuestion[]>([]);
+  const [signatureData, setSignatureData] = useState<string | null>(null);
+  const [isDrawing, setIsDrawing] = useState(false);
   const [isTargetModalOpen, setIsTargetModalOpen] = useState(false);
-  const [isClassSelectionOpen, setIsClassSelectionOpen] = useState(false);
   const [useSchedule, setUseSchedule] = useState(false);
   const [publishAt, setPublishAt] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -117,6 +197,7 @@ function AnnouncementComposerForm({
   const [isLoading, setIsLoading] = useState(!!editId);
   const targetModalRef = useRef<HTMLDivElement>(null);
   const classSelectionRef = useRef<HTMLDivElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
 
   const editor = useEditor({
     extensions: [
@@ -158,6 +239,7 @@ function AnnouncementComposerForm({
 
           const announcement = data.announcement;
           setTitle(announcement.title);
+          setCategory(announcement.category || "");
           setSelectedTargets(convertAudienceToTargets(announcement.audience));
           // 선택된 학급 정보 로드 (있는 경우)
           if (announcement.selectedClasses) {
@@ -172,9 +254,50 @@ function AnnouncementComposerForm({
           } else {
             setSelectedClasses([]);
           }
+          // 학부모용 선택된 학급 정보 로드 (있는 경우)
+          if (announcement.parentSelectedClasses) {
+            try {
+              const classes = typeof announcement.parentSelectedClasses === 'string' 
+                ? JSON.parse(announcement.parentSelectedClasses) 
+                : announcement.parentSelectedClasses;
+              setParentSelectedClasses(Array.isArray(classes) ? classes : []);
+            } catch (e) {
+              setParentSelectedClasses([]);
+            }
+          } else {
+            setParentSelectedClasses([]);
+          }
           setUseSchedule(announcement.isScheduled);
           setPublishAt(announcement.publishAt ? new Date(announcement.publishAt).toISOString().slice(0, 16) : "");
           editor.commands.setContent(announcement.content);
+          // 설문 조사 데이터 로드 (있는 경우)
+          if (announcement.surveyData) {
+            try {
+              const surveyData = typeof announcement.surveyData === 'string' 
+                ? JSON.parse(announcement.surveyData) 
+                : announcement.surveyData;
+              setSurveyQuestions(Array.isArray(surveyData) ? surveyData : []);
+            } catch (e) {
+              setSurveyQuestions([]);
+            }
+          } else {
+            setSurveyQuestions([]);
+          }
+          // 동의서 서명 데이터 로드 (있는 경우)
+          if (announcement.consentData) {
+            try {
+              const consentData = typeof announcement.consentData === 'string' 
+                ? JSON.parse(announcement.consentData) 
+                : announcement.consentData;
+              if (consentData?.signatureImage) {
+                setSignatureData(consentData.signatureImage);
+              }
+            } catch (e) {
+              setSignatureData(null);
+            }
+          } else {
+            setSignatureData(null);
+          }
         } catch (err: any) {
           console.error("Failed to load announcement:", err);
           setError(err.message || "공지사항을 불러오는 중 오류가 발생했습니다.");
@@ -187,62 +310,134 @@ function AnnouncementComposerForm({
     }
   }, [editId, editor]);
 
-  // 모달 외부 클릭 시 닫기
+  // ESC 키로 모달 닫기 및 body 스크롤 방지
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (targetModalRef.current && !targetModalRef.current.contains(event.target as Node)) {
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && isTargetModalOpen) {
         setIsTargetModalOpen(false);
-      }
-      if (classSelectionRef.current && !classSelectionRef.current.contains(event.target as Node)) {
-        setIsClassSelectionOpen(false);
       }
     };
 
-    if (isTargetModalOpen || isClassSelectionOpen) {
-      document.addEventListener("mousedown", handleClickOutside);
+    if (isTargetModalOpen) {
+      document.addEventListener("keydown", handleEscape);
+      document.body.style.overflow = "hidden";
     }
 
     return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleEscape);
+      document.body.style.overflow = "unset";
     };
-  }, [isTargetModalOpen, isClassSelectionOpen]);
+  }, [isTargetModalOpen]);
+
+  // 알림 대상 모달 열기/닫기 핸들러
+  const handleTargetModalToggle = () => {
+    setIsTargetModalOpen(prev => !prev);
+  };
 
   // 제목이 비어있거나 알림 대상이 없거나 제출 중일 때 비활성화
   const hasTitle = title.trim().length > 0;
   const hasTargets = selectedTargets.length > 0;
   const isDisabled = !hasTitle || !hasTargets || isSubmitting;
 
+  // 모든 학반 조합 생성
+  const getAllClasses = (): SelectedClass[] => {
+    const allClasses: SelectedClass[] = [];
+    GRADES.forEach((grade) => {
+      CLASS_NUMBERS.forEach((classNumber) => {
+        allClasses.push({ grade, classNumber });
+      });
+    });
+    return allClasses;
+  };
+
+  // 모든 학반이 선택되었는지 확인
+  const isAllClassesSelected = (classes: SelectedClass[]): boolean => {
+    const allClasses = getAllClasses();
+    if (classes.length !== allClasses.length) return false;
+    return allClasses.every((cls) =>
+      classes.some((c) => c.grade === cls.grade && c.classNumber === cls.classNumber)
+    );
+  };
+
+  // 체크박스 refs
+  const studentsCheckboxRef = useRef<HTMLInputElement>(null);
+  const parentsCheckboxRef = useRef<HTMLInputElement>(null);
+
+  // 체크박스 indeterminate 상태 설정
+  useEffect(() => {
+    if (studentsCheckboxRef.current) {
+      const allSelected = isAllClassesSelected(selectedClasses);
+      const someSelected = selectedClasses.length > 0 && !allSelected;
+      studentsCheckboxRef.current.indeterminate = someSelected;
+    }
+    if (parentsCheckboxRef.current) {
+      const allSelected = isAllClassesSelected(parentSelectedClasses);
+      const someSelected = parentSelectedClasses.length > 0 && !allSelected;
+      parentsCheckboxRef.current.indeterminate = someSelected;
+    }
+  }, [selectedClasses, parentSelectedClasses]);
+
   // 대상 선택 핸들러
   const handleTargetToggle = (value: string) => {
-    if (selectedTargets.includes(value)) {
-      setSelectedTargets(selectedTargets.filter(t => t !== value));
-      // 재학생 선택 해제 시 학급 선택도 초기화
-      if (value === "students") {
+    if (value === "students") {
+      const allSelected = isAllClassesSelected(selectedClasses);
+      if (allSelected) {
+        // 모두 선택된 경우 -> 모두 해제
         setSelectedClasses([]);
-        setIsClassSelectionOpen(false);
+        setSelectedTargets(selectedTargets.filter(t => t !== value));
+      } else {
+        // 일부 선택되었거나 선택되지 않은 경우 -> 모두 선택
+        setSelectedClasses(getAllClasses());
+        if (!selectedTargets.includes(value)) {
+          setSelectedTargets([...selectedTargets, value]);
+        }
+      }
+    } else if (value === "parents") {
+      const allSelected = isAllClassesSelected(parentSelectedClasses);
+      if (allSelected) {
+        // 모두 선택된 경우 -> 모두 해제
+        setParentSelectedClasses([]);
+        setSelectedTargets(selectedTargets.filter(t => t !== value));
+      } else {
+        // 일부 선택되었거나 선택되지 않은 경우 -> 모두 선택
+        setParentSelectedClasses(getAllClasses());
+        if (!selectedTargets.includes(value)) {
+          setSelectedTargets([...selectedTargets, value]);
+        }
       }
     } else {
-      setSelectedTargets([...selectedTargets, value]);
-      // 재학생 선택 시 바로 그리드 표시
-      if (value === "students") {
-        setIsClassSelectionOpen(true);
+      // 기타 경우 (현재는 없지만 확장 가능성)
+      if (selectedTargets.includes(value)) {
+        setSelectedTargets(selectedTargets.filter(t => t !== value));
+      } else {
+        setSelectedTargets([...selectedTargets, value]);
       }
     }
   };
 
   // 학급 선택/해제 핸들러
   const handleClassToggle = (grade: string, classNumber: string) => {
-    const key = `${grade}-${classNumber}`;
     const exists = selectedClasses.some(
       (c) => c.grade === grade && c.classNumber === classNumber
     );
 
     if (exists) {
-      setSelectedClasses(selectedClasses.filter(
+      // 선택 해제
+      const newClasses = selectedClasses.filter(
         (c) => !(c.grade === grade && c.classNumber === classNumber)
-      ));
+      );
+      setSelectedClasses(newClasses);
+      // 선택된 학급이 없으면 재학생 타겟도 해제
+      if (newClasses.length === 0 && selectedTargets.includes("students")) {
+        setSelectedTargets(selectedTargets.filter(t => t !== "students"));
+      }
     } else {
+      // 선택 추가
       setSelectedClasses([...selectedClasses, { grade, classNumber }]);
+      // 학급 선택 시 자동으로 재학생 타겟도 선택
+      if (!selectedTargets.includes("students")) {
+        setSelectedTargets([...selectedTargets, "students"]);
+      }
     }
   };
 
@@ -255,15 +450,24 @@ function AnnouncementComposerForm({
 
     if (allSelected) {
       // 모두 해제
-      setSelectedClasses(selectedClasses.filter(
+      const newClasses = selectedClasses.filter(
         c => !(c.grade === grade)
-      ));
+      );
+      setSelectedClasses(newClasses);
+      // 선택된 학급이 없으면 재학생 타겟도 해제
+      if (newClasses.length === 0 && selectedTargets.includes("students")) {
+        setSelectedTargets(selectedTargets.filter(t => t !== "students"));
+      }
     } else {
       // 모두 선택
       const newClasses = gradeClasses.filter(gc =>
         !selectedClasses.some(sc => sc.grade === gc.grade && sc.classNumber === gc.classNumber)
       );
       setSelectedClasses([...selectedClasses, ...newClasses]);
+      // 학급 선택 시 자동으로 재학생 타겟도 선택
+      if (!selectedTargets.includes("students")) {
+        setSelectedTargets([...selectedTargets, "students"]);
+      }
     }
   };
 
@@ -280,6 +484,10 @@ function AnnouncementComposerForm({
 
   const handleClearAll = () => {
     setSelectedClasses([]);
+    // 모두 지울 때 재학생 타겟도 해제
+    if (selectedTargets.includes("students")) {
+      setSelectedTargets(selectedTargets.filter(t => t !== "students"));
+    }
   };
 
   // 특정 학급이 선택되었는지 확인
@@ -296,16 +504,114 @@ function AnnouncementComposerForm({
     );
   };
 
+  // 학부모용 학급 선택/해제 핸들러
+  const handleParentClassToggle = (grade: string, classNumber: string) => {
+    const exists = parentSelectedClasses.some(
+      (c) => c.grade === grade && c.classNumber === classNumber
+    );
+
+    if (exists) {
+      // 선택 해제
+      const newClasses = parentSelectedClasses.filter(
+        (c) => !(c.grade === grade && c.classNumber === classNumber)
+      );
+      setParentSelectedClasses(newClasses);
+      // 선택된 학급이 없으면 학부모 타겟도 해제
+      if (newClasses.length === 0 && selectedTargets.includes("parents")) {
+        setSelectedTargets(selectedTargets.filter(t => t !== "parents"));
+      }
+    } else {
+      // 선택 추가
+      setParentSelectedClasses([...parentSelectedClasses, { grade, classNumber }]);
+      // 학급 선택 시 자동으로 학부모 타겟도 선택
+      if (!selectedTargets.includes("parents")) {
+        setSelectedTargets([...selectedTargets, "parents"]);
+      }
+    }
+  };
+
+  // 학부모용 학년 전체 선택/해제
+  const handleParentGradeToggle = (grade: string) => {
+    const gradeClasses = CLASS_NUMBERS.map(cn => ({ grade, classNumber: cn }));
+    const allSelected = gradeClasses.every(gc =>
+      parentSelectedClasses.some(sc => sc.grade === gc.grade && sc.classNumber === gc.classNumber)
+    );
+
+    if (allSelected) {
+      const newClasses = parentSelectedClasses.filter(
+        c => !(c.grade === grade)
+      );
+      setParentSelectedClasses(newClasses);
+      // 선택된 학급이 없으면 학부모 타겟도 해제
+      if (newClasses.length === 0 && selectedTargets.includes("parents")) {
+        setSelectedTargets(selectedTargets.filter(t => t !== "parents"));
+      }
+    } else {
+      const newClasses = gradeClasses.filter(gc =>
+        !parentSelectedClasses.some(sc => sc.grade === gc.grade && sc.classNumber === gc.classNumber)
+      );
+      setParentSelectedClasses([...parentSelectedClasses, ...newClasses]);
+      // 학급 선택 시 자동으로 학부모 타겟도 선택
+      if (!selectedTargets.includes("parents")) {
+        setSelectedTargets([...selectedTargets, "parents"]);
+      }
+    }
+  };
+
+  const handleParentClearAll = () => {
+    setParentSelectedClasses([]);
+    // 모두 지울 때 학부모 타겟도 해제
+    if (selectedTargets.includes("parents")) {
+      setSelectedTargets(selectedTargets.filter(t => t !== "parents"));
+    }
+  };
+
+  // 학부모용 특정 학급이 선택되었는지 확인
+  const isParentClassSelected = (grade: string, classNumber: string) => {
+    return parentSelectedClasses.some(
+      c => c.grade === grade && c.classNumber === classNumber
+    );
+  };
+
+  // 학부모용 특정 학년의 모든 반이 선택되었는지 확인
+  const isParentGradeAllSelected = (grade: string) => {
+    return CLASS_NUMBERS.every(classNumber =>
+      isParentClassSelected(grade, classNumber)
+    );
+  };
+
   // 선택된 대상 표시 텍스트
   const getTargetDisplayText = () => {
     if (selectedTargets.length === 0) {
       return "알림 대상을 선택하세요";
     }
-    const texts = selectedTargets.map(target => {
-      const option = targetOptions.find(opt => opt.value === target);
+    
+    // 재학생 → 학부모 순서로 정렬
+    const sortedTargets = [...selectedTargets].sort((a, b) => {
+      if (a === "students") return -1;
+      if (b === "students") return 1;
+      return 0;
+    });
+    
+    const texts = sortedTargets.map(target => {
       if (target === "students" && selectedClasses.length > 0) {
-        return `${option?.label} (${selectedClasses.length}개 학급)`;
+        // 모든 학반이 선택된 경우 (21개)
+        if (selectedClasses.length === 21) {
+          return `모든 재학생 (${selectedClasses.length}개 학급)`;
+        }
+        // 일부 학반만 선택된 경우
+        return `재학생 (${selectedClasses.length}개 학급)`;
       }
+      if (target === "parents" && parentSelectedClasses.length > 0) {
+        // 모든 학반이 선택된 경우 (21개)
+        if (parentSelectedClasses.length === 21) {
+          return `모든 학부모 (${parentSelectedClasses.length}개 학급)`;
+        }
+        // 일부 학반만 선택된 경우
+        return `학부모 (${parentSelectedClasses.length}개 학급)`;
+      }
+      // 학급이 선택되지 않은 경우 (기본 라벨 사용)
+      const option = targetOptions.find(opt => opt.value === target);
       return option?.label;
     }).filter(Boolean);
     return texts.join(", ");
@@ -326,21 +632,28 @@ function AnnouncementComposerForm({
     setError(null);
     setIsSubmitting(true);
 
-    // 재학생이 선택되고 학급이 선택된 경우, 첫 번째 학급의 학년으로 audience 설정
-    let audience = convertTargetsToAudience(selectedTargets);
-    if (selectedTargets.includes("students") && selectedClasses.length > 0) {
-      const firstGrade = selectedClasses[0].grade;
-      audience = `grade-${firstGrade}`;
-    }
+    // selectedClasses와 parentSelectedClasses를 기반으로 정확한 audience 값 계산
+    const audience = calculateAudienceFromClasses(
+      selectedTargets,
+      selectedTargets.includes("students") ? selectedClasses : [],
+      selectedTargets.includes("parents") ? parentSelectedClasses : []
+    );
 
     const payload: AnnouncementComposerPayload = {
       title: title.trim(),
+      category: category || undefined,
       audience,
       author: authorName.trim(),
       content,
       isScheduled: useSchedule,
       publishAt: useSchedule ? publishAt : undefined,
       selectedClasses: selectedTargets.includes("students") ? selectedClasses : [],
+      parentSelectedClasses: selectedTargets.includes("parents") ? parentSelectedClasses : [],
+      surveyData: category === "survey" && surveyQuestions.length > 0 ? surveyQuestions : undefined,
+      consentData: category === "consent" && signatureData ? {
+        signatureImage: signatureData,
+        signedAt: new Date().toISOString(),
+      } : undefined,
     };
 
     try {
@@ -376,11 +689,16 @@ function AnnouncementComposerForm({
       // 폼 초기화
       editor.commands.clearContent(true);
       setTitle("");
+      setCategory("");
       setSelectedTargets([]);
       setSelectedClasses([]);
+      setParentSelectedClasses([]);
+      setSurveyQuestions([]);
+      setSignatureData(null);
       setUseSchedule(false);
       setPublishAt("");
       setIsSubmitting(false);
+      clearSignature();
 
       // 폼 닫기
       onClose();
@@ -390,6 +708,206 @@ function AnnouncementComposerForm({
       setIsSubmitting(false);
     }
   };
+
+  // 설문 조사 질문 핸들러
+  const handleAddSurveyQuestion = () => {
+    const newQuestion: SurveyQuestion = {
+      id: Date.now().toString() + Math.random().toString(36).substring(7),
+      type: "single",
+      question: "",
+      options: ["옵션 1", "옵션 2"],
+      required: false,
+    };
+    setSurveyQuestions([...surveyQuestions, newQuestion]);
+  };
+
+  const handleUpdateSurveyQuestion = (id: string, field: keyof SurveyQuestion, value: any) => {
+    setSurveyQuestions(
+      surveyQuestions.map((q) =>
+        q.id === id ? { ...q, [field]: value } : q
+      )
+    );
+  };
+
+  const handleDeleteSurveyQuestion = (id: string) => {
+    setSurveyQuestions(surveyQuestions.filter((q) => q.id !== id));
+  };
+
+  const handleAddSurveyOption = (questionId: string) => {
+    setSurveyQuestions(
+      surveyQuestions.map((q) =>
+        q.id === questionId
+          ? { ...q, options: [...(q.options || []), `옵션 ${(q.options?.length || 0) + 1}`] }
+          : q
+      )
+    );
+  };
+
+  const handleUpdateSurveyOption = (questionId: string, optionIndex: number, value: string) => {
+    setSurveyQuestions(
+      surveyQuestions.map((q) =>
+        q.id === questionId
+          ? {
+              ...q,
+              options: q.options?.map((opt, idx) =>
+                idx === optionIndex ? value : opt
+              ),
+            }
+          : q
+      )
+    );
+  };
+
+  const handleDeleteSurveyOption = (questionId: string, optionIndex: number) => {
+    setSurveyQuestions(
+      surveyQuestions.map((q) =>
+        q.id === questionId
+          ? {
+              ...q,
+              options: q.options?.filter((_, idx) => idx !== optionIndex),
+            }
+          : q
+      )
+    );
+  };
+
+  // 서명 관련 핸들러
+  const getCanvasCoordinates = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return { x: 0, y: 0 };
+    
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    
+    if ('touches' in e) {
+      // 터치 이벤트
+      const touch = e.touches[0] || e.changedTouches[0];
+      return {
+        x: (touch.clientX - rect.left) * scaleX,
+        y: (touch.clientY - rect.top) * scaleY,
+      };
+    } else {
+      // 마우스 이벤트
+      return {
+        x: (e.clientX - rect.left) * scaleX,
+        y: (e.clientY - rect.top) * scaleY,
+      };
+    }
+  };
+
+  const startDrawing = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+    e.preventDefault();
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    
+    setIsDrawing(true);
+    const { x, y } = getCanvasCoordinates(e);
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+  };
+
+  const draw = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+    e.preventDefault();
+    if (!isDrawing) return;
+    
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    
+    const { x, y } = getCanvasCoordinates(e);
+    ctx.lineTo(x, y);
+    ctx.strokeStyle = '#000000';
+    ctx.lineWidth = 2;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.stroke();
+  };
+
+  const stopDrawing = () => {
+    if (!isDrawing) return;
+    setIsDrawing(false);
+    
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    
+    // 서명 저장
+    const dataURL = canvas.toDataURL('image/png');
+    setSignatureData(dataURL);
+  };
+
+  const clearSignature = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    setSignatureData(null);
+  };
+
+  const loadSignatureToCanvas = (imageData: string) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    
+    const img = new Image();
+    img.onload = () => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    };
+    img.src = imageData;
+  };
+
+  // Canvas 초기화 및 서명 로드 (category 변경 시)
+  useEffect(() => {
+    if (category !== "consent") return;
+    
+    // 약간의 지연 후 Canvas 크기 설정 (DOM 렌더링 완료 후)
+    const timer = setTimeout(() => {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      
+      // Canvas 크기 설정 (CSS 크기에 맞춤)
+      const rect = canvas.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      const width = rect.width;
+      const height = rect.height;
+      
+      canvas.width = width * dpr;
+      canvas.height = height * dpr;
+      
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+      
+      ctx.scale(dpr, dpr);
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.strokeStyle = '#000000';
+      ctx.lineWidth = 2;
+      
+      // 기존 서명이 있으면 로드
+      if (signatureData) {
+        const img = new Image();
+        img.onload = () => {
+          ctx.clearRect(0, 0, width, height);
+          ctx.drawImage(img, 0, 0, width, height);
+        };
+        img.src = signatureData;
+      }
+    }, 100);
+    
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [category, signatureData]);
 
   const toolbarItems =
     editor &&
@@ -483,90 +1001,102 @@ function AnnouncementComposerForm({
       </div>
 
       <div className="space-y-4">
-        <Input
-          label="제목"
-          placeholder="예: 11월 학부모 상담 안내"
-          value={title}
-          onChange={(event) => setTitle(event.target.value)}
-        />
+        <div className="flex items-end gap-3">
+          <div className="flex-1">
+            <Select
+              label="구분"
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              options={categoryOptions}
+            />
+          </div>
+          <div className="flex-[3]">
+            <Input
+              label="제목"
+              placeholder="예: 11월 학부모 상담 안내"
+              value={title}
+              onChange={(event) => setTitle(event.target.value)}
+            />
+          </div>
+        </div>
 
         <div className="grid gap-4 md:grid-cols-[1fr_1fr_1.2fr]">
           <Input label="작성자" value={authorName} readOnly />
-          <div className="relative">
+          <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               알림 대상
             </label>
-            <button
+            <Button
               type="button"
-              onClick={() => setIsTargetModalOpen(!isTargetModalOpen)}
-              className={cn(
-                "flex h-10 w-full items-center justify-between rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900",
-                "focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2",
-                "hover:border-gray-400",
-                selectedTargets.length === 0 && "text-gray-500"
-              )}
+              variant="outline"
+              onClick={handleTargetModalToggle}
+              className="w-full justify-start"
             >
-              <span className="truncate">{getTargetDisplayText()}</span>
-              <ChevronDown
-                className={cn(
-                  "h-4 w-4 text-gray-500 transition-transform",
-                  isTargetModalOpen && "transform rotate-180"
-                )}
-              />
-            </button>
+              {selectedTargets.length === 0 ? "알림 대상을 선택하세요" : getTargetDisplayText()}
+            </Button>
 
+            {/* 알림 대상 선택 모달 */}
             {isTargetModalOpen && (
-              <div
-                ref={targetModalRef}
-                className="absolute top-full left-0 z-50 mt-1 w-full rounded-lg border border-gray-200 bg-white shadow-lg"
-              >
-                <div className="p-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-sm font-semibold text-gray-900">알림 대상 선택</h3>
+              <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                {/* 배경 오버레이 */}
+                <div
+                  className="absolute inset-0 bg-black/50 transition-opacity"
+                  onClick={() => setIsTargetModalOpen(false)}
+                />
+                {/* 모달 컨텐츠 */}
+                <div
+                  ref={targetModalRef}
+                  className="relative w-full max-w-5xl max-h-[90vh] bg-white rounded-lg shadow-xl overflow-hidden flex flex-col"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {/* 모달 헤더 */}
+                  <div className="flex items-center justify-between p-6 border-b border-gray-200">
+                    <h3 className="text-xl font-semibold text-gray-900">알림 대상 선택</h3>
                     <button
                       type="button"
                       onClick={() => setIsTargetModalOpen(false)}
-                      className="text-gray-400 hover:text-gray-600"
+                      className="text-gray-400 hover:text-gray-600 transition-colors"
+                      aria-label="닫기"
                     >
-                      <X className="h-4 w-4" />
+                      <X className="h-5 w-5" />
                     </button>
                   </div>
-                  <div className="flex flex-wrap items-center gap-4">
-                    {targetOptions.map((option) => (
-                      <div key={option.value}>
-                        <label
-                          className="flex items-center gap-2 cursor-pointer p-2 rounded-md hover:bg-gray-50"
-                        >
-                          <input
-                            type="checkbox"
-                            checked={selectedTargets.includes(option.value)}
-                            onChange={() => handleTargetToggle(option.value)}
-                            className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                          />
-                          <span className="text-sm text-gray-700 whitespace-nowrap">{option.label}</span>
-                          {option.value === "students" && selectedTargets.includes("students") && selectedClasses.length > 0 && (
-                            <span className="text-xs text-gray-500 px-2 py-1 whitespace-nowrap">
-                              {selectedClasses.length}개 학급 선택됨
-                            </span>
-                          )}
-                        </label>
-                        {option.value === "students" && selectedTargets.includes("students") && isClassSelectionOpen && (
-                          <div
-                            ref={classSelectionRef}
-                            className="mt-2 ml-6 p-4 bg-gray-50 rounded-lg border border-gray-200"
-                          >
-                            <div className="flex items-center justify-between mb-3">
-                              <div className="flex items-center gap-2">
-                                <Button
-                                  type="button"
-                                  variant="primary"
-                                  size="sm"
-                                  onClick={() => setIsClassSelectionOpen(false)}
-                                  className="text-xs h-7 px-2"
-                                >
-                                  <Check className="h-3 w-3 mr-1" />
-                                  선택 완료
-                                </Button>
+
+                  {/* 모달 본문 */}
+                  <div className="flex-1 overflow-y-auto p-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {targetOptions.map((option) => (
+                        <div key={option.value} className="border border-gray-200 rounded-lg p-4">
+                          <label className="flex items-center gap-3 cursor-pointer">
+                            <input
+                              ref={option.value === "students" ? studentsCheckboxRef : option.value === "parents" ? parentsCheckboxRef : null}
+                              type="checkbox"
+                              checked={option.value === "students" 
+                                ? isAllClassesSelected(selectedClasses)
+                                : option.value === "parents"
+                                ? isAllClassesSelected(parentSelectedClasses)
+                                : selectedTargets.includes(option.value)}
+                              onChange={() => handleTargetToggle(option.value)}
+                              className="h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                            />
+                            <span className="text-base font-medium text-gray-900">{option.label}</span>
+                            {option.value === "students" && selectedTargets.includes("students") && selectedClasses.length > 0 && (
+                              <span className="text-sm text-gray-500 px-3 py-1 bg-gray-100 rounded-full">
+                                {selectedClasses.length}개 학급 선택됨
+                              </span>
+                            )}
+                            {option.value === "parents" && selectedTargets.includes("parents") && parentSelectedClasses.length > 0 && (
+                              <span className="text-sm text-gray-500 px-3 py-1 bg-gray-100 rounded-full">
+                                {parentSelectedClasses.length}개 학급 선택됨
+                              </span>
+                            )}
+                          </label>
+                          
+                          {/* 재학생 학급 선택 UI */}
+                          {option.value === "students" && (
+                            <div className="mt-4 pt-4 border-t border-gray-200">
+                              <div className="flex items-center justify-between mb-3">
+                                <h4 className="text-sm font-semibold text-gray-700">대상 학급 선택</h4>
                                 <Button
                                   type="button"
                                   variant="outline"
@@ -578,74 +1108,170 @@ function AnnouncementComposerForm({
                                   모두 지움
                                 </Button>
                               </div>
-                              <h4 className="text-xs font-semibold text-gray-900">대상 학급</h4>
-                            </div>
-                            <div className="overflow-x-auto">
-                              <table className="w-full border-collapse text-xs">
-                                <thead>
-                                  <tr>
-                                    <th className="border border-gray-200 bg-gray-100 px-2 py-1.5 text-left font-medium text-gray-700">
-                                      반
-                                    </th>
-                                    {GRADES.map((grade) => (
-                                      <th
-                                        key={grade}
-                                        className="border border-gray-200 bg-gray-100 px-2 py-1.5 text-center font-medium text-gray-700"
-                                      >
-                                        <label className="flex items-center justify-center cursor-pointer">
-                                          <input
-                                            type="checkbox"
-                                            checked={isGradeAllSelected(grade)}
-                                            onChange={() => handleGradeToggle(grade)}
-                                            className="h-3 w-3 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                                          />
-                                          <span className="ml-1">{grade}학년</span>
-                                        </label>
-                                      </th>
-                                    ))}
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  {CLASS_NUMBERS.map((classNumber) => (
-                                    <tr key={classNumber}>
-                                      <td className="border border-gray-200 bg-gray-100 px-2 py-1.5 text-center font-medium text-gray-700">
-                                        {classNumber}반
-                                      </td>
-                                      {GRADES.map((grade) => {
-                                        const selected = isClassSelected(grade, classNumber);
-                                        return (
-                                          <td
-                                            key={`${grade}-${classNumber}`}
-                                            className="border border-gray-200 px-2 py-1.5 text-center bg-white"
+                              
+                              <div className="mt-3 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                                <div className="overflow-x-auto">
+                                  <table className="w-full border-collapse text-sm">
+                                    <thead>
+                                      <tr>
+                                        <th className="border border-gray-300 bg-gray-100 px-3 py-2 text-left font-semibold text-gray-700">
+                                          반
+                                        </th>
+                                        {GRADES.map((grade) => (
+                                          <th
+                                            key={grade}
+                                            className="border border-gray-300 bg-gray-100 px-3 py-2 text-center font-semibold text-gray-700 min-w-[100px]"
                                           >
                                             <label className="flex items-center justify-center cursor-pointer">
                                               <input
                                                 type="checkbox"
-                                                checked={selected}
-                                                onChange={() => handleClassToggle(grade, classNumber)}
-                                                className="h-3 w-3 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                                checked={isGradeAllSelected(grade)}
+                                                onChange={() => handleGradeToggle(grade)}
+                                                className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-2 focus:ring-blue-500"
                                               />
+                                              <span className="ml-2">{grade}학년</span>
                                             </label>
+                                          </th>
+                                        ))}
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {CLASS_NUMBERS.map((classNumber) => (
+                                        <tr key={classNumber}>
+                                          <td className="border border-gray-300 bg-gray-100 px-3 py-2 text-center font-medium text-gray-700">
+                                            {classNumber}반
                                           </td>
-                                        );
-                                      })}
-                                    </tr>
-                                  ))}
-                                </tbody>
-                              </table>
+                                          {GRADES.map((grade) => {
+                                            const selected = isClassSelected(grade, classNumber);
+                                            return (
+                                              <td
+                                                key={`${grade}-${classNumber}`}
+                                                className={cn(
+                                                  "border border-gray-300 px-3 py-2 text-center",
+                                                  selected ? "bg-blue-50" : "bg-white"
+                                                )}
+                                              >
+                                                <label className="flex items-center justify-center cursor-pointer">
+                                                  <input
+                                                    type="checkbox"
+                                                    checked={selected}
+                                                    onChange={() => handleClassToggle(grade, classNumber)}
+                                                    className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-2 focus:ring-blue-500"
+                                                  />
+                                                </label>
+                                              </td>
+                                            );
+                                          })}
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              </div>
                             </div>
-                          </div>
-                        )}
-                      </div>
-                    ))}
+                          )}
+
+                          {/* 학부모 학급 선택 UI */}
+                          {option.value === "parents" && (
+                            <div className="mt-4 pt-4 border-t border-gray-200">
+                              <div className="flex items-center justify-between mb-3">
+                                <div>
+                                  <h4 className="text-sm font-semibold text-gray-700">대상 학급 선택 (자녀 학년/반)</h4>
+                                  <p className="text-xs text-gray-500 mt-1">자녀가 다니는 학년과 반을 선택하세요</p>
+                                </div>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={handleParentClearAll}
+                                  className="text-xs h-7 px-2"
+                                >
+                                  <X className="h-3 w-3 mr-1" />
+                                  모두 지움
+                                </Button>
+                              </div>
+                              
+                              <div className="mt-3 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                                <div className="overflow-x-auto">
+                                  <table className="w-full border-collapse text-sm">
+                                    <thead>
+                                      <tr>
+                                        <th className="border border-gray-300 bg-gray-100 px-3 py-2 text-left font-semibold text-gray-700">
+                                          반
+                                        </th>
+                                        {GRADES.map((grade) => (
+                                          <th
+                                            key={grade}
+                                            className="border border-gray-300 bg-gray-100 px-3 py-2 text-center font-semibold text-gray-700 min-w-[100px]"
+                                          >
+                                            <label className="flex items-center justify-center cursor-pointer">
+                                              <input
+                                                type="checkbox"
+                                                checked={isParentGradeAllSelected(grade)}
+                                                onChange={() => handleParentGradeToggle(grade)}
+                                                className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-2 focus:ring-blue-500"
+                                              />
+                                              <span className="ml-2">{grade}학년</span>
+                                            </label>
+                                          </th>
+                                        ))}
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {CLASS_NUMBERS.map((classNumber) => (
+                                        <tr key={classNumber}>
+                                          <td className="border border-gray-300 bg-gray-100 px-3 py-2 text-center font-medium text-gray-700">
+                                            {classNumber}반
+                                          </td>
+                                          {GRADES.map((grade) => {
+                                            const selected = isParentClassSelected(grade, classNumber);
+                                            return (
+                                              <td
+                                                key={`parent-${grade}-${classNumber}`}
+                                                className={cn(
+                                                  "border border-gray-300 px-3 py-2 text-center",
+                                                  selected ? "bg-green-50" : "bg-white"
+                                                )}
+                                              >
+                                                <label className="flex items-center justify-center cursor-pointer">
+                                                  <input
+                                                    type="checkbox"
+                                                    checked={selected}
+                                                    onChange={() => handleParentClassToggle(grade, classNumber)}
+                                                    className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-2 focus:ring-blue-500"
+                                                  />
+                                                </label>
+                                              </td>
+                                            );
+                                          })}
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                  <div className="mt-4 pt-3 border-t border-gray-200">
+
+                  {/* 모달 푸터 */}
+                  <div className="p-6 border-t border-gray-200 bg-gray-50 flex items-center justify-end gap-3">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setIsTargetModalOpen(false)}
+                    >
+                      취소
+                    </Button>
                     <Button
                       type="button"
                       variant="primary"
-                      size="sm"
-                      onClick={() => setIsTargetModalOpen(false)}
-                      className="w-full"
+                      onClick={() => {
+                        setIsTargetModalOpen(false);
+                      }}
                     >
                       선택 완료
                     </Button>
@@ -693,26 +1319,215 @@ function AnnouncementComposerForm({
         </div>
       </div>
 
-      <div className="space-y-2">
-        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 p-2">
-          {toolbarItems?.map((item) => (
-            <button
-              key={item.label}
-              type="button"
-              onClick={item.action}
-              aria-label={item.label}
-              className={cn(
-                "rounded-md p-2 text-sm text-gray-600 transition hover:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500",
-                item.active && "bg-white text-blue-600 shadow-sm"
-              )}
-            >
-              {item.icon}
-            </button>
-          ))}
+      {/* 본문 작성 영역 - 설문 조사일 때는 2단 레이아웃 */}
+      <div className={cn(
+        "grid gap-4",
+        category === "survey" ? "grid-cols-1 lg:grid-cols-2" : "grid-cols-1"
+      )}>
+        <div className="space-y-2">
+          <div className="flex flex-wrap items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 p-2">
+            {toolbarItems?.map((item) => (
+              <button
+                key={item.label}
+                type="button"
+                onClick={item.action}
+                aria-label={item.label}
+                className={cn(
+                  "rounded-md p-2 text-sm text-gray-600 transition hover:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500",
+                  item.active && "bg-white text-blue-600 shadow-sm"
+                )}
+              >
+                {item.icon}
+              </button>
+            ))}
+          </div>
+
+          <EditorContent editor={editor} />
         </div>
 
-        <EditorContent editor={editor} />
+        {/* 설문 조사 패널 (survey 선택 시에만 표시) */}
+        {category === "survey" && (
+          <div className="border border-gray-200 rounded-lg p-4 bg-gray-50 h-full flex flex-col">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-semibold text-gray-700">설문 조사 항목</h3>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={handleAddSurveyQuestion}
+                className="h-8 px-3 text-xs"
+              >
+                <Plus className="h-3 w-3 mr-1" />
+                질문 추가
+              </Button>
+            </div>
+            
+            {/* 질문 목록 */}
+            <div className="space-y-3 flex-1 overflow-y-auto max-h-[600px]">
+              {surveyQuestions.length === 0 ? (
+                <div className="text-sm text-gray-500 text-center py-8">
+                  설문 항목을 추가하려면 "질문 추가" 버튼을 클릭하세요.
+                </div>
+              ) : (
+                surveyQuestions.map((question, index) => (
+                  <div key={question.id} className="border border-gray-300 rounded-lg p-3 bg-white">
+                    <div className="flex items-start justify-between mb-2">
+                      <span className="text-xs font-medium text-gray-500">
+                        질문 {index + 1}
+                      </span>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => handleDeleteSurveyQuestion(question.id)}
+                        className="h-6 w-6 p-0 text-gray-400 hover:text-red-600"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+                    
+                    {/* 질문 타입 선택 */}
+                    <div className="mb-2">
+                      <Select
+                        value={question.type}
+                        onChange={(e) => handleUpdateSurveyQuestion(question.id, "type", e.target.value)}
+                        options={[
+                          { value: "single", label: "객관식 단일 선택" },
+                          { value: "multiple", label: "객관식 다중 선택" },
+                          { value: "text", label: "주관식 단답" },
+                          { value: "textarea", label: "주관식 장문" },
+                        ]}
+                        className="text-xs h-8"
+                      />
+                    </div>
+                    
+                    {/* 질문 내용 입력 */}
+                    <div className="mb-2">
+                      <Input
+                        placeholder="질문을 입력하세요"
+                        value={question.question}
+                        onChange={(e) => handleUpdateSurveyQuestion(question.id, "question", e.target.value)}
+                        className="text-sm"
+                      />
+                    </div>
+                    
+                    {/* 객관식 선택지 */}
+                    {(question.type === "single" || question.type === "multiple") && (
+                      <div className="space-y-2 mb-2">
+                        {question.options?.map((option, optIndex) => (
+                          <div key={optIndex} className="flex items-center gap-2">
+                            <Input
+                              placeholder={`옵션 ${optIndex + 1}`}
+                              value={option}
+                              onChange={(e) => handleUpdateSurveyOption(question.id, optIndex, e.target.value)}
+                              className="text-sm flex-1"
+                            />
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => handleDeleteSurveyOption(question.id, optIndex)}
+                              className="h-8 w-8 p-0 text-gray-400 hover:text-red-600"
+                              disabled={question.options && question.options.length <= 2}
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ))}
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleAddSurveyOption(question.id)}
+                          className="w-full h-7 text-xs"
+                        >
+                          <Plus className="h-3 w-3 mr-1" />
+                          옵션 추가
+                        </Button>
+                      </div>
+                    )}
+                    
+                    {/* 필수 여부 체크박스 */}
+                    <div className="flex items-center gap-2">
+                      <label className="flex items-center gap-2 text-xs text-gray-700 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={question.required}
+                          onChange={(e) => handleUpdateSurveyQuestion(question.id, "required", e.target.checked)}
+                          className="h-3 w-3 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        />
+                        필수 항목
+                      </label>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        )}
       </div>
+
+      {/* 동의서 서명 패널 (consent 선택 시에만 표시) */}
+      {category === "consent" && (
+        <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+          {/* 서명 영역 - 2단 레이아웃 */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {/* 서명 캔버스 (왼쪽) */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-sm font-semibold text-gray-700">서명</h3>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={clearSignature}
+                  className="h-8 px-3 text-xs"
+                >
+                  초기화
+                </Button>
+              </div>
+              <div className="border-2 border-dashed border-gray-300 rounded-lg bg-white overflow-hidden">
+                <canvas
+                  ref={canvasRef}
+                  className="w-full h-[200px] cursor-crosshair touch-none"
+                  onMouseDown={startDrawing}
+                  onMouseMove={draw}
+                  onMouseUp={stopDrawing}
+                  onMouseLeave={stopDrawing}
+                  onTouchStart={startDrawing}
+                  onTouchMove={draw}
+                  onTouchEnd={stopDrawing}
+                />
+              </div>
+              <p className="text-xs text-gray-500 mt-2 text-center">
+                위 영역에 마우스나 손가락으로 서명을 그려주세요.
+              </p>
+            </div>
+            
+            {/* 서명 미리보기 (오른쪽) */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-sm font-semibold text-gray-700">서명 미리보기</h3>
+                <div className="h-8"></div> {/* 초기화 버튼과 같은 높이의 공간 */}
+              </div>
+              <div className="border border-gray-300 rounded-lg bg-white p-2 min-h-[200px] flex items-center justify-center">
+                {signatureData ? (
+                  <img 
+                    src={signatureData} 
+                    alt="서명" 
+                    className="max-w-full h-auto"
+                  />
+                ) : (
+                  <p className="text-xs text-gray-400 text-center">
+                    서명을 그리면 여기에 표시됩니다.
+                  </p>
+                )}
+              </div>
+              <div className="h-[18px] mt-2"></div> {/* 안내 텍스트와 같은 높이의 공간 */}
+            </div>
+          </div>
+        </div>
+      )}
 
       {error && <p className="text-sm text-red-600">{error}</p>}
 

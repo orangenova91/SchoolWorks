@@ -63,6 +63,7 @@ export async function PATCH(
       where: { id: userId },
       include: {
         studentProfile: true,
+        teacherProfile: true,
         parentProfile: true,
       },
     });
@@ -162,6 +163,36 @@ export async function PATCH(
             data: {
               userId: userId,
               ...studentProfileData,
+            },
+          });
+        }
+      }
+    }
+
+    // 교사 프로필 업데이트 (역할이 teacher인 경우)
+    if (body.role === "teacher" || existingUser.role === "teacher") {
+      const prismaAny = prisma as any;
+      const teacherProfileData: any = {};
+
+      // roleLabel 업데이트
+      if (body.roleLabel !== undefined) {
+        teacherProfileData.roleLabel = body.roleLabel?.trim() || null;
+      }
+
+      if (Object.keys(teacherProfileData).length > 0) {
+        if (existingUser.teacherProfile) {
+          // 기존 프로필 업데이트
+          await prismaAny.teacherProfile.update({
+            where: { userId: userId },
+            data: teacherProfileData,
+          });
+        } else if (body.role === "teacher") {
+          // 새 프로필 생성
+          await prismaAny.teacherProfile.create({
+            data: {
+              userId: userId,
+              school: existingUser.school || null,
+              ...teacherProfileData,
             },
           });
         }

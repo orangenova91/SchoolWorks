@@ -17,6 +17,7 @@ import {
   HelpCircle,
   Shield,
   User,
+  UserCheck,
   MessageCircle,
   ChevronDown,
   ChevronRight,
@@ -57,6 +58,7 @@ const iconMap: Record<string, React.ReactNode> = {
   HelpCircle: <HelpCircle className="w-5 h-5" />,
   Shield: <Shield className="w-5 h-5" />,
   User: <User className="w-5 h-5" />,
+  UserCheck: <UserCheck className="w-5 h-5" />,
   MessageCircle: <MessageCircle className="w-5 h-5" />,
 };
 

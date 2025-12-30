@@ -2,9 +2,8 @@ import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
 import StudentListTable from "@/components/dashboard/teacher/StudentListTable";
+import { RosterToggle } from "@/components/dashboard/teacher/RosterToggle";
 
 export const dynamic = 'force-dynamic';
 
@@ -179,16 +178,10 @@ export default async function TeacherStudentsPage() {
       <header className="border-4 border-dashed border-gray-200 rounded-lg p-8 bg-white">
         <div className="flex items-start justify-between gap-8">
           <div className="flex-1">
-            <Link
-              href="/dashboard/teacher"
-              className="inline-flex items-center text-sm text-gray-600 hover:text-gray-900 mb-4"
-            >
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              대시보드로 돌아가기
-            </Link>
+            <RosterToggle currentPage="students" />
             <h1 className="text-2xl font-bold text-gray-900">학생명렬</h1>
             <p className="mt-2 text-sm text-gray-600">
-              학교 학생 목록을 확인할 수 있습니다.
+              학생 목록을 확인할 수 있습니다.
             </p>
           </div>
           

@@ -75,14 +75,19 @@ export const authOptions: NextAuthOptions = {
           // 기존 계정이 있는지 확인
           const existingUser = await prisma.user.findUnique({
             where: { email: user.email! },
-            include: { accounts: true },
           });
 
           if (existingUser) {
             // 기존 사용자가 있으면 Account 연결 확인/생성
-            const existingAccount = existingUser.accounts.find(
-              (acc) => acc.provider === "google" && acc.providerAccountId === account.providerAccountId
-            );
+            // DB에서 직접 조회하여 unique constraint 확인
+            const existingAccount = await prisma.account.findUnique({
+              where: {
+                provider_providerAccountId: {
+                  provider: account.provider,
+                  providerAccountId: account.providerAccountId,
+                },
+              },
+            });
 
             if (!existingAccount) {
               // Account가 없으면 새로 생성
@@ -103,9 +108,11 @@ export const authOptions: NextAuthOptions = {
               });
             } else {
               // Account가 있으면 토큰 업데이트
+              // userId가 다를 수 있으므로 현재 사용자로 업데이트
               await prisma.account.update({
                 where: { id: existingAccount.id },
                 data: {
+                  userId: existingUser.id,
                   refresh_token: account.refresh_token,
                   access_token: account.access_token,
                   expires_at: account.expires_at,
@@ -125,17 +132,38 @@ export const authOptions: NextAuthOptions = {
               });
             }
           } else {
-            // 새 사용자 생성
-            const newUser = await prisma.user.create({
-              data: {
-                email: user.email!,
-                name: user.name || profile?.name || null,
-                emailVerified: new Date(), // Google 인증은 이메일이 이미 인증된 것으로 간주
-                accounts: {
-                  create: {
-                    type: account.type,
-                    provider: account.provider,
-                    providerAccountId: account.providerAccountId,
+            // 새 사용자 생성 전에 같은 providerAccountId가 이미 존재하는지 확인
+            const existingAccount = await prisma.account.findUnique({
+              where: {
+                provider_providerAccountId: {
+                  provider: account.provider,
+                  providerAccountId: account.providerAccountId,
+                },
+              },
+            });
+
+            if (existingAccount) {
+              // 같은 Google 계정이 다른 User에 연결되어 있는 경우
+              // 해당 User를 찾아서 이메일을 업데이트하거나 기존 User 사용
+              const linkedUser = await prisma.user.findUnique({
+                where: { id: existingAccount.userId },
+              });
+
+              if (linkedUser) {
+                // 기존 User의 이메일을 현재 Google 계정 이메일로 업데이트
+                await prisma.user.update({
+                  where: { id: linkedUser.id },
+                  data: {
+                    email: user.email!,
+                    name: user.name || profile?.name || linkedUser.name,
+                    emailVerified: new Date(),
+                  },
+                });
+
+                // Account 토큰 업데이트
+                await prisma.account.update({
+                  where: { id: existingAccount.id },
+                  data: {
                     refresh_token: account.refresh_token,
                     access_token: account.access_token,
                     expires_at: account.expires_at,
@@ -144,15 +172,44 @@ export const authOptions: NextAuthOptions = {
                     id_token: account.id_token,
                     session_state: account.session_state,
                   },
-                },
-              },
-            });
+                });
 
-            // user 객체 업데이트
-            user.id = newUser.id;
-            user.name = newUser.name;
-            user.school = newUser.school;
-            user.role = newUser.role;
+                // user 객체 업데이트
+                user.id = linkedUser.id;
+                user.name = linkedUser.name;
+                user.school = linkedUser.school;
+                user.role = linkedUser.role;
+              }
+            } else {
+              // 새 사용자 생성
+              const newUser = await prisma.user.create({
+                data: {
+                  email: user.email!,
+                  name: user.name || profile?.name || null,
+                  emailVerified: new Date(), // Google 인증은 이메일이 이미 인증된 것으로 간주
+                  accounts: {
+                    create: {
+                      type: account.type,
+                      provider: account.provider,
+                      providerAccountId: account.providerAccountId,
+                      refresh_token: account.refresh_token,
+                      access_token: account.access_token,
+                      expires_at: account.expires_at,
+                      token_type: account.token_type,
+                      scope: account.scope,
+                      id_token: account.id_token,
+                      session_state: account.session_state,
+                    },
+                  },
+                },
+              });
+
+              // user 객체 업데이트
+              user.id = newUser.id;
+              user.name = newUser.name;
+              user.school = newUser.school;
+              user.role = newUser.role;
+            }
           }
         } catch (error) {
           console.error("Google OAuth sign in error:", error);

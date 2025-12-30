@@ -4,21 +4,38 @@ import { z } from "zod";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
-const AUDIENCE_VALUES = ["all", "grade-1", "grade-2", "grade-3", "parents", "teachers"] as const;
+const AUDIENCE_VALUES = ["all", "grade-1", "grade-2", "grade-3", "parents"] as const;
 
 const selectedClassSchema = z.object({
   grade: z.string(),
   classNumber: z.string(),
 });
 
+const surveyQuestionSchema = z.object({
+  id: z.string(),
+  type: z.enum(["single", "multiple", "text", "textarea"]),
+  question: z.string(),
+  options: z.array(z.string()).optional(),
+  required: z.boolean(),
+});
+
+const consentDataSchema = z.object({
+  signatureImage: z.string(), // Base64 이미지
+  signedAt: z.string().optional(),
+});
+
 const updateAnnouncementSchema = z.object({
   title: z.string().trim().min(1, "제목을 입력하세요").max(200, "제목은 200자 이하여야 합니다"),
+  category: z.string().optional(),
   content: z.string().trim().min(1, "본문을 입력하세요"),
   audience: z.enum(AUDIENCE_VALUES),
   author: z.string().trim().min(1, "작성자를 입력하세요"),
   isScheduled: z.boolean().default(false),
   publishAt: z.string().datetime().optional(),
   selectedClasses: z.array(selectedClassSchema).optional(),
+  parentSelectedClasses: z.array(selectedClassSchema).optional(),
+  surveyData: z.array(surveyQuestionSchema).optional(),
+  consentData: consentDataSchema.optional(),
 });
 
 export const dynamic = 'force-dynamic';
@@ -53,6 +70,7 @@ export async function GET(
       announcement: {
         id: announcement.id,
         title: announcement.title,
+        category: announcement.category || null,
         content: announcement.content,
         audience: announcement.audience,
         author: announcement.author,
@@ -62,6 +80,10 @@ export async function GET(
         publishedAt: announcement.publishedAt?.toISOString() || null,
         createdAt: announcement.createdAt.toISOString(),
         updatedAt: announcement.updatedAt.toISOString(),
+        selectedClasses: announcement.selectedClasses || null,
+        parentSelectedClasses: announcement.parentSelectedClasses || null,
+        surveyData: announcement.surveyData || null,
+        consentData: announcement.consentData || null,
       },
     });
   } catch (error) {
@@ -138,12 +160,16 @@ export async function PUT(
     // 공지사항 수정
     const updateData: any = {
       title: validatedData.title,
+      category: validatedData.category || null,
       content: validatedData.content,
       audience: validatedData.audience,
       author: validatedData.author,
       isScheduled: validatedData.isScheduled,
       publishAt: validatedData.publishAt ? new Date(validatedData.publishAt) : null,
       selectedClasses: validatedData.selectedClasses ? JSON.stringify(validatedData.selectedClasses) : null,
+      parentSelectedClasses: validatedData.parentSelectedClasses ? JSON.stringify(validatedData.parentSelectedClasses) : null,
+      surveyData: validatedData.surveyData ? JSON.stringify(validatedData.surveyData) : null,
+      consentData: validatedData.consentData ? JSON.stringify(validatedData.consentData) : null,
     };
 
     // 예약 발행 상태 변경 처리

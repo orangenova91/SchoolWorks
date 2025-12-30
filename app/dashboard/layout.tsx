@@ -23,6 +23,7 @@ import {
   Shield,
   User,
   MessageCircle,
+  UserCheck,
 } from "lucide-react";
 
 export default async function DashboardLayout({
@@ -66,6 +67,12 @@ export default async function DashboardLayout({
             label: t.sidebar.teacher.overview,
             icon: <Home className="w-5 h-5" />,
             iconName: "Home"
+          },
+          {
+            href: "/dashboard/teacher/students",
+            label: "구성원 조회",
+            icon: <UserCheck className="w-5 h-5" />,
+            iconName: "UserCheck"
           },
           {
             href: "/dashboard/teacher/schedule",
