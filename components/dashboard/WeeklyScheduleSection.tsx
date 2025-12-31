@@ -67,8 +67,8 @@ export default function WeeklyScheduleSection({
             let headerBgClass = "";
             let headerTextClass = "";
             if (isToday) {
-              headerBgClass = "bg-blue-100";
-              headerTextClass = "text-blue-700";
+              headerBgClass = "bg-yellow-100";
+              headerTextClass = "text-yellow-900";
             } else if (isSunday) {
               headerBgClass = "bg-red-50";
               headerTextClass = "text-red-700";
@@ -122,7 +122,7 @@ export default function WeeklyScheduleSection({
             
             let bodyBgClass = "";
             if (isToday) {
-              bodyBgClass = "bg-blue-50";
+              bodyBgClass = "bg-yellow-50";
             } else if (isSunday) {
               bodyBgClass = "bg-red-50/30";
             } else if (isSaturday) {

@@ -235,9 +235,20 @@ const getKoreaWeekStart = (): Date => {
   return new Date(koreaMidnightISO);
 };
 
+// 한국 시간대 기준으로 요일을 가져오는 함수
 const getDayOfWeek = (date: Date): string => {
   const days = ["일", "월", "화", "수", "목", "금", "토"];
-  return days[date.getDay()];
+  // 한국 시간대 기준으로 요일 계산
+  const formatter = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Seoul",
+    weekday: "short",
+  });
+  const weekday = formatter.format(date);
+  // "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"을 인덱스로 변환
+  const weekdayMap: Record<string, number> = {
+    "Sun": 0, "Mon": 1, "Tue": 2, "Wed": 3, "Thu": 4, "Fri": 5, "Sat": 6
+  };
+  return days[weekdayMap[weekday] || 0];
 };
 
 const parseSchedules = (value: string): ClassGroupSchedule[] => {
@@ -435,11 +446,22 @@ export default async function TeacherDashboardPage() {
   const weekDays = ["월", "화", "수", "목", "금"];
   const periods = ["1", "2", "3", "4", "점심", "5", "6", "7"];
 
-  // 현재 시간에 해당하는 교시 계산
+  // 현재 시간에 해당하는 교시 계산 (한국 시간대 기준)
   const getCurrentPeriod = (): string | null => {
-    const koreaNow = getKoreaTime();
-    const hour = koreaNow.getHours();
-    const minute = koreaNow.getMinutes();
+    const now = new Date();
+    // 한국 시간대의 시간을 직접 가져오기
+    const hourFormatter = new Intl.DateTimeFormat("en-US", {
+      timeZone: "Asia/Seoul",
+      hour: "2-digit",
+      hour12: false,
+    });
+    const minuteFormatter = new Intl.DateTimeFormat("en-US", {
+      timeZone: "Asia/Seoul",
+      minute: "2-digit",
+    });
+    
+    const hour = parseInt(hourFormatter.format(now));
+    const minute = parseInt(minuteFormatter.format(now));
     const timeInMinutes = hour * 60 + minute;
 
     // 일반적인 교시 시간표 (한국 시간대 기준)
@@ -548,8 +570,10 @@ export default async function TeacherDashboardPage() {
                 {weekDays.map((day) => (
                   <th
                     key={day}
-                    className={`border border-gray-300 bg-gray-50 px-1 py-2 font-semibold text-gray-700 min-w-[60px] ${
-                      day === todayDay ? "bg-blue-100" : ""
+                    className={`border border-gray-300 px-1 py-2 font-semibold min-w-[60px] ${
+                      day === todayDay 
+                        ? "bg-yellow-100 text-yellow-900" 
+                        : "bg-gray-50 text-gray-700"
                     }`}
                   >
                     {day}
