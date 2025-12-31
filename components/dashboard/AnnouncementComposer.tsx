@@ -5,15 +5,79 @@ import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
 import Link from "@tiptap/extension-link";
-import { Bold, Italic, List, ListOrdered, Quote, Link as LinkIcon, Undo, Redo, Heading2, Send, ChevronDown, X, Check, Plus, Trash2 } from "lucide-react";
+import { TextStyle } from "@tiptap/extension-text-style";
+import UnderlineExtension from "@tiptap/extension-underline";
+import TiptapImage from "@tiptap/extension-image";
+import { Extension } from "@tiptap/core";
+import { Bold, Italic, Underline, List, ListOrdered, Quote, Link as LinkIcon, Undo, Redo, Heading2, Send, ChevronDown, X, Check, Plus, Trash2, Type, Image as ImageIcon } from "lucide-react";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { Select } from "@/components/ui/Select";
 import { cn } from "@/lib/utils";
 
+// 폰트 크기 커스텀 Extension
+const FontSize = Extension.create({
+  name: 'fontSize',
+  addOptions() {
+    return {
+      types: ['textStyle'],
+    };
+  },
+  addGlobalAttributes() {
+    return [
+      {
+        types: this.options.types,
+        attributes: {
+          fontSize: {
+            default: null,
+            parseHTML: element => {
+              const fontSize = element.style.fontSize;
+              return fontSize ? fontSize.replace('px', '') : null;
+            },
+            renderHTML: attributes => {
+              if (!attributes.fontSize) {
+                return {};
+              }
+              return { style: `font-size: ${attributes.fontSize}px` };
+            },
+          },
+        },
+      },
+    ];
+  },
+  addCommands() {
+    return {
+      setFontSize: (size: string) => ({ chain }: any) => {
+        return chain()
+          .setMark('textStyle', { fontSize: size })
+          .run();
+      },
+      unsetFontSize: () => ({ chain }: any) => {
+        return chain()
+          .unsetMark('textStyle')
+          .run();
+      },
+    } as any;
+  },
+});
+
 const targetOptions = [
   { value: "students", label: "모든 재학생" },
   { value: "parents", label: "모든 학부모" },
+];
+
+const fontSizeOptions = [
+  { value: "", label: "기본 크기" },
+  { value: "12", label: "12px" },
+  { value: "14", label: "14px" },
+  { value: "16", label: "16px" },
+  { value: "18", label: "18px" },
+  { value: "20", label: "20px" },
+  { value: "24", label: "24px" },
+  { value: "28", label: "28px" },
+  { value: "32", label: "32px" },
+  { value: "36", label: "36px" },
+  { value: "48", label: "48px" },
 ];
 
 const categoryOptions = [
@@ -214,11 +278,54 @@ function AnnouncementComposerForm({
         linkOnPaste: true,
         openOnClick: false,
       }),
+      TextStyle,
+      FontSize,
+      UnderlineExtension,
+      TiptapImage.configure({
+        inline: true,
+        allowBase64: true,
+      }),
     ],
     editorProps: {
       attributes: {
         class:
           "min-h-[200px] rounded-lg border border-gray-200 bg-white p-4 text-sm leading-6 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500",
+      },
+      // 클립보드에서 이미지 붙여넣기 처리
+      handlePaste: (view, event) => {
+        const items = Array.from(event.clipboardData?.items || []);
+        
+        for (const item of items) {
+          if (item.type.indexOf('image') !== -1) {
+            event.preventDefault();
+            const file = item.getAsFile();
+            if (!file) return false;
+            
+            // 파일 크기 제한 (5MB)
+            if (file.size > 5 * 1024 * 1024) {
+              // 에러 메시지는 나중에 표시하기 위해 상태 업데이트
+              setTimeout(() => setError("이미지 크기는 5MB 이하여야 합니다."), 0);
+              return false;
+            }
+            
+            // Base64로 변환하여 에디터에 삽입
+            const reader = new FileReader();
+            reader.onload = (e) => {
+              const base64 = e.target?.result as string;
+              if (base64) {
+                // view를 통해 에디터에 접근
+                const { state, dispatch } = view;
+                const { schema } = state;
+                const imageNode = schema.nodes.image.create({ src: base64 });
+                const transaction = state.tr.replaceSelectionWith(imageNode);
+                dispatch(transaction);
+              }
+            };
+            reader.readAsDataURL(file);
+            return true;
+          }
+        }
+        return false;
       },
     },
     content: "",
@@ -941,6 +1048,12 @@ function AnnouncementComposerForm({
         active: editor.isActive("italic"),
       },
       {
+        label: "밑줄",
+        icon: <Underline className="h-4 w-4" />,
+        action: () => editor.chain().focus().toggleUnderline().run(),
+        active: editor.isActive("underline"),
+      },
+      {
         label: "소제목",
         icon: <Heading2 className="h-4 w-4" />,
         action: () => editor.chain().focus().toggleHeading({ level: 2 }).run(),
@@ -978,6 +1091,37 @@ function AnnouncementComposerForm({
           editor.chain().focus().extendMarkRange("link").setLink({ href: url }).run();
         },
         active: editor.isActive("link"),
+      },
+      {
+        label: "이미지",
+        icon: <ImageIcon className="h-4 w-4" />,
+        action: () => {
+          const input = document.createElement("input");
+          input.type = "file";
+          input.accept = "image/*";
+          input.onchange = async (e) => {
+            const file = (e.target as HTMLInputElement).files?.[0];
+            if (!file) return;
+            
+            // 파일 크기 제한 (5MB)
+            if (file.size > 5 * 1024 * 1024) {
+              setError("이미지 크기는 5MB 이하여야 합니다.");
+              return;
+            }
+            
+            // Base64로 변환하여 에디터에 삽입
+            const reader = new FileReader();
+            reader.onload = (event) => {
+              const base64 = event.target?.result as string;
+              if (base64) {
+                editor.chain().focus().setImage({ src: base64 }).run();
+              }
+            };
+            reader.readAsDataURL(file);
+          };
+          input.click();
+        },
+        active: false,
       },
       {
         label: "되돌리기",
@@ -1342,6 +1486,37 @@ function AnnouncementComposerForm({
       )}>
         <div className="space-y-2">
           <div className="flex flex-wrap items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 p-2">
+            {/* 폰트 크기 드롭다운 */}
+            {editor && (
+              <div className="relative">
+                <select
+                  value={editor.getAttributes('textStyle').fontSize || ''}
+                  onChange={(e) => {
+                    const size = e.target.value;
+                    if (!editor) return;
+                    
+                    if (size === '') {
+                      // 기본 크기로 복원
+                      editor.chain().focus().unsetMark('textStyle').run();
+                    } else {
+                      // 폰트 크기 설정
+                      editor.chain().focus().setMark('textStyle', { fontSize: size }).run();
+                    }
+                  }}
+                  className="h-9 px-3 pr-8 text-sm rounded-md border border-gray-300 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none cursor-pointer"
+                  title="폰트 크기"
+                >
+                  {fontSizeOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+                <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none">
+                  <ChevronDown className="h-4 w-4 text-gray-500" />
+                </div>
+              </div>
+            )}
             {toolbarItems?.map((item) => (
               <button
                 key={item.label}

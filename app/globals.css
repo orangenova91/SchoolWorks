@@ -108,3 +108,17 @@ body {
   animation-delay: 4s;
 }
 
+/* TipTap 에디터 폰트 크기 스타일 */
+.ProseMirror [style*="font-size"] {
+  display: inline;
+}
+
+/* TipTap 에디터 이미지 스타일 */
+.ProseMirror img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 0.5rem;
+  margin: 1rem 0;
+  display: block;
+}
+
