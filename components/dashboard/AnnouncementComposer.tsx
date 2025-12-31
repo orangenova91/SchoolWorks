@@ -188,6 +188,7 @@ function AnnouncementComposerForm({
   const [parentSelectedClasses, setParentSelectedClasses] = useState<SelectedClass[]>([]);
   const [surveyQuestions, setSurveyQuestions] = useState<SurveyQuestion[]>([]);
   const [signatureData, setSignatureData] = useState<string | null>(null);
+  const [showSignaturePanel, setShowSignaturePanel] = useState(false);
   const [isDrawing, setIsDrawing] = useState(false);
   const [isTargetModalOpen, setIsTargetModalOpen] = useState(false);
   const [useSchedule, setUseSchedule] = useState(false);
@@ -291,12 +292,17 @@ function AnnouncementComposerForm({
                 : announcement.consentData;
               if (consentData?.signatureImage) {
                 setSignatureData(consentData.signatureImage);
+                // 설문 조사일 때 서명 데이터가 있으면 서명 패널 표시
+                if (announcement.category === "survey") {
+                  setShowSignaturePanel(true);
+                }
               }
             } catch (e) {
               setSignatureData(null);
             }
           } else {
             setSignatureData(null);
+            setShowSignaturePanel(false);
           }
         } catch (err: any) {
           console.error("Failed to load announcement:", err);
@@ -309,6 +315,15 @@ function AnnouncementComposerForm({
       loadAnnouncement();
     }
   }, [editId, editor]);
+
+  // category 변경 시 showSignaturePanel 초기화 (동의서가 아닌 경우)
+  useEffect(() => {
+    if (category !== "consent" && category !== "survey") {
+      setShowSignaturePanel(false);
+    } else if (category === "consent") {
+      setShowSignaturePanel(true);
+    }
+  }, [category]);
 
   // ESC 키로 모달 닫기 및 body 스크롤 방지
   useEffect(() => {
@@ -650,7 +665,7 @@ function AnnouncementComposerForm({
       selectedClasses: selectedTargets.includes("students") ? selectedClasses : [],
       parentSelectedClasses: selectedTargets.includes("parents") ? parentSelectedClasses : [],
       surveyData: category === "survey" && surveyQuestions.length > 0 ? surveyQuestions : undefined,
-      consentData: category === "consent" && signatureData ? {
+      consentData: ((category === "consent" && signatureData) || (category === "survey" && showSignaturePanel && signatureData)) ? {
         signatureImage: signatureData,
         signedAt: new Date().toISOString(),
       } : undefined,
@@ -695,6 +710,7 @@ function AnnouncementComposerForm({
       setParentSelectedClasses([]);
       setSurveyQuestions([]);
       setSignatureData(null);
+      setShowSignaturePanel(false);
       setUseSchedule(false);
       setPublishAt("");
       setIsSubmitting(false);
@@ -777,21 +793,21 @@ function AnnouncementComposerForm({
     if (!canvas) return { x: 0, y: 0 };
     
     const rect = canvas.getBoundingClientRect();
-    const scaleX = canvas.width / rect.width;
-    const scaleY = canvas.height / rect.height;
+    // DPR이 context.scale()로 이미 적용되어 있으므로, CSS 좌표를 그대로 사용
+    // scale 계산을 제거하여 이중 스케일링 방지
     
     if ('touches' in e) {
       // 터치 이벤트
       const touch = e.touches[0] || e.changedTouches[0];
       return {
-        x: (touch.clientX - rect.left) * scaleX,
-        y: (touch.clientY - rect.top) * scaleY,
+        x: touch.clientX - rect.left,
+        y: touch.clientY - rect.top,
       };
     } else {
       // 마우스 이벤트
       return {
-        x: (e.clientX - rect.left) * scaleX,
-        y: (e.clientY - rect.top) * scaleY,
+        x: e.clientX - rect.left,
+        y: e.clientY - rect.top,
       };
     }
   };
@@ -867,9 +883,9 @@ function AnnouncementComposerForm({
     img.src = imageData;
   };
 
-  // Canvas 초기화 및 서명 로드 (category 변경 시)
+  // Canvas 초기화 및 서명 로드 (category 변경 시 또는 showSignaturePanel 변경 시)
   useEffect(() => {
-    if (category !== "consent") return;
+    if (!(category === "consent" || (category === "survey" && showSignaturePanel))) return;
     
     // 약간의 지연 후 Canvas 크기 설정 (DOM 렌더링 완료 후)
     const timer = setTimeout(() => {
@@ -907,7 +923,7 @@ function AnnouncementComposerForm({
     
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [category, signatureData]);
+  }, [category, showSignaturePanel, signatureData]);
 
   const toolbarItems =
     editor &&
@@ -1349,7 +1365,18 @@ function AnnouncementComposerForm({
         {category === "survey" && (
           <div className="border border-gray-200 rounded-lg p-4 bg-gray-50 h-full flex flex-col">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-semibold text-gray-700">설문 조사 항목</h3>
+              <div className="flex items-center gap-3">
+                <h3 className="text-sm font-semibold text-gray-700">설문 조사 항목</h3>
+                <label className="flex items-center gap-2 text-xs text-gray-700 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={showSignaturePanel}
+                    onChange={(e) => setShowSignaturePanel(e.target.checked)}
+                    className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  서명 포함
+                </label>
+              </div>
               <Button
                 type="button"
                 size="sm"
@@ -1467,8 +1494,8 @@ function AnnouncementComposerForm({
         )}
       </div>
 
-      {/* 동의서 서명 패널 (consent 선택 시에만 표시) */}
-      {category === "consent" && (
+      {/* 동의서/설문조사 서명 패널 (consent 선택 시 또는 survey에서 checkbox 체크 시 표시) */}
+      {(category === "consent" || (category === "survey" && showSignaturePanel)) && (
         <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
           {/* 서명 영역 - 2단 레이아웃 */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
