@@ -2,7 +2,6 @@
 
 import { useState, useRef, useEffect } from "react";
 import { Calendar, ClockArrowDown } from "lucide-react";
-import CreateClassGroupButton from "./CreateClassGroupButton";
 
 type Student = {
   id: string;
@@ -340,7 +339,6 @@ export default function AttendanceHeader({
           )}
         </div>
       </div>
-      <CreateClassGroupButton courseId={courseId} students={students} />
     </header>
   );
 }

@@ -155,6 +155,46 @@ const getKoreaMidnight = (date: Date): Date => {
   return new Date(koreaMidnightISO);
 };
 
+// 한국 시간 기준으로 특정 날짜의 시작(자정)을 계산하는 함수
+// baseDate: 기준이 되는 Date 객체 (UTC로 해석됨)
+// daysOffset: baseDate로부터 며칠 후인지 (0이면 같은 날)
+// 한국 시간 기준의 자정을 UTC로 변환하여 반환
+const getKoreaDayStart = (baseDate: Date, daysOffset: number = 0): Date => {
+  // baseDate를 한국 시간대로 해석하여 날짜 정보 추출
+  const koreaFormatter = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Seoul",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+  
+  // baseDate를 한국 시간대로 해석
+  const koreaParts = koreaFormatter.formatToParts(baseDate);
+  const koreaYear = parseInt(koreaParts.find(p => p.type === "year")?.value || "0");
+  const koreaMonth = parseInt(koreaParts.find(p => p.type === "month")?.value || "0");
+  const koreaDay = parseInt(koreaParts.find(p => p.type === "day")?.value || "0");
+  
+  // 한국 시간 기준으로 날짜 생성 (로컬 시간으로 해석)
+  const koreaDate = new Date(koreaYear, koreaMonth - 1, koreaDay);
+  
+  // daysOffset만큼 날짜 추가
+  if (daysOffset !== 0) {
+    koreaDate.setDate(koreaDate.getDate() + daysOffset);
+  }
+  
+  // 한국 시간 기준 자정(00:00:00 KST)을 UTC로 변환
+  const year = koreaDate.getFullYear();
+  const month = koreaDate.getMonth() + 1;
+  const dayOfMonth = koreaDate.getDate();
+  
+  // 한국 시간 기준 자정을 UTC로 변환한 Date 객체 생성
+  // ISO 문자열: YYYY-MM-DDTHH:mm:ss+09:00 형식
+  const koreaMidnightISO = `${year}-${String(month).padStart(2, '0')}-${String(dayOfMonth).padStart(2, '0')}T00:00:00+09:00`;
+  
+  // UTC로 변환된 Date 객체 반환
+  return new Date(koreaMidnightISO);
+};
+
 // 한국 시간 기준으로 주간 시작(일요일 자정)을 계산하는 함수
 // 한국 시간 기준의 자정을 UTC로 변환하여 반환
 const getKoreaWeekStart = (): Date => {
@@ -348,13 +388,13 @@ export default async function TeacherDashboardPage() {
   }).format(today);
 
   const weeklySchedule = Array.from({ length: 7 }, (_, index) => {
-    const date = new Date(weekStart);
-    date.setDate(weekStart.getDate() + index);
+    // 한국 시간 기준으로 해당 날짜의 시작(자정) 계산
+    const dayStart = getKoreaDayStart(weekStart, index);
+    // 다음 날 자정 계산 (하루 종료 시점)
+    const dayEnd = getKoreaDayStart(weekStart, index + 1);
 
-    const dayStart = new Date(date);
-    dayStart.setHours(0, 0, 0, 0);
-    const dayEnd = new Date(dayStart);
-    dayEnd.setDate(dayEnd.getDate() + 1);
+    // 날짜 표시용 Date 객체 (한국 시간대로 포맷팅하기 위해 사용)
+    const date = new Date(dayStart);
 
     const eventsForDay = weeklyCalendarEvents
       .filter((event) => {

@@ -122,18 +122,26 @@ export default async function ManageClassDetailPage({
   return (
     <div className="space-y-6">
       <header className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm space-y-4">
-      {infoChips.length > 0 && (
-          <div className="flex flex-wrap items-center gap-2">
-            {infoChips.map((chip) => (
-              <span
-                key={chip}
-                className="inline-flex items-center rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700"
-              >
-                {chip}
-              </span>
-            ))}
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          {infoChips.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2">
+              {infoChips.map((chip) => (
+                <span
+                  key={chip}
+                  className="inline-flex items-center rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700"
+                >
+                  {chip}
+                </span>
+              ))}
+            </div>
+          )}
+          <div className="inline-flex items-center gap-2 rounded-md bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700">
+            <span>수업 코드</span>
+            <span className="font-mono tracking-wide text-sm">
+              {course.joinCode ?? "미발급"}
+            </span>
           </div>
-        )}
+        </div>
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">{course.subject}</h1>
@@ -153,12 +161,7 @@ export default async function ManageClassDetailPage({
               </div>
             )}
           </div>
-          <div className="inline-flex items-center gap-2 rounded-md bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700">
-            <span>수업 코드</span>
-            <span className="font-mono tracking-wide text-sm">
-              {course.joinCode ?? "미발급"}
-            </span>
-          </div>
+          <CreateClassGroupButton courseId={course.id} students={students} />
         </div>
         
       </header>
