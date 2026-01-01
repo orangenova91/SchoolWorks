@@ -10,10 +10,15 @@ import { EditStaffModal, type StaffWithProfile } from "./EditStaffModal";
 
 type StaffListTableProps = {
   staff: StaffWithProfile[];
+  initialPageSize?: number;
+  pageSizeOptions?: number[];
 };
 
-
-export default function StaffListTable({ staff }: StaffListTableProps) {
+export default function StaffListTable({ 
+  staff,
+  initialPageSize = 20,
+  pageSizeOptions = [10, 20, 50],
+}: StaffListTableProps) {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedRoleFilter, setSelectedRoleFilter] = useState<string>("");
@@ -23,6 +28,12 @@ export default function StaffListTable({ staff }: StaffListTableProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [sortColumn, setSortColumn] = useState<string | null>(null);
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState<number | "all">(initialPageSize);
+
+  const normalizedOptions = Array.from(new Set(pageSizeOptions.concat(initialPageSize))).sort(
+    (a, b) => a - b,
+  );
 
   // 교직원들의 고유한 직책 목록
   const uniqueRoleLabels = useMemo(() => {
@@ -169,6 +180,52 @@ export default function StaffListTable({ staff }: StaffListTableProps) {
     return result;
   }, [staff, searchQuery, selectedRoleFilter, selectedGradeFilter, selectedClassLabelFilter, sortColumn, sortDirection]);
 
+  // 페이지네이션 계산
+  const totalPages = useMemo(() => {
+    if (pageSize === "all") return 1;
+    return Math.max(1, Math.ceil(filteredStaff.length / (pageSize as number)));
+  }, [filteredStaff.length, pageSize]);
+
+  const paginatedStaff = useMemo(() => {
+    if (pageSize === "all") return filteredStaff;
+    const start = (currentPage - 1) * (pageSize as number);
+    return filteredStaff.slice(start, start + (pageSize as number));
+  }, [filteredStaff, currentPage, pageSize]);
+
+  // 필터 변경 시 첫 페이지로 이동
+  const handleSearchChange = (value: string) => {
+    setSearchQuery(value);
+    setCurrentPage(1);
+  };
+
+  const handleRoleFilterChange = (value: string) => {
+    setSelectedRoleFilter(value);
+    setCurrentPage(1);
+  };
+
+  const handleGradeFilterChange = (value: string) => {
+    setSelectedGradeFilter(value);
+    setCurrentPage(1);
+  };
+
+  const handleClassLabelFilterChange = (value: string) => {
+    setSelectedClassLabelFilter(value);
+    setCurrentPage(1);
+  };
+
+  // 페이지 이동
+  const goToPage = (page: number) => {
+    const nextPage = Math.min(Math.max(1, page), totalPages);
+    setCurrentPage(nextPage);
+  };
+
+  // 페이지 크기 변경
+  const handlePageSizeChange = (size: string) => {
+    const newSize = size === "all" ? "all" : Number(size);
+    setPageSize(newSize);
+    setCurrentPage(1);
+  };
+
   // 정렬 핸들러
   const handleSort = (column: string) => {
     if (sortColumn === column) {
@@ -278,7 +335,7 @@ export default function StaffListTable({ staff }: StaffListTableProps) {
             <Input
               type="text"
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => handleSearchChange(e.target.value)}
               placeholder="이름, 이메일, 직책 또는 담당 과목으로 검색 (콤마로 구분: 김선생, 수학)"
               className="w-full"
             />
@@ -293,7 +350,7 @@ export default function StaffListTable({ staff }: StaffListTableProps) {
                 })),
               ]}
               value={selectedRoleFilter}
-              onChange={(e) => setSelectedRoleFilter(e.target.value)}
+              onChange={(e) => handleRoleFilterChange(e.target.value)}
               disabled={uniqueRoleLabels.length === 0}
             />
           </div>
@@ -307,7 +364,7 @@ export default function StaffListTable({ staff }: StaffListTableProps) {
                 })),
               ]}
               value={selectedGradeFilter}
-              onChange={(e) => setSelectedGradeFilter(e.target.value)}
+              onChange={(e) => handleGradeFilterChange(e.target.value)}
               disabled={uniqueGrades.length === 0}
             />
           </div>
@@ -321,7 +378,7 @@ export default function StaffListTable({ staff }: StaffListTableProps) {
                 })),
               ]}
               value={selectedClassLabelFilter}
-              onChange={(e) => setSelectedClassLabelFilter(e.target.value)}
+              onChange={(e) => handleClassLabelFilterChange(e.target.value)}
               disabled={uniqueClassLabels.length === 0}
             />
           </div>
@@ -334,6 +391,12 @@ export default function StaffListTable({ staff }: StaffListTableProps) {
           <span className="mx-2">중</span>
           <span className="font-semibold text-orange-600">{filteredStaff.length}명</span>
           <span className="ml-1">표시됨</span>
+          {pageSize !== "all" && (
+            <>
+              <span className="mx-2">·</span>
+              <span className="text-gray-500">페이지 {currentPage}/{totalPages}</span>
+            </>
+          )}
         </div>
         <div className="flex items-center gap-3">
           {(searchQuery.trim() || selectedRoleFilter || selectedGradeFilter || selectedClassLabelFilter) && (
@@ -450,7 +513,7 @@ export default function StaffListTable({ staff }: StaffListTableProps) {
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200">
-            {filteredStaff.length === 0 ? (
+            {paginatedStaff.length === 0 ? (
               <tr>
                 <td colSpan={7} className="px-4 py-8 text-center text-sm text-gray-500">
                   {searchQuery.trim() || selectedRoleFilter || selectedGradeFilter || selectedClassLabelFilter
@@ -459,7 +522,7 @@ export default function StaffListTable({ staff }: StaffListTableProps) {
                 </td>
               </tr>
             ) : (
-              filteredStaff.map((member) => (
+              paginatedStaff.map((member) => (
                 <tr key={member.id} className="hover:bg-gray-50">
                   <td className="px-4 py-3 text-sm text-gray-700">
                     {member.roleLabel}
@@ -497,6 +560,65 @@ export default function StaffListTable({ staff }: StaffListTableProps) {
         </table>
       </div>
 
+      {/* 페이지네이션 UI */}
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end text-sm text-gray-600 mt-4">
+        <div className="inline-flex items-center gap-3 flex-wrap sm:flex-nowrap">
+          <button
+            type="button"
+            onClick={() => goToPage(currentPage - 1)}
+            disabled={currentPage === 1}
+            className="px-3 py-1 rounded border border-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed hover:border-blue-300 hover:text-blue-600"
+          >
+            이전
+          </button>
+          <div className="flex items-center gap-1">
+            {paginationRange(currentPage, totalPages).map((page) =>
+              page === "ellipsis" ? (
+                <span key={`ellipsis-${Math.random()}`} className="px-2">
+                  …
+                </span>
+              ) : (
+                <button
+                  key={page}
+                  type="button"
+                  onClick={() => goToPage(page)}
+                  className={`px-3 py-1 rounded ${
+                    page === currentPage
+                      ? "bg-blue-600 text-white"
+                      : "border border-gray-200 hover:border-blue-300 hover:text-blue-600"
+                  }`}
+                >
+                  {page}
+                </button>
+              ),
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={() => goToPage(currentPage + 1)}
+            disabled={currentPage === totalPages}
+            className="px-3 py-1 rounded border border-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed hover:border-blue-300 hover:text-blue-600"
+          >
+            다음
+          </button>
+          <label className="flex items-center gap-2 text-xs sm:text-sm">
+            <span>표시 수</span>
+            <select
+              value={pageSize === "all" ? "all" : String(pageSize)}
+              onChange={(event) => handlePageSizeChange(event.target.value)}
+              className="border border-gray-200 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              {normalizedOptions.map((option) => (
+                <option key={option} value={option}>
+                  {option}명
+                </option>
+              ))}
+              <option value="all">전체</option>
+            </select>
+          </label>
+        </div>
+      </div>
+
       <EditStaffModal
         staff={selectedStaff}
         isOpen={isModalOpen}
@@ -505,5 +627,33 @@ export default function StaffListTable({ staff }: StaffListTableProps) {
       />
     </section>
   );
+}
+
+// 페이지네이션 범위 계산 함수
+function paginationRange(current: number, total: number) {
+  const delta = 1;
+  const range: Array<number | "ellipsis"> = [];
+  const rangeWithDots: Array<number | "ellipsis"> = [];
+  let l: number | undefined;
+
+  for (let i = 1; i <= total; i += 1) {
+    if (i === 1 || i === total || (i >= current - delta && i <= current + delta)) {
+      range.push(i);
+    }
+  }
+
+  for (const i of range) {
+    if (l !== undefined) {
+      if ((i as number) - l === 2) {
+        rangeWithDots.push((l as number) + 1);
+      } else if ((i as number) - l > 2) {
+        rangeWithDots.push("ellipsis");
+      }
+    }
+    rangeWithDots.push(i);
+    l = i as number;
+  }
+
+  return rangeWithDots;
 }
 
