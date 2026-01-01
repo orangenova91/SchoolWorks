@@ -81,7 +81,6 @@ const fontSizeOptions = [
 ];
 
 const categoryOptions = [
-  { value: "", label: "선택 안함" },
   { value: "notice", label: "단순 알림" },
   { value: "survey", label: "설문 조사" },
   { value: "consent", label: "동의서" },
@@ -208,7 +207,7 @@ interface AnnouncementComposerProps {
   isOpen?: boolean;
   onOpenChange?: (open: boolean) => void;
   showButton?: boolean;
-  editId?: string; // 수정 모드일 때 공지사항 ID
+  editId?: string; // 수정 모드일 때 안내문 ID
   onEditComplete?: () => void; // 수정 완료 후 콜백
 }
 
@@ -247,7 +246,7 @@ function AnnouncementComposerForm({
   onEditComplete,
 }: AnnouncementComposerProps & { onClose: () => void; editId?: string; onEditComplete?: () => void }) {
   const [title, setTitle] = useState("");
-  const [category, setCategory] = useState<string>("");
+  const [category, setCategory] = useState<string>("notice");
   const [selectedTargets, setSelectedTargets] = useState<string[]>([]);
   const [selectedClasses, setSelectedClasses] = useState<SelectedClass[]>([]);
   const [parentSelectedClasses, setParentSelectedClasses] = useState<SelectedClass[]>([]);
@@ -362,12 +361,12 @@ function AnnouncementComposerForm({
           const data = await response.json();
 
           if (!response.ok) {
-            throw new Error(data.error || "공지사항을 불러오는데 실패했습니다.");
+            throw new Error(data.error || "안내문을 불러오는데 실패했습니다.");
           }
 
           const announcement = data.announcement;
           setTitle(announcement.title);
-          setCategory(announcement.category || "");
+          setCategory(announcement.category || "notice");
           setSelectedTargets(convertAudienceToTargets(announcement.audience));
           // 선택된 학급 정보 로드 (있는 경우)
           if (announcement.selectedClasses) {
@@ -464,7 +463,7 @@ function AnnouncementComposerForm({
           }
         } catch (err: any) {
           console.error("Failed to load announcement:", err);
-          setError(err.message || "공지사항을 불러오는 중 오류가 발생했습니다.");
+          setError(err.message || "안내문을 불러오는 중 오류가 발생했습니다.");
         } finally {
           setIsLoading(false);
         }
@@ -838,7 +837,7 @@ function AnnouncementComposerForm({
       author: authorName.trim(),
       content,
       isScheduled: useSchedule,
-      publishAt: useSchedule ? publishAt : undefined,
+      publishAt: useSchedule && publishAt.trim() ? publishAt : undefined,
       selectedClasses: selectedTargets.includes("students") ? selectedClasses : [],
       parentSelectedClasses: selectedTargets.includes("parents") ? parentSelectedClasses : [],
       surveyData: category === "survey" && surveyQuestions.length > 0 ? surveyQuestions : undefined,
@@ -872,7 +871,7 @@ function AnnouncementComposerForm({
       // publishAt을 ISO 형식으로 변환 (datetime-local 형식에서)
       const requestBody = {
         ...payload,
-        publishAt: payload.publishAt
+        publishAt: payload.publishAt && payload.publishAt.trim()
           ? new Date(payload.publishAt).toISOString()
           : undefined,
       };
@@ -904,7 +903,7 @@ function AnnouncementComposerForm({
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || (editId ? "공지사항 수정에 실패했습니다." : "공지사항 생성에 실패했습니다."));
+        throw new Error(data.error || (editId ? "안내문 수정에 실패했습니다." : "안내문 생성에 실패했습니다."));
       }
 
       // 성공 시 콜백 호출
@@ -914,7 +913,7 @@ function AnnouncementComposerForm({
       // 폼 초기화
       editor.commands.clearContent(true);
       setTitle("");
-      setCategory("");
+      setCategory("notice");
       setSelectedTargets([]);
       setSelectedClasses([]);
       setParentSelectedClasses([]);
@@ -932,7 +931,7 @@ function AnnouncementComposerForm({
       onClose();
     } catch (err: any) {
       console.error(editId ? "Update announcement error:" : "Create announcement error:", err);
-      setError(err.message || (editId ? "공지사항 수정 중 오류가 발생했습니다." : "공지사항 생성 중 오류가 발생했습니다."));
+      setError(err.message || (editId ? "안내문 수정 중 오류가 발생했습니다." : "안내문 생성 중 오류가 발생했습니다."));
       setIsSubmitting(false);
     }
   };
@@ -1260,7 +1259,7 @@ function AnnouncementComposerForm({
     return (
       <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
         <div className="flex items-center justify-center py-8">
-          <div className="text-sm text-gray-500">공지사항을 불러오는 중...</div>
+          <div className="text-sm text-gray-500">안내문을 불러오는 중...</div>
         </div>
       </div>
     );
@@ -1276,27 +1275,35 @@ function AnnouncementComposerForm({
           <h2 className="text-xl font-bold text-gray-900">{editId ? "안내문 수정" : "안내문 입력"}</h2>
           <p className="text-sm text-gray-500">제목과 대상을 지정한 뒤 본문을 자유롭게 작성할 수 있어요.</p>
         </div>
-        <Button type="button" variant="ghost" onClick={onClose}>
+        <Button 
+          type="button" 
+          variant="outline" 
+          onClick={onClose}
+          className="border-red-300 text-red-600 hover:bg-red-50 hover:border-red-400 hover:text-red-700"
+        >
+          <X className="h-4 w-4 mr-1.5" />
           닫기
         </Button>
       </div>
 
       <div className="space-y-4">
         <div className="flex items-end gap-3">
-          <div className="flex-1">
+          <div className="w-32">
             <Select
               label="구분"
               value={category}
               onChange={(e) => setCategory(e.target.value)}
               options={categoryOptions}
+              required
             />
           </div>
-          <div className="flex-[3]">
+          <div className="flex-1">
             <Input
               label="제목"
               placeholder="예: 11월 학부모 상담 안내"
               value={title}
               onChange={(event) => setTitle(event.target.value)}
+              required
             />
           </div>
         </div>
@@ -1305,7 +1312,7 @@ function AnnouncementComposerForm({
           <Input label="작성자" value={authorName} readOnly />
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              알림 대상
+              알림 대상 <span className="ml-1 text-red-500">*</span>
             </label>
             <Button
               type="button"
@@ -1597,69 +1604,6 @@ function AnnouncementComposerForm({
               />
             )}
           </div>
-          
-          {/* 첨부 파일 업로드 */}
-          <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
-            <label
-              htmlFor="files"
-              className="block text-sm font-medium text-gray-700 mb-1"
-            >
-              첨부 파일 (선택, 여러 개 가능)
-            </label>
-            <input
-              id="files"
-              type="file"
-              multiple
-              onChange={handleFileChange}
-              accept=".ppt,.pptx,.pdf,.doc,.docx,.xls,.xlsx,.zip,.hwp,.hwpx,.jpg,.jpeg,.png,.gif,.bmp,.webp,.svg"
-              className="flex h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 file:mr-4 file:rounded-md file:border-0 file:bg-blue-50 file:px-3 file:py-1 file:text-sm file:font-medium file:text-blue-700 hover:file:bg-blue-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 placeholder:text-gray-500"
-            />
-            {files.length > 0 && (
-              <ul className="mt-2 text-sm text-gray-700 space-y-1">
-                {files.map((f, idx) => (
-                  <li
-                    key={`${f.name}-${idx}`}
-                    className="flex items-center justify-between gap-2 rounded border border-gray-200 bg-white px-2 py-1"
-                  >
-                    <span className="truncate">
-                      {f.name} ({(f.size / 1024 / 1024).toFixed(2)} MB)
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveSelectedFile(idx)}
-                      className="flex-shrink-0 text-xs text-red-600 hover:text-red-700 rounded px-2 py-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2"
-                    >
-                      삭제
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-            {editId && existingAttachments.length > 0 && (
-              <div className="mt-2 rounded-lg border border-gray-200 bg-white p-2">
-                <div className="flex items-center justify-between gap-2 mb-2">
-                  <span className="text-sm font-medium text-gray-700">현재 첨부 파일</span>
-                </div>
-                <ul className="text-sm text-gray-600 pl-1 space-y-1">
-                  {existingAttachments.map((att, idx) => (
-                    <li key={`${att.filePath}-${idx}`} className="flex items-center justify-between gap-2 break-all rounded border border-gray-200 bg-gray-50 px-2 py-1">
-                      <a
-                        href={att.filePath}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="truncate text-blue-600 hover:text-blue-700"
-                      >
-                        {att.originalFileName}
-                      </a>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-            <p className="mt-1 text-xs text-gray-500">
-              허용 형식: PPT, PPTX, PDF, DOC, DOCX, XLS, XLSX, ZIP, HWP, HWPX, JPG, PNG, GIF, BMP, WEBP, SVG (파일당 최대 50MB)
-            </p>
-          </div>
         </div>
       </div>
 
@@ -1669,6 +1613,11 @@ function AnnouncementComposerForm({
         category === "survey" ? "grid-cols-1 lg:grid-cols-2" : "grid-cols-1"
       )}>
         <div className="space-y-2">
+          <div className="flex items-center gap-2 mb-1">
+            <label className="block text-sm font-medium text-gray-700">
+              본문 <span className="ml-1 text-red-500">*</span>
+            </label>
+          </div>
           <div className="flex flex-wrap items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 p-2">
             {/* 폰트 크기 드롭다운 */}
             {editor && (
@@ -1887,7 +1836,7 @@ function AnnouncementComposerForm({
                 </div>
               </div>
               <p className="text-xs text-gray-500 mt-2 text-center">
-                알림 대상자가 공지사항을 확인할 때 서명할 수 있습니다.
+                알림 대상자가 안내문을 확인할 때 서명할 수 있습니다.
               </p>
             </div>
             
@@ -1915,6 +1864,69 @@ function AnnouncementComposerForm({
           </div>
         </div>
       )}
+
+      {/* 첨부 파일 업로드 */}
+      <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+        <label
+          htmlFor="files"
+          className="block text-sm font-medium text-gray-700 mb-2"
+        >
+          첨부 파일 (선택, 여러 개 가능)
+        </label>
+        <input
+          id="files"
+          type="file"
+          multiple
+          onChange={handleFileChange}
+          accept=".ppt,.pptx,.pdf,.doc,.docx,.xls,.xlsx,.zip,.hwp,.hwpx,.jpg,.jpeg,.png,.gif,.bmp,.webp,.svg"
+          className="flex h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 file:mr-4 file:rounded-md file:border-0 file:bg-blue-50 file:px-3 file:py-1 file:text-sm file:font-medium file:text-blue-700 hover:file:bg-blue-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 placeholder:text-gray-500"
+        />
+        {files.length > 0 && (
+          <ul className="mt-2 text-sm text-gray-700 space-y-1">
+            {files.map((f, idx) => (
+              <li
+                key={`${f.name}-${idx}`}
+                className="flex items-center justify-between gap-2 rounded border border-gray-200 bg-white px-2 py-1"
+              >
+                <span className="truncate">
+                  {f.name} ({(f.size / 1024 / 1024).toFixed(2)} MB)
+                </span>
+                <button
+                  type="button"
+                  onClick={() => handleRemoveSelectedFile(idx)}
+                  className="flex-shrink-0 text-xs text-red-600 hover:text-red-700 rounded px-2 py-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2"
+                >
+                  삭제
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+        {editId && existingAttachments.length > 0 && (
+          <div className="mt-2 rounded-lg border border-gray-200 bg-white p-2">
+            <div className="flex items-center justify-between gap-2 mb-2">
+              <span className="text-sm font-medium text-gray-700">현재 첨부 파일</span>
+            </div>
+            <ul className="text-sm text-gray-600 pl-1 space-y-1">
+              {existingAttachments.map((att, idx) => (
+                <li key={`${att.filePath}-${idx}`} className="flex items-center justify-between gap-2 break-all rounded border border-gray-200 bg-gray-50 px-2 py-1">
+                  <a
+                    href={att.filePath}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="truncate text-blue-600 hover:text-blue-700"
+                  >
+                    {att.originalFileName}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+        <p className="mt-2 text-xs text-gray-500">
+          허용 형식: PPT, PPTX, PDF, DOC, DOCX, XLS, XLSX, ZIP, HWP, HWPX, JPG, PNG, GIF, BMP, WEBP, SVG (파일당 최대 50MB)
+        </p>
+      </div>
 
       {error && <p className="text-sm text-red-600">{error}</p>}
 

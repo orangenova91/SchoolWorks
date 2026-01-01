@@ -64,7 +64,7 @@ export function AnnouncementPageClient({
       </div>
       
       <div className="rounded-lg border border-gray-200 bg-white p-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">공지사항 목록</h2>
+        <h2 className="text-lg font-semibold text-gray-900 mb-4">안내문 목록</h2>
         <AnnouncementList 
           refreshKey={refreshKey} 
           includeScheduled={includeScheduled}

@@ -80,8 +80,8 @@ export async function POST(request: NextRequest) {
 
     const validatedData = createAnnouncementSchema.parse(body);
 
-    // 예약 발행인 경우 publishAt 필수
-    if (validatedData.isScheduled && !validatedData.publishAt) {
+    // 예약 발행인 경우 publishAt 필수 (빈 문자열도 체크)
+    if (validatedData.isScheduled && (!validatedData.publishAt || validatedData.publishAt.trim() === "")) {
       return NextResponse.json(
         { error: "예약 발행 시 발행 시각을 지정해주세요." },
         { status: 400 }
@@ -91,6 +91,12 @@ export async function POST(request: NextRequest) {
     // publishAt이 현재 시간보다 과거인지 확인
     if (validatedData.publishAt) {
       const publishDate = new Date(validatedData.publishAt);
+      if (isNaN(publishDate.getTime())) {
+        return NextResponse.json(
+          { error: "올바른 발행 시각을 입력해주세요." },
+          { status: 400 }
+        );
+      }
       if (publishDate <= new Date()) {
         return NextResponse.json(
           { error: "발행 시각은 현재 시간보다 미래여야 합니다." },
@@ -206,6 +212,31 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "인증이 필요합니다." }, { status: 401 });
     }
 
+    // 예약된 공지사항 중 발행 시간이 지난 항목 자동 발행
+    const now = new Date();
+    const scheduledAnnouncements = await (prisma as any).announcement.findMany({
+      where: {
+        isScheduled: true,
+        publishAt: { lte: now }, // publishAt이 현재 시간보다 이전이거나 같음
+        publishedAt: null, // 아직 발행되지 않음
+        ...(session.user.school ? { school: session.user.school } : {}), // 같은 학교의 공지사항만
+      },
+    });
+
+    // 자동 발행 처리
+    if (scheduledAnnouncements.length > 0) {
+      await (prisma as any).announcement.updateMany({
+        where: {
+          id: { in: scheduledAnnouncements.map((a: any) => a.id) },
+        },
+        data: {
+          publishedAt: now,
+          isScheduled: false, // 발행 완료 후 예약 상태 해제
+        },
+      });
+      console.log(`Auto-published ${scheduledAnnouncements.length} scheduled announcements`);
+    }
+
     const { searchParams } = new URL(request.url);
     const audience = searchParams.get("audience");
     const includeScheduled = searchParams.get("includeScheduled") === "true";
@@ -290,7 +321,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error("Get announcements error:", error);
     return NextResponse.json(
-      { error: "공지사항 목록을 불러오는 중 오류가 발생했습니다." },
+      { error: "안내문 목록을 불러오는 중 오류가 발생했습니다." },
       { status: 500 }
     );
   }

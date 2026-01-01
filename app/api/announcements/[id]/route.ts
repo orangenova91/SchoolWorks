@@ -50,7 +50,7 @@ const updateAnnouncementSchema = z.object({
 
 export const dynamic = 'force-dynamic';
 
-// 개별 공지사항 조회
+// 개별 안내문 조회
 export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
@@ -67,7 +67,7 @@ export async function GET(
     });
 
     if (!announcement) {
-      return NextResponse.json({ error: "공지사항을 찾을 수 없습니다." }, { status: 404 });
+      return NextResponse.json({ error: "안내문을 찾을 수 없습니다." }, { status: 404 });
     }
 
     // 학교 필터 확인
@@ -100,13 +100,13 @@ export async function GET(
   } catch (error) {
     console.error("Get announcement error:", error);
     return NextResponse.json(
-      { error: "공지사항을 불러오는 중 오류가 발생했습니다." },
+      { error: "안내문을 불러오는 중 오류가 발생했습니다." },
       { status: 500 }
     );
   }
 }
 
-// 공지사항 수정
+// 안내문 수정
 export async function PUT(
   request: NextRequest,
   { params }: { params: { id: string } }
@@ -116,27 +116,27 @@ export async function PUT(
 
     if (!session || session.user?.role !== "teacher") {
       return NextResponse.json(
-        { error: "공지사항 수정 권한이 없습니다." },
+        { error: "안내문 수정 권한이 없습니다." },
         { status: 403 }
       );
     }
 
-    // 기존 공지사항 조회
+    // 기존 안내문 조회
     const existingAnnouncement = await (prisma as any).announcement.findUnique({
       where: { id: params.id },
     });
 
     if (!existingAnnouncement) {
       return NextResponse.json(
-        { error: "공지사항을 찾을 수 없습니다." },
+        { error: "안내문을 찾을 수 없습니다." },
         { status: 404 }
       );
     }
 
-    // 작성자 확인 (본인이 작성한 공지사항만 수정 가능)
+    // 작성자 확인 (본인이 작성한 안내문만 수정 가능)
     if (existingAnnouncement.authorId !== session.user.id) {
       return NextResponse.json(
-        { error: "본인이 작성한 공지사항만 수정할 수 있습니다." },
+        { error: "본인이 작성한 안내문만 수정할 수 있습니다." },
         { status: 403 }
       );
     }
@@ -165,8 +165,8 @@ export async function PUT(
 
     const validatedData = updateAnnouncementSchema.parse(body);
 
-    // 예약 발행인 경우 publishAt 필수
-    if (validatedData.isScheduled && !validatedData.publishAt) {
+    // 예약 발행인 경우 publishAt 필수 (빈 문자열도 체크)
+    if (validatedData.isScheduled && (!validatedData.publishAt || validatedData.publishAt.trim() === "")) {
       return NextResponse.json(
         { error: "예약 발행 시 발행 시각을 지정해주세요." },
         { status: 400 }
@@ -176,6 +176,12 @@ export async function PUT(
     // publishAt이 현재 시간보다 과거인지 확인 (예약 발행인 경우)
     if (validatedData.publishAt) {
       const publishDate = new Date(validatedData.publishAt);
+      if (isNaN(publishDate.getTime())) {
+        return NextResponse.json(
+          { error: "올바른 발행 시각을 입력해주세요." },
+          { status: 400 }
+        );
+      }
       if (publishDate <= new Date()) {
         return NextResponse.json(
           { error: "발행 시각은 현재 시간보다 미래여야 합니다." },
@@ -248,7 +254,7 @@ export async function PUT(
     // 첨부 파일 병합 (기존 + 새 파일)
     const allAttachments = [...existingAttachments, ...savedFiles];
 
-    // 공지사항 수정
+    // 안내문 수정
     const updateData: any = {
       title: validatedData.title,
       category: validatedData.category || null,
@@ -272,7 +278,7 @@ export async function PUT(
       // 예약에서 즉시 발행으로 변경: publishedAt을 현재 시간으로 설정
       updateData.publishedAt = new Date();
     }
-    // 이미 발행된 공지사항은 publishedAt을 변경하지 않음
+    // 이미 발행된 안내문은 publishedAt을 변경하지 않음
 
     const announcement = await (prisma as any).announcement.update({
       where: { id: params.id },
@@ -281,8 +287,8 @@ export async function PUT(
 
     return NextResponse.json({
       message: validatedData.isScheduled
-        ? "공지사항이 수정되고 예약되었습니다."
-        : "공지사항이 수정되었습니다.",
+        ? "안내문이 수정되고 예약되었습니다."
+        : "안내문이 수정되었습니다.",
       announcement: {
         id: announcement.id,
         title: announcement.title,
@@ -305,13 +311,13 @@ export async function PUT(
 
     console.error("Update announcement error:", error);
     return NextResponse.json(
-      { error: "공지사항 수정 중 오류가 발생했습니다." },
+      { error: "안내문 수정 중 오류가 발생했습니다." },
       { status: 500 }
     );
   }
 }
 
-// 공지사항 삭제
+// 안내문 삭제
 export async function DELETE(
   request: NextRequest,
   { params }: { params: { id: string } }
@@ -321,27 +327,27 @@ export async function DELETE(
 
     if (!session || session.user?.role !== "teacher") {
       return NextResponse.json(
-        { error: "공지사항 삭제 권한이 없습니다." },
+        { error: "안내문 삭제 권한이 없습니다." },
         { status: 403 }
       );
     }
 
-    // 기존 공지사항 조회
+    // 기존 안내문 조회
     const existingAnnouncement = await (prisma as any).announcement.findUnique({
       where: { id: params.id },
     });
 
     if (!existingAnnouncement) {
       return NextResponse.json(
-        { error: "공지사항을 찾을 수 없습니다." },
+        { error: "안내문을 찾을 수 없습니다." },
         { status: 404 }
       );
     }
 
-    // 작성자 확인 (본인이 작성한 공지사항만 삭제 가능)
+    // 작성자 확인 (본인이 작성한 안내문만 삭제 가능)
     if (existingAnnouncement.authorId !== session.user.id) {
       return NextResponse.json(
-        { error: "본인이 작성한 공지사항만 삭제할 수 있습니다." },
+        { error: "본인이 작성한 안내문만 삭제할 수 있습니다." },
         { status: 403 }
       );
     }
@@ -351,18 +357,18 @@ export async function DELETE(
       return NextResponse.json({ error: "권한이 없습니다." }, { status: 403 });
     }
 
-    // 공지사항 삭제
+    // 안내문 삭제
     await (prisma as any).announcement.delete({
       where: { id: params.id },
     });
 
     return NextResponse.json({
-      message: "공지사항이 삭제되었습니다.",
+      message: "안내문이 삭제되었습니다.",
     });
   } catch (error) {
     console.error("Delete announcement error:", error);
     return NextResponse.json(
-      { error: "공지사항 삭제 중 오류가 발생했습니다." },
+      { error: "안내문 삭제 중 오류가 발생했습니다." },
       { status: 500 }
     );
   }
