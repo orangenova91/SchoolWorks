@@ -183,8 +183,9 @@ const getDefaultPublishAt = () =>
   new Date(Date.now() + 60 * 60 * 1000).toISOString().slice(0, 16);
 
 interface ConsentData {
-  signatureImage: string; // Base64 이미지
+  signatureImage?: string; // Base64 이미지 (선택사항)
   signedAt?: string; // 서명 일시 (선택사항)
+  requiresSignature?: boolean; // 서명이 필요한지 여부 (설문 조사에서 서명 포함 체크 시)
 }
 
 interface AnnouncementComposerPayload {
@@ -260,6 +261,13 @@ function AnnouncementComposerForm({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(!!editId);
+  const [files, setFiles] = useState<File[]>([]);
+  const [existingAttachments, setExistingAttachments] = useState<{
+    filePath: string;
+    originalFileName: string;
+    fileSize: number | null;
+    mimeType: string | null;
+  }[]>([]);
   const targetModalRef = useRef<HTMLDivElement>(null);
   const classSelectionRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -409,19 +417,50 @@ function AnnouncementComposerForm({
               const consentData = typeof announcement.consentData === 'string' 
                 ? JSON.parse(announcement.consentData) 
                 : announcement.consentData;
+              
               if (consentData?.signatureImage) {
                 setSignatureData(consentData.signatureImage);
-                // 설문 조사일 때 서명 데이터가 있으면 서명 패널 표시
-                if (announcement.category === "survey") {
+              } else {
+                setSignatureData(null);
+              }
+              
+              // 설문 조사일 때 requiresSignature가 true이거나 signatureImage가 있으면 서명 패널 표시
+              if (announcement.category === "survey") {
+                if (consentData?.requiresSignature || consentData?.signatureImage) {
+                  setShowSignaturePanel(true);
+                } else {
+                  setShowSignaturePanel(false);
+                }
+              } else if (announcement.category === "consent") {
+                // 동의서는 항상 서명 패널 표시
+                if (consentData?.signatureImage) {
                   setShowSignaturePanel(true);
                 }
               }
             } catch (e) {
               setSignatureData(null);
+              if (announcement.category === "survey") {
+                setShowSignaturePanel(false);
+              }
             }
           } else {
             setSignatureData(null);
-            setShowSignaturePanel(false);
+            if (announcement.category !== "consent") {
+              setShowSignaturePanel(false);
+            }
+          }
+          // 첨부 파일 데이터 로드 (있는 경우)
+          if (announcement.attachments) {
+            try {
+              const attachments = typeof announcement.attachments === 'string'
+                ? JSON.parse(announcement.attachments)
+                : announcement.attachments;
+              setExistingAttachments(Array.isArray(attachments) ? attachments : []);
+            } catch (e) {
+              setExistingAttachments([]);
+            }
+          } else {
+            setExistingAttachments([]);
           }
         } catch (err: any) {
           console.error("Failed to load announcement:", err);
@@ -443,6 +482,25 @@ function AnnouncementComposerForm({
       setShowSignaturePanel(true);
     }
   }, [category]);
+
+  // 파일 선택 핸들러
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFiles = e.target.files ? Array.from(e.target.files) : [];
+    if (selectedFiles.length > 0) {
+      const maxSize = 50 * 1024 * 1024; // 50MB
+      const tooLarge = selectedFiles.find((f) => f.size > maxSize);
+      if (tooLarge) {
+        setError("파일 크기는 50MB 이하여야 합니다.");
+        return;
+      }
+      setFiles((prev) => [...prev, ...selectedFiles]);
+    }
+  };
+
+  // 개별 파일 삭제 핸들러
+  const handleRemoveSelectedFile = (index: number) => {
+    setFiles((prev) => prev.filter((_, i) => i !== index));
+  };
 
   // ESC 키로 모달 닫기 및 body 스크롤 방지
   useEffect(() => {
@@ -784,10 +842,30 @@ function AnnouncementComposerForm({
       selectedClasses: selectedTargets.includes("students") ? selectedClasses : [],
       parentSelectedClasses: selectedTargets.includes("parents") ? parentSelectedClasses : [],
       surveyData: category === "survey" && surveyQuestions.length > 0 ? surveyQuestions : undefined,
-      consentData: ((category === "consent" && signatureData) || (category === "survey" && showSignaturePanel && signatureData)) ? {
-        signatureImage: signatureData,
-        signedAt: new Date().toISOString(),
-      } : undefined,
+      consentData: (() => {
+        if (category === "consent" && signatureData) {
+          return {
+            signatureImage: signatureData,
+            signedAt: new Date().toISOString(),
+          };
+        }
+        if (category === "survey" && showSignaturePanel) {
+          // 서명 포함이 체크되어 있으면, 서명이 없어도 requiresSignature 플래그 저장
+          if (signatureData) {
+            return {
+              signatureImage: signatureData,
+              signedAt: new Date().toISOString(),
+              requiresSignature: true,
+            };
+          } else {
+            // 서명이 없어도 requiresSignature 플래그만 저장
+            return {
+              requiresSignature: true,
+            };
+          }
+        }
+        return undefined;
+      })(),
     };
 
     try {
@@ -802,13 +880,26 @@ function AnnouncementComposerForm({
       const url = editId ? `/api/announcements/${editId}` : "/api/announcements";
       const method = editId ? "PUT" : "POST";
 
-      const response = await fetch(url, {
-        method,
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(requestBody),
-      });
+      // 파일이 있으면 FormData 사용, 없으면 JSON 사용
+      let response: Response;
+      if (files.length > 0) {
+        const formData = new FormData();
+        formData.append("data", JSON.stringify(requestBody));
+        files.forEach((f) => formData.append("files", f));
+        
+        response = await fetch(url, {
+          method,
+          body: formData,
+        });
+      } else {
+        response = await fetch(url, {
+          method,
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(requestBody),
+        });
+      }
 
       const data = await response.json();
 
@@ -832,6 +923,8 @@ function AnnouncementComposerForm({
       setShowSignaturePanel(false);
       setUseSchedule(false);
       setPublishAt("");
+      setFiles([]);
+      setExistingAttachments([]);
       setIsSubmitting(false);
       clearSignature();
 
@@ -1178,9 +1271,9 @@ function AnnouncementComposerForm({
       <div className="flex items-start justify-between gap-4">
         <div className="space-y-1">
           <p className="text-xs font-semibold uppercase tracking-wider text-blue-600">
-            {editId ? "공지 수정" : "새 공지 작성"}
+            {editId ? "안내문 수정" : "새 안내문 작성"}
           </p>
-          <h2 className="text-xl font-bold text-gray-900">{editId ? "공지 수정" : "공지 입력"}</h2>
+          <h2 className="text-xl font-bold text-gray-900">{editId ? "안내문 수정" : "안내문 입력"}</h2>
           <p className="text-sm text-gray-500">제목과 대상을 지정한 뒤 본문을 자유롭게 작성할 수 있어요.</p>
         </div>
         <Button type="button" variant="ghost" onClick={onClose}>
@@ -1504,6 +1597,69 @@ function AnnouncementComposerForm({
               />
             )}
           </div>
+          
+          {/* 첨부 파일 업로드 */}
+          <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
+            <label
+              htmlFor="files"
+              className="block text-sm font-medium text-gray-700 mb-1"
+            >
+              첨부 파일 (선택, 여러 개 가능)
+            </label>
+            <input
+              id="files"
+              type="file"
+              multiple
+              onChange={handleFileChange}
+              accept=".ppt,.pptx,.pdf,.doc,.docx,.xls,.xlsx,.zip,.hwp,.hwpx,.jpg,.jpeg,.png,.gif,.bmp,.webp,.svg"
+              className="flex h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 file:mr-4 file:rounded-md file:border-0 file:bg-blue-50 file:px-3 file:py-1 file:text-sm file:font-medium file:text-blue-700 hover:file:bg-blue-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 placeholder:text-gray-500"
+            />
+            {files.length > 0 && (
+              <ul className="mt-2 text-sm text-gray-700 space-y-1">
+                {files.map((f, idx) => (
+                  <li
+                    key={`${f.name}-${idx}`}
+                    className="flex items-center justify-between gap-2 rounded border border-gray-200 bg-white px-2 py-1"
+                  >
+                    <span className="truncate">
+                      {f.name} ({(f.size / 1024 / 1024).toFixed(2)} MB)
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveSelectedFile(idx)}
+                      className="flex-shrink-0 text-xs text-red-600 hover:text-red-700 rounded px-2 py-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2"
+                    >
+                      삭제
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {editId && existingAttachments.length > 0 && (
+              <div className="mt-2 rounded-lg border border-gray-200 bg-white p-2">
+                <div className="flex items-center justify-between gap-2 mb-2">
+                  <span className="text-sm font-medium text-gray-700">현재 첨부 파일</span>
+                </div>
+                <ul className="text-sm text-gray-600 pl-1 space-y-1">
+                  {existingAttachments.map((att, idx) => (
+                    <li key={`${att.filePath}-${idx}`} className="flex items-center justify-between gap-2 break-all rounded border border-gray-200 bg-gray-50 px-2 py-1">
+                      <a
+                        href={att.filePath}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="truncate text-blue-600 hover:text-blue-700"
+                      >
+                        {att.originalFileName}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            <p className="mt-1 text-xs text-gray-500">
+              허용 형식: PPT, PPTX, PDF, DOC, DOCX, XLS, XLSX, ZIP, HWP, HWPX, JPG, PNG, GIF, BMP, WEBP, SVG (파일당 최대 50MB)
+            </p>
+          </div>
         </div>
       </div>
 
@@ -1702,7 +1858,7 @@ function AnnouncementComposerForm({
         <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
           {/* 서명 영역 - 2단 레이아웃 */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {/* 서명 캔버스 (왼쪽) */}
+            {/* 서명 캔버스 (왼쪽) - 작성자 모드에서는 비활성화 */}
             <div>
               <div className="flex items-center justify-between mb-2">
                 <h3 className="text-sm font-semibold text-gray-700">서명</h3>
@@ -1712,25 +1868,26 @@ function AnnouncementComposerForm({
                   variant="outline"
                   onClick={clearSignature}
                   className="h-8 px-3 text-xs"
+                  disabled={true}
                 >
                   초기화
                 </Button>
               </div>
-              <div className="border-2 border-dashed border-gray-300 rounded-lg bg-white overflow-hidden">
+              <div className="border-2 border-dashed border-gray-300 rounded-lg bg-gray-100 overflow-hidden relative">
                 <canvas
                   ref={canvasRef}
-                  className="w-full h-[200px] cursor-crosshair touch-none"
-                  onMouseDown={startDrawing}
-                  onMouseMove={draw}
-                  onMouseUp={stopDrawing}
-                  onMouseLeave={stopDrawing}
-                  onTouchStart={startDrawing}
-                  onTouchMove={draw}
-                  onTouchEnd={stopDrawing}
+                  className="w-full h-[200px] cursor-not-allowed touch-none opacity-50"
+                  style={{ pointerEvents: 'none' }}
                 />
+                <div className="absolute inset-0 flex items-center justify-center bg-gray-100/80">
+                  <p className="text-xs text-gray-500 text-center px-4">
+                    작성자는 서명할 수 없습니다.<br />
+                    이 서명 패널은 알림 대상자에게서 작동합니다.
+                  </p>
+                </div>
               </div>
               <p className="text-xs text-gray-500 mt-2 text-center">
-                위 영역에 마우스나 손가락으로 서명을 그려주세요.
+                알림 대상자가 공지사항을 확인할 때 서명할 수 있습니다.
               </p>
             </div>
             
@@ -1749,7 +1906,7 @@ function AnnouncementComposerForm({
                   />
                 ) : (
                   <p className="text-xs text-gray-400 text-center">
-                    서명을 그리면 여기에 표시됩니다.
+                    알림 대상자가 서명하면 여기에 표시됩니다.
                   </p>
                 )}
               </div>

@@ -14,6 +14,7 @@ import { getTranslations } from "@/lib/i18n";
 import { AnimatedBackground } from "@/components/ui/AnimatedBackground";
 
 const t = getTranslations("ko");
+const currentYear = new Date().getFullYear();
 
 export default function LoginPage() {
   const router = useRouter();
@@ -191,7 +192,7 @@ export default function LoginPage() {
 
         {/* 하단 정보 */}
         <p className="mt-6 text-center text-xs text-gray-500">
-          © 2025 SchoolHub. All rights reserved.
+          © {currentYear} SchoolHub. All rights reserved.
         </p>
       </div>
     </div>

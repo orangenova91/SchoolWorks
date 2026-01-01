@@ -52,10 +52,11 @@ export default function AssignmentList({ courseId, onEdit, onDelete }: Assignmen
     } finally {
       setIsLoading(false);
     }
-    useEffect(() => {
-      fetchAssignments();
-    }, [courseId]);
   };
+
+  useEffect(() => {
+    fetchAssignments();
+  }, [courseId]);
 
 
   // 메뉴 외부 클릭 시 닫기

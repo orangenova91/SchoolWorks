@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { writeFile, mkdir } from "fs/promises";
-import { join } from "path";
-import { existsSync } from "fs";
 import { getServerSession } from "next-auth";
 import { z } from "zod";
+import { put } from '@vercel/blob';
 
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -75,7 +73,7 @@ export async function POST(
       dueDate: dueDateStr || undefined,
     });
 
-    // 파일 저장 (선택적, 여러 개)
+    // 파일 저장 (선택적, 여러 개) - Vercel Blob Storage 사용
     const savedFiles: Array<{
       filePath: string;
       originalFileName: string;
@@ -83,10 +81,6 @@ export async function POST(
       mimeType: string | null;
     }> = [];
     if (files.length > 0) {
-      const uploadsDir = join(process.cwd(), "public", "uploads", "assignments");
-      if (!existsSync(uploadsDir)) {
-        await mkdir(uploadsDir, { recursive: true });
-      }
       for (const f of files) {
         if (!f || f.size === 0) continue;
         const ext = f.name.substring(f.name.lastIndexOf(".")).toLowerCase();
@@ -102,14 +96,20 @@ export async function POST(
             { status: 400 }
           );
         }
+        // 고유한 파일명 생성 (타임스탬프 + 랜덤 문자열)
         const timestamp = Date.now();
-        const sanitizedFileName = `${timestamp}-${f.name.replace(/[^a-zA-Z0-9.-]/g, "_")}`;
-        const filePathOnDisk = join(uploadsDir, sanitizedFileName);
-        const bytes = await f.arrayBuffer();
-        const buffer = Buffer.from(bytes);
-        await writeFile(filePathOnDisk, buffer);
+        const randomStr = Math.random().toString(36).substring(2, 15);
+        const extension = f.name.split('.').pop() || 'bin';
+        const filename = `assignments/${timestamp}-${randomStr}.${extension}`;
+
+        // Vercel Blob Storage에 업로드
+        const blob = await put(filename, f, {
+          access: 'public',
+          contentType: f.type || 'application/octet-stream',
+        });
+
         savedFiles.push({
-          filePath: `/uploads/assignments/${sanitizedFileName}`,
+          filePath: blob.url, // Blob Storage URL
           originalFileName: f.name,
           fileSize: f.size || null,
           mimeType: f.type || "application/octet-stream",

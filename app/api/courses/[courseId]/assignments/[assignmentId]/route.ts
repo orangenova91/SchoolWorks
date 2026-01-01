@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { writeFile, mkdir, unlink } from "fs/promises";
-import { join } from "path";
-import { existsSync } from "fs";
 import { getServerSession } from "next-auth";
 import { z } from "zod";
+import { put } from '@vercel/blob';
+import { join } from "path";
+import { existsSync } from "fs";
 
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -89,12 +89,16 @@ export async function PUT(
         where: { assignmentId: params.assignmentId },
       });
       for (const att of existingAttachments) {
-        const oldFilePath = join(process.cwd(), "public", att.filePath);
-        if (existsSync(oldFilePath)) {
-          try {
-            await unlink(oldFilePath);
-          } catch (err) {
-            console.error("Failed to delete old file:", err);
+        // Blob Storage URL인 경우 삭제하지 않음 (로컬 파일만 삭제)
+        if (att.filePath && !att.filePath.startsWith('http')) {
+          const oldFilePath = join(process.cwd(), "public", att.filePath);
+          if (existsSync(oldFilePath)) {
+            try {
+              const { unlink } = await import("fs/promises");
+              await unlink(oldFilePath);
+            } catch (err) {
+              console.error("Failed to delete old file:", err);
+            }
           }
         }
       }
@@ -104,12 +108,8 @@ export async function PUT(
     }
 
     // 새 파일 업로드 처리
-    // 새 파일 업로드 처리 (여러 개)
+    // 새 파일 업로드 처리 (여러 개) - Vercel Blob Storage 사용
     if (files.length > 0) {
-      const uploadsDir = join(process.cwd(), "public", "uploads", "assignments");
-      if (!existsSync(uploadsDir)) {
-        await mkdir(uploadsDir, { recursive: true });
-      }
       const newAttachments: Array<{
         assignmentId: string;
         filePath: string;
@@ -132,15 +132,21 @@ export async function PUT(
             { status: 400 }
           );
         }
+        // 고유한 파일명 생성 (타임스탬프 + 랜덤 문자열)
         const timestamp = Date.now();
-        const sanitizedFileName = `${timestamp}-${f.name.replace(/[^a-zA-Z0-9.-]/g, "_")}`;
-        const filePathOnDisk = join(uploadsDir, sanitizedFileName);
-        const bytes = await f.arrayBuffer();
-        const buffer = Buffer.from(bytes);
-        await writeFile(filePathOnDisk, buffer);
+        const randomStr = Math.random().toString(36).substring(2, 15);
+        const extension = f.name.split('.').pop() || 'bin';
+        const filename = `assignments/${timestamp}-${randomStr}.${extension}`;
+
+        // Vercel Blob Storage에 업로드
+        const blob = await put(filename, f, {
+          access: 'public',
+          contentType: f.type || 'application/octet-stream',
+        });
+
         newAttachments.push({
           assignmentId: params.assignmentId,
-          filePath: `/uploads/assignments/${sanitizedFileName}`,
+          filePath: blob.url, // Blob Storage URL
           originalFileName: f.name,
           fileSize: f.size || null,
           mimeType: f.type || "application/octet-stream",
@@ -249,11 +255,12 @@ export async function DELETE(
       );
     }
 
-    // 파일 삭제
-    if (existingAssignment.filePath) {
+    // 파일 삭제 (로컬 파일만, Blob Storage URL은 삭제하지 않음)
+    if (existingAssignment.filePath && !existingAssignment.filePath.startsWith('http')) {
       const filePathOnDisk = join(process.cwd(), "public", existingAssignment.filePath);
       if (existsSync(filePathOnDisk)) {
         try {
+          const { unlink } = await import("fs/promises");
           await unlink(filePathOnDisk);
         } catch (err) {
           console.error("Failed to delete file:", err);
