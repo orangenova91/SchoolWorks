@@ -283,7 +283,7 @@ function AnnouncementComposerForm({
       UnderlineExtension,
       TiptapImage.configure({
         inline: true,
-        allowBase64: true,
+        allowBase64: false, // Base64 비활성화 (URL만 허용)
       }),
     ],
     editorProps: {
@@ -303,26 +303,38 @@ function AnnouncementComposerForm({
             
             // 파일 크기 제한 (5MB)
             if (file.size > 5 * 1024 * 1024) {
-              // 에러 메시지는 나중에 표시하기 위해 상태 업데이트
               setTimeout(() => setError("이미지 크기는 5MB 이하여야 합니다."), 0);
               return false;
             }
             
-            // Base64로 변환하여 에디터에 삽입
-            const reader = new FileReader();
-            reader.onload = (e) => {
-              const base64 = e.target?.result as string;
-              if (base64) {
-                // view를 통해 에디터에 접근
+            // Blob Storage에 업로드 (비동기 처리)
+            const formData = new FormData();
+            formData.append('file', file);
+            
+            fetch('/api/announcements/images', {
+              method: 'POST',
+              body: formData,
+            })
+              .then(response => {
+                if (!response.ok) {
+                  throw new Error('Upload failed');
+                }
+                return response.json();
+              })
+              .then(data => {
+                // 업로드된 URL로 이미지 삽입
                 const { state, dispatch } = view;
                 const { schema } = state;
-                const imageNode = schema.nodes.image.create({ src: base64 });
+                const imageNode = schema.nodes.image.create({ src: data.url });
                 const transaction = state.tr.replaceSelectionWith(imageNode);
                 dispatch(transaction);
-              }
-            };
-            reader.readAsDataURL(file);
-            return true;
+              })
+              .catch(error => {
+                console.error('Image upload error:', error);
+                setTimeout(() => setError("이미지 업로드 중 오류가 발생했습니다."), 0);
+              });
+            
+            return true; // 붙여넣기 처리됨을 표시
           }
         }
         return false;
@@ -1109,15 +1121,31 @@ function AnnouncementComposerForm({
               return;
             }
             
-            // Base64로 변환하여 에디터에 삽입
-            const reader = new FileReader();
-            reader.onload = (event) => {
-              const base64 = event.target?.result as string;
-              if (base64) {
-                editor.chain().focus().setImage({ src: base64 }).run();
+            // Blob Storage에 업로드
+            const formData = new FormData();
+            formData.append('file', file);
+            
+            try {
+              const response = await fetch('/api/announcements/images', {
+                method: 'POST',
+                body: formData,
+              });
+              
+              if (!response.ok) {
+                const errorData = await response.json();
+                setError(errorData.error || '이미지 업로드에 실패했습니다.');
+                return;
               }
-            };
-            reader.readAsDataURL(file);
+              
+              const data = await response.json();
+              const imageUrl = data.url;
+              
+              // 업로드된 URL을 에디터에 삽입
+              editor.chain().focus().setImage({ src: imageUrl }).run();
+            } catch (error) {
+              console.error('Image upload error:', error);
+              setError('이미지 업로드 중 오류가 발생했습니다.');
+            }
           };
           input.click();
         },
