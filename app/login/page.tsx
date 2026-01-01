@@ -89,7 +89,7 @@ export default function LoginPage() {
               </svg>
             </div>
             <h1 className="text-4xl font-extrabold text-gray-900 mb-2">
-              {t.auth.login}
+              {t.auth.login}<span className="text-sm font-normal"> {t.app.version}</span>
             </h1>
             <p className="text-gray-600 text-base">
               SchoolHub에 오신 것을 환영합니다
@@ -191,7 +191,7 @@ export default function LoginPage() {
 
         {/* 하단 정보 */}
         <p className="mt-6 text-center text-xs text-gray-500">
-          © 2024 SchoolHub. All rights reserved.
+          © 2025 SchoolHub. All rights reserved.
         </p>
       </div>
     </div>
