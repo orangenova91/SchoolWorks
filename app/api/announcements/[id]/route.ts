@@ -165,8 +165,8 @@ export async function PUT(
 
     const validatedData = updateAnnouncementSchema.parse(body);
 
-    // 예약 발행인 경우 publishAt 필수
-    if (validatedData.isScheduled && !validatedData.publishAt) {
+    // 예약 발행인 경우 publishAt 필수 (빈 문자열도 체크)
+    if (validatedData.isScheduled && (!validatedData.publishAt || validatedData.publishAt.trim() === "")) {
       return NextResponse.json(
         { error: "예약 발행 시 발행 시각을 지정해주세요." },
         { status: 400 }
@@ -176,6 +176,12 @@ export async function PUT(
     // publishAt이 현재 시간보다 과거인지 확인 (예약 발행인 경우)
     if (validatedData.publishAt) {
       const publishDate = new Date(validatedData.publishAt);
+      if (isNaN(publishDate.getTime())) {
+        return NextResponse.json(
+          { error: "올바른 발행 시각을 입력해주세요." },
+          { status: 400 }
+        );
+      }
       if (publishDate <= new Date()) {
         return NextResponse.json(
           { error: "발행 시각은 현재 시간보다 미래여야 합니다." },
