@@ -2,9 +2,10 @@
 
 import { useEffect, useState, useMemo } from "react";
 import { useToastContext } from "@/components/providers/ToastProvider";
-import { Calendar, User, Eye, ChevronDown, ChevronUp, Edit, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
+import { Eye, ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Select } from "@/components/ui/Select";
+import { AnnouncementDetailModal } from "./AnnouncementDetailModal";
 
 interface SelectedClass {
   grade: string;
@@ -24,6 +25,10 @@ interface Announcement {
   updatedAt: string;
   selectedClasses: string | null;
   parentSelectedClasses: string | null;
+  category?: string | null;
+  surveyData?: string | null;
+  consentData?: string | null;
+  attachments?: string | null;
 }
 
 interface AnnouncementListProps {
@@ -154,9 +159,7 @@ export function AnnouncementList({ includeScheduled = false, audience, refreshKe
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
+  const [selectedAnnouncement, setSelectedAnnouncement] = useState<Announcement | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
@@ -230,18 +233,6 @@ export function AnnouncementList({ includeScheduled = false, audience, refreshKe
     setCurrentPage(1);
   }, [searchQuery]);
 
-  const formatDate = (dateString: string | null) => {
-    if (!dateString) return "-";
-    const date = new Date(dateString);
-    return date.toLocaleDateString("ko-KR", {
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
-
   const formatDateShort = (dateString: string | null) => {
     if (!dateString) return "-";
     const date = new Date(dateString);
@@ -252,44 +243,8 @@ export function AnnouncementList({ includeScheduled = false, audience, refreshKe
     });
   };
 
-  const getContentPreview = (html: string, maxLength: number = 100) => {
-    // HTML 태그 제거하고 텍스트만 추출
-    const text = html.replace(/<[^>]*>/g, "").trim();
-    if (text.length <= maxLength) return text;
-    return text.substring(0, maxLength) + "...";
-  };
-
-  const toggleExpand = (id: string) => {
-    setExpandedId(expandedId === id ? null : id);
-  };
-
-  const handleDelete = async (id: string) => {
-    try {
-      setIsDeleting(true);
-      const response = await fetch(`/api/announcements/${id}`, {
-        method: "DELETE",
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || "공지사항 삭제에 실패했습니다.");
-      }
-
-      showToast("공지사항이 삭제되었습니다.", "success");
-      setDeleteConfirmId(null);
-      
-      // 목록 새로고침
-      await fetchAnnouncements();
-      
-      // onDelete 콜백 호출 (부모 컴포넌트에서 목록 새로고침 트리거)
-      onDelete?.(id);
-    } catch (err: any) {
-      console.error("Failed to delete announcement:", err);
-      showToast(err.message || "공지사항 삭제 중 오류가 발생했습니다.", "error");
-    } finally {
-      setIsDeleting(false);
-    }
+  const handleAnnouncementClick = (announcement: Announcement) => {
+    setSelectedAnnouncement(announcement);
   };
 
   if (isLoading) {
@@ -417,7 +372,6 @@ export function AnnouncementList({ includeScheduled = false, audience, refreshKe
       {/* 게시판 본문 */}
       <div className="divide-y divide-gray-200">
         {paginatedAnnouncements.map((announcement, index) => {
-          const isExpanded = expandedId === announcement.id;
           const isScheduled = announcement.isScheduled && !announcement.publishedAt;
           const displayDate = isScheduled
             ? announcement.publishAt
@@ -437,7 +391,7 @@ export function AnnouncementList({ includeScheduled = false, audience, refreshKe
               {/* 게시판 행 */}
               <div
                 className="grid grid-cols-12 gap-4 px-4 py-3 items-center text-sm cursor-pointer"
-                onClick={() => toggleExpand(announcement.id)}
+                onClick={() => handleAnnouncementClick(announcement)}
               >
                 <div className="col-span-1 text-center text-gray-500">
                   {filteredAnnouncements.length - globalIndex}
@@ -448,11 +402,6 @@ export function AnnouncementList({ includeScheduled = false, audience, refreshKe
                     <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800 whitespace-nowrap">
                       예약
                     </span>
-                  )}
-                  {isExpanded ? (
-                    <ChevronUp className="h-4 w-4 text-gray-400 flex-shrink-0" />
-                  ) : (
-                    <ChevronDown className="h-4 w-4 text-gray-400 flex-shrink-0" />
                   )}
                 </div>
                 <div className="col-span-2 text-center text-gray-600">{announcement.author}</div>
@@ -520,58 +469,6 @@ export function AnnouncementList({ includeScheduled = false, audience, refreshKe
                   })()}
                 </div>
               </div>
-
-              {/* 확장된 내용 */}
-              {isExpanded && (
-                <div className="px-4 pb-4 pt-2 border-t border-gray-100 bg-gray-50/50">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-4 text-xs text-gray-500">
-                      <div className="flex items-center gap-1">
-                        <User className="h-3 w-3" />
-                        <span>작성자: {announcement.author}</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Calendar className="h-3 w-3" />
-                        <span>
-                          {isScheduled
-                            ? `예약 발행: ${formatDate(announcement.publishAt)}`
-                            : `발행일: ${formatDate(displayDate)}`}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {showEditButton && onEdit && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onEdit(announcement.id);
-                          }}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-blue-600 bg-blue-50 rounded-md hover:bg-blue-100 transition-colors"
-                        >
-                          <Edit className="h-3 w-3" />
-                          수정
-                        </button>
-                      )}
-                      {showDeleteButton && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setDeleteConfirmId(announcement.id);
-                          }}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-red-600 bg-red-50 rounded-md hover:bg-red-100 transition-colors"
-                        >
-                          <Trash2 className="h-3 w-3" />
-                          삭제
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                  <div
-                    className="prose prose-sm max-w-none text-gray-700"
-                    dangerouslySetInnerHTML={{ __html: announcement.content }}
-                  />
-                </div>
-              )}
             </div>
           );
         })}
@@ -668,33 +565,20 @@ export function AnnouncementList({ includeScheduled = false, audience, refreshKe
         </div>
       )}
 
-      {/* 삭제 확인 다이얼로그 */}
-      {deleteConfirmId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-          <div className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full mx-4">
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">공지사항 삭제</h3>
-            <p className="text-sm text-gray-600 mb-6">
-              정말로 이 공지사항을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.
-            </p>
-            <div className="flex items-center justify-end gap-3">
-              <button
-                onClick={() => setDeleteConfirmId(null)}
-                disabled={isDeleting}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 transition-colors disabled:opacity-50"
-              >
-                취소
-              </button>
-              <button
-                onClick={() => handleDelete(deleteConfirmId)}
-                disabled={isDeleting}
-                className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 transition-colors disabled:opacity-50"
-              >
-                {isDeleting ? "삭제 중..." : "삭제"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* 공지사항 상세 모달 */}
+      <AnnouncementDetailModal
+        isOpen={selectedAnnouncement !== null}
+        announcement={selectedAnnouncement}
+        onClose={() => setSelectedAnnouncement(null)}
+        onEdit={onEdit}
+        onDelete={onDelete}
+        showEditButton={showEditButton}
+        showDeleteButton={showDeleteButton}
+        onDeleteConfirm={async (id) => {
+          await fetchAnnouncements();
+          onDelete?.(id);
+        }}
+      />
     </div>
   );
 }

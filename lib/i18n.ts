@@ -84,8 +84,8 @@ export const translations = {
           action: "학생 리포트 보기",
         },
         announcements: {
-          title: "공지 사항",
-          description: "학사 일정, 회의, 공지를 등록하고 공유하세요.",
+          title: "가정 안내문",
+          description: "알림, 설문 조사, 동의서 등을 작성할 수 있습니다.",
           action: "공지 작성",
         },
       },
@@ -103,7 +103,7 @@ export const translations = {
           description: "마감 기한이 임박한 자료를 정리했습니다.",
         },
         announcements: {
-          title: "공지 사항",
+          title: "가정 안내내문",
           description: "최근 등록된 공지를 확인하세요.",
         },
       },
@@ -122,7 +122,7 @@ export const translations = {
         manageClasses: "내 수업",
         classManagement: "학급 관리",
         studentProgress: "학생 성과",
-        announcements: "공지 관리",
+        announcements: "가정 안내문",
         schedule: "학사 일정",
       },
       student: {

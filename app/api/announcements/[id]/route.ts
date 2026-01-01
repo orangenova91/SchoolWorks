@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { z } from "zod";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { put } from '@vercel/blob';
 
 const AUDIENCE_VALUES = ["all", "grade-1", "grade-2", "grade-3", "parents"] as const;
 
@@ -20,9 +21,18 @@ const surveyQuestionSchema = z.object({
 });
 
 const consentDataSchema = z.object({
-  signatureImage: z.string(), // Base64 이미지
+  signatureImage: z.string().optional(), // Base64 이미지 (선택사항)
   signedAt: z.string().optional(),
+  requiresSignature: z.boolean().optional(), // 서명이 필요한지 여부 (설문 조사에서 서명 포함 체크 시)
 });
+
+// 파일 업로드 허용 확장자
+const ALLOWED_EXTENSIONS = [
+  ".ppt", ".pptx", ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".zip",
+  ".hwp", ".hwpx", // 한글 파일
+  ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp", ".svg", // 이미지 파일
+];
+const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
 
 const updateAnnouncementSchema = z.object({
   title: z.string().trim().min(1, "제목을 입력하세요").max(200, "제목은 200자 이하여야 합니다"),
@@ -84,6 +94,7 @@ export async function GET(
         parentSelectedClasses: announcement.parentSelectedClasses || null,
         surveyData: announcement.surveyData || null,
         consentData: announcement.consentData || null,
+        attachments: announcement.attachments || null,
       },
     });
   } catch (error) {
@@ -135,7 +146,23 @@ export async function PUT(
       return NextResponse.json({ error: "권한이 없습니다." }, { status: 403 });
     }
 
-    const body = await request.json();
+    // FormData 또는 JSON 처리
+    const contentType = request.headers.get("content-type") || "";
+    let body: any;
+    let files: File[] = [];
+
+    if (contentType.includes("multipart/form-data")) {
+      const formData = await request.formData();
+      const dataStr = formData.get("data") as string;
+      if (dataStr) {
+        body = JSON.parse(dataStr);
+      }
+      const fileList = formData.getAll("files") as File[];
+      files = fileList.filter((f) => f && f.size > 0);
+    } else {
+      body = await request.json();
+    }
+
     const validatedData = updateAnnouncementSchema.parse(body);
 
     // 예약 발행인 경우 publishAt 필수
@@ -157,6 +184,70 @@ export async function PUT(
       }
     }
 
+    // 기존 첨부 파일 가져오기
+    let existingAttachments: Array<{
+      filePath: string;
+      originalFileName: string;
+      fileSize: number | null;
+      mimeType: string | null;
+    }> = [];
+    if (existingAnnouncement.attachments) {
+      try {
+        existingAttachments = typeof existingAnnouncement.attachments === 'string'
+          ? JSON.parse(existingAnnouncement.attachments)
+          : existingAnnouncement.attachments;
+      } catch (e) {
+        existingAttachments = [];
+      }
+    }
+
+    // 새 파일 저장 (선택적, 여러 개) - Vercel Blob Storage 사용
+    const savedFiles: Array<{
+      filePath: string;
+      originalFileName: string;
+      fileSize: number | null;
+      mimeType: string | null;
+    }> = [];
+    if (files.length > 0) {
+      for (const f of files) {
+        if (!f || f.size === 0) continue;
+        const ext = f.name.substring(f.name.lastIndexOf(".")).toLowerCase();
+        if (!ALLOWED_EXTENSIONS.includes(ext)) {
+          return NextResponse.json(
+            { error: `허용되지 않는 파일 형식입니다. 허용 형식: ${ALLOWED_EXTENSIONS.join(", ")}` },
+            { status: 400 }
+          );
+        }
+        if (f.size > MAX_FILE_SIZE) {
+          return NextResponse.json(
+            { error: `파일 크기는 ${MAX_FILE_SIZE / 1024 / 1024}MB 이하여야 합니다.` },
+            { status: 400 }
+          );
+        }
+        // 고유한 파일명 생성 (타임스탬프 + 랜덤 문자열)
+        const timestamp = Date.now();
+        const randomStr = Math.random().toString(36).substring(2, 15);
+        const extension = f.name.split('.').pop() || 'bin';
+        const filename = `announcements/${timestamp}-${randomStr}.${extension}`;
+
+        // Vercel Blob Storage에 업로드
+        const blob = await put(filename, f, {
+          access: 'public',
+          contentType: f.type || 'application/octet-stream',
+        });
+
+        savedFiles.push({
+          filePath: blob.url, // Blob Storage URL
+          originalFileName: f.name,
+          fileSize: f.size || null,
+          mimeType: f.type || "application/octet-stream",
+        });
+      }
+    }
+
+    // 첨부 파일 병합 (기존 + 새 파일)
+    const allAttachments = [...existingAttachments, ...savedFiles];
+
     // 공지사항 수정
     const updateData: any = {
       title: validatedData.title,
@@ -170,6 +261,7 @@ export async function PUT(
       parentSelectedClasses: validatedData.parentSelectedClasses ? JSON.stringify(validatedData.parentSelectedClasses) : null,
       surveyData: validatedData.surveyData ? JSON.stringify(validatedData.surveyData) : null,
       consentData: validatedData.consentData ? JSON.stringify(validatedData.consentData) : null,
+      attachments: allAttachments.length > 0 ? JSON.stringify(allAttachments) : null,
     };
 
     // 예약 발행 상태 변경 처리

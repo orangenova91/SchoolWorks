@@ -287,6 +287,7 @@ model Announcement {
   parentSelectedClasses String? // 학부모 학급 선택 정보 (JSON 배열)
   surveyData          String?  // 설문 조사 질문 데이터 (JSON 배열)
   consentData         String?  // 동의서 서명 데이터 (JSON 객체: {signatureImage: string, signedAt?: string})
+  attachments         String?  // 첨부 파일 데이터 (JSON 배열: [{filePath, originalFileName, fileSize, mimeType}])
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 
