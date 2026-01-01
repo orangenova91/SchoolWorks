@@ -321,7 +321,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error("Get announcements error:", error);
     return NextResponse.json(
-      { error: "공지사항 목록을 불러오는 중 오류가 발생했습니다." },
+      { error: "안내문 목록을 불러오는 중 오류가 발생했습니다." },
       { status: 500 }
     );
   }

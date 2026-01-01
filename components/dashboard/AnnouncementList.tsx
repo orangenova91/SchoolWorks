@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
+import { useSession } from "next-auth/react";
 import { useToastContext } from "@/components/providers/ToastProvider";
 import { Eye, ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Select } from "@/components/ui/Select";
+import { Button } from "@/components/ui/Button";
 import { AnnouncementDetailModal } from "./AnnouncementDetailModal";
 
 interface SelectedClass {
@@ -48,6 +50,50 @@ const audienceLabels: Record<string, string> = {
   "grade-3": "3학년",
   parents: "학부모",
   teachers: "교직원",
+};
+
+const categoryLabels: Record<string, string> = {
+  notice: "단순 알림",
+  survey: "설문 조사",
+  consent: "동의서",
+};
+
+const getCategoryBadge = (category: string | null | undefined) => {
+  if (!category) {
+    return (
+      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600">
+        -
+      </span>
+    );
+  }
+
+  const label = categoryLabels[category] || category;
+  
+  if (category === "notice") {
+    return (
+      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+        {label}
+      </span>
+    );
+  } else if (category === "survey") {
+    return (
+      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800">
+        {label}
+      </span>
+    );
+  } else if (category === "consent") {
+    return (
+      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800">
+        {label}
+      </span>
+    );
+  }
+  
+  return (
+    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600">
+      {label}
+    </span>
+  );
 };
 
 // 선택된 학반 정보를 텍스트로 변환
@@ -155,6 +201,7 @@ const getAudienceDisplayText = (announcement: Announcement): string => {
 };
 
 export function AnnouncementList({ includeScheduled = false, audience, refreshKey, onEdit, showEditButton = false, onDelete, showDeleteButton = false }: AnnouncementListProps) {
+  const { data: session } = useSession();
   const { showToast } = useToastContext();
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -163,6 +210,8 @@ export function AnnouncementList({ includeScheduled = false, audience, refreshKe
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [showMyPostsOnly, setShowMyPostsOnly] = useState(false);
+  const [categoryFilter, setCategoryFilter] = useState<string>("");
 
   const fetchAnnouncements = async () => {
     try {
@@ -181,7 +230,7 @@ export function AnnouncementList({ includeScheduled = false, audience, refreshKe
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || "공지사항 목록을 불러오는데 실패했습니다.");
+        throw new Error(data.error || "안내문 목록을 불러오는데 실패했습니다.");
       }
 
       console.log("Announcements fetched:", data.announcements?.length || 0, "items");
@@ -189,8 +238,8 @@ export function AnnouncementList({ includeScheduled = false, audience, refreshKe
       setAnnouncements(data.announcements || []);
     } catch (err: any) {
       console.error("Failed to fetch announcements:", err);
-      setError(err.message || "공지사항 목록을 불러오는 중 오류가 발생했습니다.");
-      showToast(err.message || "공지사항 목록을 불러오는 중 오류가 발생했습니다.", "error");
+      setError(err.message || "안내문 목록을 불러오는 중 오류가 발생했습니다.");
+      showToast(err.message || "안내문 목록을 불러오는 중 오류가 발생했습니다.", "error");
     } finally {
       setIsLoading(false);
     }
@@ -206,21 +255,39 @@ export function AnnouncementList({ includeScheduled = false, audience, refreshKe
     setCurrentPage(1);
   }, [itemsPerPage]);
 
-  // 클라이언트 측 검색 필터링 (StudentEvaluation과 동일한 방식)
+  // 클라이언트 측 검색 필터링 및 내가 쓴 글 필터
   const filteredAnnouncements = useMemo(() => {
-    if (!searchQuery.trim()) {
-      return announcements;
+    let filtered = announcements;
+    
+    // 구분 필터
+    if (categoryFilter) {
+      filtered = filtered.filter((announcement) => {
+        return announcement.category === categoryFilter;
+      });
     }
-    const keyword = searchQuery.trim().toLowerCase();
-    return announcements.filter((announcement) => {
-      const titleMatch = announcement.title.toLowerCase().includes(keyword);
-      const authorMatch = announcement.author.toLowerCase().includes(keyword);
-      // HTML 태그 제거 후 내용 검색
-      const contentText = announcement.content.replace(/<[^>]*>/g, "").toLowerCase();
-      const contentMatch = contentText.includes(keyword);
-      return titleMatch || authorMatch || contentMatch;
-    });
-  }, [announcements, searchQuery]);
+    
+    // 내가 쓴 글 필터
+    if (showMyPostsOnly && session?.user?.name) {
+      filtered = filtered.filter((announcement) => {
+        return announcement.author === session.user.name;
+      });
+    }
+    
+    // 검색 필터링
+    if (searchQuery.trim()) {
+      const keyword = searchQuery.trim().toLowerCase();
+      filtered = filtered.filter((announcement) => {
+        const titleMatch = announcement.title.toLowerCase().includes(keyword);
+        const authorMatch = announcement.author.toLowerCase().includes(keyword);
+        // HTML 태그 제거 후 내용 검색
+        const contentText = announcement.content.replace(/<[^>]*>/g, "").toLowerCase();
+        const contentMatch = contentText.includes(keyword);
+        return titleMatch || authorMatch || contentMatch;
+      });
+    }
+    
+    return filtered;
+  }, [announcements, searchQuery, showMyPostsOnly, categoryFilter, session]);
 
   // 페이지네이션 계산
   const totalPages = Math.ceil(filteredAnnouncements.length / itemsPerPage);
@@ -228,10 +295,10 @@ export function AnnouncementList({ includeScheduled = false, audience, refreshKe
   const endIndex = startIndex + itemsPerPage;
   const paginatedAnnouncements = filteredAnnouncements.slice(startIndex, endIndex);
 
-  // 검색어 변경 시 첫 페이지로 이동
+  // 검색어 또는 필터 변경 시 첫 페이지로 이동
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery]);
+  }, [searchQuery, showMyPostsOnly, categoryFilter]);
 
   const formatDateShort = (dateString: string | null) => {
     if (!dateString) return "-";
@@ -251,7 +318,7 @@ export function AnnouncementList({ includeScheduled = false, audience, refreshKe
     return (
       <div className="rounded-lg border border-gray-200 bg-white p-6">
         <div className="flex items-center justify-center py-8">
-          <div className="text-sm text-gray-500">공지사항을 불러오는 중...</div>
+          <div className="text-sm text-gray-500">안내문을 불러오는 중...</div>
         </div>
       </div>
     );
@@ -281,7 +348,7 @@ export function AnnouncementList({ includeScheduled = false, audience, refreshKe
         <div className="flex items-center gap-4">
           <div className="flex-1">
             <label htmlFor="announcement-search-empty" className="sr-only">
-              공지사항 검색
+              안내문 검색
             </label>
             <input
               id="announcement-search-empty"
@@ -292,6 +359,27 @@ export function AnnouncementList({ includeScheduled = false, audience, refreshKe
               className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
             />
           </div>
+          <div className="w-28">
+            <Select
+              value={categoryFilter}
+              onChange={(e) => setCategoryFilter(e.target.value)}
+              options={[
+                { value: "", label: "전체" },
+                { value: "notice", label: "단순 알림" },
+                { value: "survey", label: "설문 조사" },
+                { value: "consent", label: "동의서" },
+              ]}
+              className="text-sm"
+            />
+          </div>
+          <Button
+            type="button"
+            variant={showMyPostsOnly ? "primary" : "outline"}
+            onClick={() => setShowMyPostsOnly(!showMyPostsOnly)}
+            className="whitespace-nowrap text-sm"
+          >
+            내가 쓴 글
+          </Button>
           <div className="w-32">
             <Select
               value={itemsPerPage.toString()}
@@ -311,12 +399,12 @@ export function AnnouncementList({ includeScheduled = false, audience, refreshKe
           <div className="flex flex-col items-center justify-center py-12 text-center">
             <Eye className="h-12 w-12 text-gray-400 mb-4" />
             <p className="text-sm font-medium text-gray-900 mb-1">
-              {searchQuery ? "검색 결과가 없습니다" : "공지사항이 없습니다"}
+              {searchQuery ? "검색 결과가 없습니다" : "안내문이 없습니다"}
             </p>
             <p className="text-xs text-gray-500">
               {searchQuery 
                 ? `"${searchQuery}"에 대한 검색 결과가 없습니다. 다른 검색어를 시도해보세요.`
-                : "새로운 공지사항이 등록되면 여기에 표시됩니다."}
+                : "새로운 안내문이 등록되면 여기에 표시됩니다."}
             </p>
           </div>
         </div>
@@ -331,7 +419,7 @@ export function AnnouncementList({ includeScheduled = false, audience, refreshKe
         <div className="flex items-center gap-4">
           <div className="flex-1">
             <label htmlFor="announcement-search" className="sr-only">
-              공지사항 검색
+              안내문 검색
             </label>
             <input
               id="announcement-search"
@@ -342,6 +430,27 @@ export function AnnouncementList({ includeScheduled = false, audience, refreshKe
               className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
             />
           </div>
+          <div className="w-28">
+            <Select
+              value={categoryFilter}
+              onChange={(e) => setCategoryFilter(e.target.value)}
+              options={[
+                { value: "", label: "구분 검색" },
+                { value: "notice", label: "단순 알림" },
+                { value: "survey", label: "설문 조사" },
+                { value: "consent", label: "동의서" },
+              ]}
+              className="text-sm"
+            />
+          </div>
+          <Button
+            type="button"
+            variant={showMyPostsOnly ? "primary" : "outline"}
+            onClick={() => setShowMyPostsOnly(!showMyPostsOnly)}
+            className="whitespace-nowrap text-sm"
+          >
+            내가 쓴 글
+          </Button>
           <div className="w-32">
             <Select
               value={itemsPerPage.toString()}
@@ -362,7 +471,8 @@ export function AnnouncementList({ includeScheduled = false, audience, refreshKe
       <div className="bg-gray-50 border-b border-gray-200">
         <div className="grid grid-cols-12 gap-4 px-4 py-3 text-xs font-semibold text-gray-700">
           <div className="col-span-1 text-center">번호</div>
-          <div className="col-span-5">제목</div>
+          <div className="col-span-1 text-center">구분</div>
+          <div className="col-span-4">제목</div>
           <div className="col-span-2 text-center">작성자</div>
           <div className="col-span-2 text-center">작성일</div>
           <div className="col-span-2 text-center">대상</div>
@@ -396,7 +506,10 @@ export function AnnouncementList({ includeScheduled = false, audience, refreshKe
                 <div className="col-span-1 text-center text-gray-500">
                   {filteredAnnouncements.length - globalIndex}
                 </div>
-                <div className="col-span-5 flex items-center gap-2 min-w-0">
+                <div className="col-span-1 text-center flex items-center justify-center">
+                  {getCategoryBadge(announcement.category)}
+                </div>
+                <div className="col-span-4 flex items-center gap-2 min-w-0">
                   <span className="font-medium text-gray-900 truncate">{announcement.title}</span>
                   {isScheduled && (
                     <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800 whitespace-nowrap">
@@ -565,7 +678,7 @@ export function AnnouncementList({ includeScheduled = false, audience, refreshKe
         </div>
       )}
 
-      {/* 공지사항 상세 모달 */}
+      {/* 안내문 상세 모달 */}
       <AnnouncementDetailModal
         isOpen={selectedAnnouncement !== null}
         announcement={selectedAnnouncement}

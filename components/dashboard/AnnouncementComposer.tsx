@@ -207,7 +207,7 @@ interface AnnouncementComposerProps {
   isOpen?: boolean;
   onOpenChange?: (open: boolean) => void;
   showButton?: boolean;
-  editId?: string; // 수정 모드일 때 공지사항 ID
+  editId?: string; // 수정 모드일 때 안내문 ID
   onEditComplete?: () => void; // 수정 완료 후 콜백
 }
 
@@ -361,7 +361,7 @@ function AnnouncementComposerForm({
           const data = await response.json();
 
           if (!response.ok) {
-            throw new Error(data.error || "공지사항을 불러오는데 실패했습니다.");
+            throw new Error(data.error || "안내문을 불러오는데 실패했습니다.");
           }
 
           const announcement = data.announcement;
@@ -463,7 +463,7 @@ function AnnouncementComposerForm({
           }
         } catch (err: any) {
           console.error("Failed to load announcement:", err);
-          setError(err.message || "공지사항을 불러오는 중 오류가 발생했습니다.");
+          setError(err.message || "안내문을 불러오는 중 오류가 발생했습니다.");
         } finally {
           setIsLoading(false);
         }
@@ -903,7 +903,7 @@ function AnnouncementComposerForm({
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || (editId ? "공지사항 수정에 실패했습니다." : "공지사항 생성에 실패했습니다."));
+        throw new Error(data.error || (editId ? "안내문 수정에 실패했습니다." : "안내문 생성에 실패했습니다."));
       }
 
       // 성공 시 콜백 호출
@@ -931,7 +931,7 @@ function AnnouncementComposerForm({
       onClose();
     } catch (err: any) {
       console.error(editId ? "Update announcement error:" : "Create announcement error:", err);
-      setError(err.message || (editId ? "공지사항 수정 중 오류가 발생했습니다." : "공지사항 생성 중 오류가 발생했습니다."));
+      setError(err.message || (editId ? "안내문 수정 중 오류가 발생했습니다." : "안내문 생성 중 오류가 발생했습니다."));
       setIsSubmitting(false);
     }
   };
@@ -1259,7 +1259,7 @@ function AnnouncementComposerForm({
     return (
       <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
         <div className="flex items-center justify-center py-8">
-          <div className="text-sm text-gray-500">공지사항을 불러오는 중...</div>
+          <div className="text-sm text-gray-500">안내문을 불러오는 중...</div>
         </div>
       </div>
     );
@@ -1836,7 +1836,7 @@ function AnnouncementComposerForm({
                 </div>
               </div>
               <p className="text-xs text-gray-500 mt-2 text-center">
-                알림 대상자가 공지사항을 확인할 때 서명할 수 있습니다.
+                알림 대상자가 안내문을 확인할 때 서명할 수 있습니다.
               </p>
             </div>
             
