@@ -24,6 +24,7 @@ import {
   User,
   MessageCircle,
   UserCheck,
+  MessageSquare,
 } from "lucide-react";
 
 export default async function DashboardLayout({
@@ -69,16 +70,16 @@ export default async function DashboardLayout({
             iconName: "Home"
           },
           {
-            href: "/dashboard/teacher/students",
-            label: "구성원 조회",
-            icon: <UserCheck className="w-5 h-5" />,
-            iconName: "UserCheck"
-          },
-          {
             href: "/dashboard/teacher/schedule",
             label: t.sidebar.teacher.schedule,
             icon: <Calendar className="w-5 h-5" />,
             iconName: "Calendar"
+          },
+          {
+            href: "/dashboard/teacher/staff-board",
+            label: "교직원 게시판",
+            icon: <MessageSquare className="w-5 h-5" />,
+            iconName: "MessageSquare"
           },
           {
             href: "/dashboard/teacher/manage-classes",
@@ -103,6 +104,12 @@ export default async function DashboardLayout({
             label: t.sidebar.teacher.announcements,
             icon: <Bell className="w-5 h-5" />,
             iconName: "Bell"
+          },
+          {
+            href: "/dashboard/teacher/students",
+            label: "구성원 조회",
+            icon: <UserCheck className="w-5 h-5" />,
+            iconName: "UserCheck"
           },
           {
             href: googleChatLink,

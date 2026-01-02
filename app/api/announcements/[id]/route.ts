@@ -4,6 +4,7 @@ import { z } from "zod";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { put } from '@vercel/blob';
+import { getAuthUser } from "@/lib/jwt-auth";
 
 const AUDIENCE_VALUES = ["all", "grade-1", "grade-2", "grade-3", "parents"] as const;
 
@@ -56,9 +57,9 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    const session = await getServerSession(authOptions);
+    const user = await getAuthUser(request);
 
-    if (!session || !session.user) {
+    if (!user) {
       return NextResponse.json({ error: "인증이 필요합니다." }, { status: 401 });
     }
 
@@ -71,7 +72,7 @@ export async function GET(
     }
 
     // 학교 필터 확인
-    if (session.user.school && announcement.school !== session.user.school) {
+    if (user.school && announcement.school !== user.school) {
       return NextResponse.json({ error: "권한이 없습니다." }, { status: 403 });
     }
 
@@ -112,9 +113,9 @@ export async function PUT(
   { params }: { params: { id: string } }
 ) {
   try {
-    const session = await getServerSession(authOptions);
+    const user = await getAuthUser(request);
 
-    if (!session || session.user?.role !== "teacher") {
+    if (!user || user.role !== "teacher") {
       return NextResponse.json(
         { error: "안내문 수정 권한이 없습니다." },
         { status: 403 }
@@ -134,7 +135,7 @@ export async function PUT(
     }
 
     // 작성자 확인 (본인이 작성한 안내문만 수정 가능)
-    if (existingAnnouncement.authorId !== session.user.id) {
+    if (existingAnnouncement.authorId !== user.id) {
       return NextResponse.json(
         { error: "본인이 작성한 안내문만 수정할 수 있습니다." },
         { status: 403 }
@@ -142,7 +143,7 @@ export async function PUT(
     }
 
     // 학교 필터 확인
-    if (session.user.school && existingAnnouncement.school !== session.user.school) {
+    if (user.school && existingAnnouncement.school !== user.school) {
       return NextResponse.json({ error: "권한이 없습니다." }, { status: 403 });
     }
 
@@ -323,9 +324,9 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    const session = await getServerSession(authOptions);
+    const user = await getAuthUser(request);
 
-    if (!session || session.user?.role !== "teacher") {
+    if (!user || user.role !== "teacher") {
       return NextResponse.json(
         { error: "안내문 삭제 권한이 없습니다." },
         { status: 403 }
@@ -345,7 +346,7 @@ export async function DELETE(
     }
 
     // 작성자 확인 (본인이 작성한 안내문만 삭제 가능)
-    if (existingAnnouncement.authorId !== session.user.id) {
+    if (existingAnnouncement.authorId !== user.id) {
       return NextResponse.json(
         { error: "본인이 작성한 안내문만 삭제할 수 있습니다." },
         { status: 403 }
@@ -353,7 +354,7 @@ export async function DELETE(
     }
 
     // 학교 필터 확인
-    if (session.user.school && existingAnnouncement.school !== session.user.school) {
+    if (user.school && existingAnnouncement.school !== user.school) {
       return NextResponse.json({ error: "권한이 없습니다." }, { status: 403 });
     }
 

@@ -4,6 +4,8 @@ import { z } from "zod";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { put } from '@vercel/blob';
+import { getAuthUser } from "@/lib/jwt-auth";
+import { corsResponse, corsOptionsResponse } from "@/lib/cors";
 
 const AUDIENCE_VALUES = ["all", "grade-1", "grade-2", "grade-3", "parents"] as const;
 
@@ -50,14 +52,24 @@ const createAnnouncementSchema = z.object({
 
 export const dynamic = 'force-dynamic';
 
+// CORS OPTIONS 핸들러
+export async function OPTIONS(request: NextRequest) {
+  const origin = request.headers.get('origin');
+  return corsOptionsResponse(origin || undefined);
+}
+
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    const origin = request.headers.get('origin');
+    const user = await getAuthUser(request);
 
-    if (!session || session.user?.role !== "teacher") {
-      return NextResponse.json(
-        { error: "공지사항 생성 권한이 없습니다." },
-        { status: 403 }
+    if (!user || user.role !== "teacher") {
+      return corsResponse(
+        NextResponse.json(
+          { error: "공지사항 생성 권한이 없습니다." },
+          { status: 403 }
+        ),
+        origin || undefined
       );
     }
 
@@ -82,9 +94,12 @@ export async function POST(request: NextRequest) {
 
     // 예약 발행인 경우 publishAt 필수 (빈 문자열도 체크)
     if (validatedData.isScheduled && (!validatedData.publishAt || validatedData.publishAt.trim() === "")) {
-      return NextResponse.json(
-        { error: "예약 발행 시 발행 시각을 지정해주세요." },
-        { status: 400 }
+      return corsResponse(
+        NextResponse.json(
+          { error: "예약 발행 시 발행 시각을 지정해주세요." },
+          { status: 400 }
+        ),
+        origin || undefined
       );
     }
 
@@ -92,15 +107,21 @@ export async function POST(request: NextRequest) {
     if (validatedData.publishAt) {
       const publishDate = new Date(validatedData.publishAt);
       if (isNaN(publishDate.getTime())) {
-        return NextResponse.json(
-          { error: "올바른 발행 시각을 입력해주세요." },
-          { status: 400 }
+        return corsResponse(
+          NextResponse.json(
+            { error: "올바른 발행 시각을 입력해주세요." },
+            { status: 400 }
+          ),
+          origin || undefined
         );
       }
       if (publishDate <= new Date()) {
-        return NextResponse.json(
-          { error: "발행 시각은 현재 시간보다 미래여야 합니다." },
-          { status: 400 }
+        return corsResponse(
+          NextResponse.json(
+            { error: "발행 시각은 현재 시간보다 미래여야 합니다." },
+            { status: 400 }
+          ),
+          origin || undefined
         );
       }
     }
@@ -117,15 +138,21 @@ export async function POST(request: NextRequest) {
         if (!f || f.size === 0) continue;
         const ext = f.name.substring(f.name.lastIndexOf(".")).toLowerCase();
         if (!ALLOWED_EXTENSIONS.includes(ext)) {
-          return NextResponse.json(
-            { error: `허용되지 않는 파일 형식입니다. 허용 형식: ${ALLOWED_EXTENSIONS.join(", ")}` },
-            { status: 400 }
+          return corsResponse(
+            NextResponse.json(
+              { error: `허용되지 않는 파일 형식입니다. 허용 형식: ${ALLOWED_EXTENSIONS.join(", ")}` },
+              { status: 400 }
+            ),
+            origin || undefined
           );
         }
         if (f.size > MAX_FILE_SIZE) {
-          return NextResponse.json(
-            { error: `파일 크기는 ${MAX_FILE_SIZE / 1024 / 1024}MB 이하여야 합니다.` },
-            { status: 400 }
+          return corsResponse(
+            NextResponse.json(
+              { error: `파일 크기는 ${MAX_FILE_SIZE / 1024 / 1024}MB 이하여야 합니다.` },
+              { status: 400 }
+            ),
+            origin || undefined
           );
         }
         // 고유한 파일명 생성 (타임스탬프 + 랜덤 문자열)
@@ -157,11 +184,11 @@ export async function POST(request: NextRequest) {
         content: validatedData.content,
         audience: validatedData.audience,
         author: validatedData.author,
-        authorId: session.user.id,
+        authorId: user.id,
         isScheduled: validatedData.isScheduled,
         publishAt: validatedData.publishAt ? new Date(validatedData.publishAt) : null,
         publishedAt: validatedData.isScheduled ? null : new Date(), // 예약이 아니면 즉시 발행
-        school: session.user.school || null,
+        school: user.school || null,
         selectedClasses: validatedData.selectedClasses ? JSON.stringify(validatedData.selectedClasses) : null,
         parentSelectedClasses: validatedData.parentSelectedClasses ? JSON.stringify(validatedData.parentSelectedClasses) : null,
         surveyData: validatedData.surveyData ? JSON.stringify(validatedData.surveyData) : null,
@@ -170,46 +197,61 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    return NextResponse.json(
-      {
-        message: validatedData.isScheduled
-          ? "공지사항이 예약되었습니다."
-          : "공지사항이 발행되었습니다.",
-        announcement: {
-          id: announcement.id,
-          title: announcement.title,
-          audience: announcement.audience,
-          author: announcement.author,
-          isScheduled: announcement.isScheduled,
-          publishAt: announcement.publishAt?.toISOString() || null,
-          publishedAt: announcement.publishedAt?.toISOString() || null,
-          createdAt: announcement.createdAt.toISOString(),
+    return corsResponse(
+      NextResponse.json(
+        {
+          message: validatedData.isScheduled
+            ? "공지사항이 예약되었습니다."
+            : "공지사항이 발행되었습니다.",
+          announcement: {
+            id: announcement.id,
+            title: announcement.title,
+            audience: announcement.audience,
+            author: announcement.author,
+            isScheduled: announcement.isScheduled,
+            publishAt: announcement.publishAt?.toISOString() || null,
+            publishedAt: announcement.publishedAt?.toISOString() || null,
+            createdAt: announcement.createdAt.toISOString(),
+          },
         },
-      },
-      { status: 201 }
+        { status: 201 }
+      ),
+      origin || undefined
     );
   } catch (error: any) {
+    const origin = request.headers.get('origin');
+    
     if (error?.name === "ZodError") {
-      return NextResponse.json(
-        { error: "입력값이 올바르지 않습니다.", details: error.errors },
-        { status: 400 }
+      return corsResponse(
+        NextResponse.json(
+          { error: "입력값이 올바르지 않습니다.", details: error.errors },
+          { status: 400 }
+        ),
+        origin || undefined
       );
     }
 
     console.error("Create announcement error:", error);
-    return NextResponse.json(
-      { error: "공지사항 생성 중 오류가 발생했습니다." },
-      { status: 500 }
+    return corsResponse(
+      NextResponse.json(
+        { error: "공지사항 생성 중 오류가 발생했습니다." },
+        { status: 500 }
+      ),
+      origin || undefined
     );
   }
 }
 
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    const origin = request.headers.get('origin');
+    const user = await getAuthUser(request);
 
-    if (!session || !session.user) {
-      return NextResponse.json({ error: "인증이 필요합니다." }, { status: 401 });
+    if (!user) {
+      return corsResponse(
+        NextResponse.json({ error: "인증이 필요합니다." }, { status: 401 }),
+        origin || undefined
+      );
     }
 
     // 예약된 공지사항 중 발행 시간이 지난 항목 자동 발행
@@ -219,7 +261,7 @@ export async function GET(request: NextRequest) {
         isScheduled: true,
         publishAt: { lte: now }, // publishAt이 현재 시간보다 이전이거나 같음
         publishedAt: null, // 아직 발행되지 않음
-        ...(session.user.school ? { school: session.user.school } : {}), // 같은 학교의 공지사항만
+        ...(user.school ? { school: user.school } : {}), // 같은 학교의 공지사항만
       },
     });
 
@@ -250,8 +292,8 @@ export async function GET(request: NextRequest) {
     }
 
     // 학교 필터 (같은 학교의 공지사항만)
-    if (session.user.school) {
-      where.school = session.user.school;
+    if (user.school) {
+      where.school = user.school;
     }
 
     // 대상 필터
@@ -263,14 +305,14 @@ export async function GET(request: NextRequest) {
       ];
     } else {
       // 사용자 역할에 따른 기본 필터
-      if (session.user.role === "student") {
+      if (user.role === "student") {
         // 학생은 자신의 학년과 전체 대상만 볼 수 있음
         // TODO: 학생의 학년 정보를 StudentProfile에서 가져와야 함
         where.OR = [
           { audience: "all" },
           // { audience: `grade-${studentGrade}` }, // 실제 구현 시 추가
         ];
-      } else if (session.user.role === "teacher") {
+      } else if (user.role === "teacher") {
         // 교사는 모든 공지사항 조회 가능 (필터 없음)
         // where.OR 조건을 추가하지 않음
       }
@@ -291,38 +333,45 @@ export async function GET(request: NextRequest) {
       return new Date(bDate).getTime() - new Date(aDate).getTime();
     });
 
-    console.log(`Found ${announcements.length} announcements for user ${session.user.role}`, {
+    console.log(`Found ${announcements.length} announcements for user ${user.role}`, {
       includeScheduled,
       audience,
-      school: session.user.school,
+      school: user.school,
       where,
     });
 
-    return NextResponse.json({
-      announcements: announcements.map((a: any) => ({
-        id: a.id,
-        title: a.title,
-        content: a.content,
-        audience: a.audience,
-        author: a.author,
-        isScheduled: a.isScheduled,
-        publishAt: a.publishAt?.toISOString() || null,
-        publishedAt: a.publishedAt?.toISOString() || null,
-        createdAt: a.createdAt.toISOString(),
-        updatedAt: a.updatedAt.toISOString(),
-        selectedClasses: a.selectedClasses || null,
-        parentSelectedClasses: a.parentSelectedClasses || null,
-        category: a.category || null,
-        surveyData: a.surveyData || null,
-        consentData: a.consentData || null,
-        attachments: a.attachments || null,
-      })),
-    });
+    return corsResponse(
+      NextResponse.json({
+        announcements: announcements.map((a: any) => ({
+          id: a.id,
+          title: a.title,
+          content: a.content,
+          audience: a.audience,
+          author: a.author,
+          isScheduled: a.isScheduled,
+          publishAt: a.publishAt?.toISOString() || null,
+          publishedAt: a.publishedAt?.toISOString() || null,
+          createdAt: a.createdAt.toISOString(),
+          updatedAt: a.updatedAt.toISOString(),
+          selectedClasses: a.selectedClasses || null,
+          parentSelectedClasses: a.parentSelectedClasses || null,
+          category: a.category || null,
+          surveyData: a.surveyData || null,
+          consentData: a.consentData || null,
+          attachments: a.attachments || null,
+        })),
+      }),
+      origin || undefined
+    );
   } catch (error) {
+    const origin = request.headers.get('origin');
     console.error("Get announcements error:", error);
-    return NextResponse.json(
-      { error: "안내문 목록을 불러오는 중 오류가 발생했습니다." },
-      { status: 500 }
+    return corsResponse(
+      NextResponse.json(
+        { error: "안내문 목록을 불러오는 중 오류가 발생했습니다." },
+        { status: 500 }
+      ),
+      origin || undefined
     );
   }
 }
