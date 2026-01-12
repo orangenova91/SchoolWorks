@@ -198,6 +198,8 @@ interface AnnouncementComposerPayload {
   selectedClasses?: SelectedClass[];
   parentSelectedClasses?: SelectedClass[];
   surveyData?: SurveyQuestion[];
+  surveyStartDate?: string;
+  surveyEndDate?: string;
   consentData?: ConsentData;
   editableBy?: string[];
 }
@@ -252,6 +254,8 @@ function AnnouncementComposerForm({
   const [selectedClasses, setSelectedClasses] = useState<SelectedClass[]>([]);
   const [parentSelectedClasses, setParentSelectedClasses] = useState<SelectedClass[]>([]);
   const [surveyQuestions, setSurveyQuestions] = useState<SurveyQuestion[]>([]);
+  const [surveyStartDate, setSurveyStartDate] = useState("");
+  const [surveyEndDate, setSurveyEndDate] = useState("");
   const [signatureData, setSignatureData] = useState<string | null>(null);
   const [showSignaturePanel, setShowSignaturePanel] = useState(false);
   const [isDrawing, setIsDrawing] = useState(false);
@@ -436,6 +440,17 @@ function AnnouncementComposerForm({
             }
           } else {
             setSurveyQuestions([]);
+          }
+          // 설문 조사 기간 로드 (있는 경우)
+          if (announcement.surveyStartDate) {
+            setSurveyStartDate(new Date(announcement.surveyStartDate).toISOString().slice(0, 16));
+          } else {
+            setSurveyStartDate("");
+          }
+          if (announcement.surveyEndDate) {
+            setSurveyEndDate(new Date(announcement.surveyEndDate).toISOString().slice(0, 16));
+          } else {
+            setSurveyEndDate("");
           }
           // 동의서 서명 데이터 로드 (있는 경우)
           if (announcement.consentData) {
@@ -944,6 +959,8 @@ function AnnouncementComposerForm({
       selectedClasses: selectedTargets.includes("students") ? selectedClasses : [],
       parentSelectedClasses: selectedTargets.includes("parents") ? parentSelectedClasses : [],
       surveyData: category === "survey" && surveyQuestions.length > 0 ? surveyQuestions : undefined,
+      surveyStartDate: category === "survey" && surveyStartDate ? surveyStartDate : undefined,
+      surveyEndDate: category === "survey" && surveyEndDate ? surveyEndDate : undefined,
       consentData: (() => {
         if (category === "consent" && signatureData) {
           return {
@@ -972,11 +989,17 @@ function AnnouncementComposerForm({
     };
 
     try {
-      // publishAt을 ISO 형식으로 변환 (datetime-local 형식에서)
+      // publishAt과 설문 조사 기간을 ISO 형식으로 변환 (datetime-local 형식에서)
       const requestBody = {
         ...payload,
         publishAt: payload.publishAt && payload.publishAt.trim()
           ? new Date(payload.publishAt).toISOString()
+          : undefined,
+        surveyStartDate: payload.surveyStartDate && payload.surveyStartDate.trim()
+          ? new Date(payload.surveyStartDate).toISOString()
+          : undefined,
+        surveyEndDate: payload.surveyEndDate && payload.surveyEndDate.trim()
+          ? new Date(payload.surveyEndDate).toISOString()
           : undefined,
       };
 
@@ -1022,6 +1045,8 @@ function AnnouncementComposerForm({
       setSelectedClasses([]);
       setParentSelectedClasses([]);
       setSurveyQuestions([]);
+      setSurveyStartDate("");
+      setSurveyEndDate("");
       setSignatureData(null);
       setShowSignaturePanel(false);
       setUseSchedule(false);
@@ -1834,6 +1859,28 @@ function AnnouncementComposerForm({
         {/* 설문 조사 패널 (survey 선택 시에만 표시) */}
         {category === "survey" && (
           <div className="border border-gray-200 rounded-lg p-4 bg-gray-50 h-full flex flex-col">
+            {/* 설문 조사 기간 설정 */}
+            <div className="mb-4 pb-4 border-b border-gray-200">
+              <h4 className="text-xs font-semibold text-gray-700 mb-2">설문 조사 기간</h4>
+              <div className="grid grid-cols-2 gap-2">
+                <Input
+                  type="datetime-local"
+                  label="시작일시"
+                  value={surveyStartDate}
+                  onChange={(e) => setSurveyStartDate(e.target.value)}
+                  className="text-xs"
+                />
+                <Input
+                  type="datetime-local"
+                  label="종료일시"
+                  value={surveyEndDate}
+                  onChange={(e) => setSurveyEndDate(e.target.value)}
+                  min={surveyStartDate || undefined}
+                  className="text-xs"
+                />
+              </div>
+            </div>
+            
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-3">
                 <h3 className="text-sm font-semibold text-gray-700">설문 조사 항목</h3>

@@ -6,7 +6,7 @@ export const defaultLocale: Locale = "ko";
 export const translations = {
   ko: {
     app: {
-      version: "Ver.29.0.1",
+      version: "Ver.29.0.2",
     },
     auth: {
       login: "로그인",
@@ -136,7 +136,7 @@ export const translations = {
   },
   en: {
     app: {
-      version: "Ver.29.0.1",
+      version: "Ver.29.0.2",
     },
     auth: {
       login: "Login",
