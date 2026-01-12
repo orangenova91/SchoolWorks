@@ -46,6 +46,7 @@ const createAnnouncementSchema = z.object({
   parentSelectedClasses: z.array(selectedClassSchema).optional(),
   surveyData: z.array(surveyQuestionSchema).optional(),
   consentData: consentDataSchema.optional(),
+  editableBy: z.array(z.string()).optional(),
 });
 
 export const dynamic = 'force-dynamic';
@@ -305,6 +306,7 @@ export async function GET(request: NextRequest) {
         content: a.content,
         audience: a.audience,
         author: a.author,
+        authorId: a.authorId,
         isScheduled: a.isScheduled,
         publishAt: a.publishAt?.toISOString() || null,
         publishedAt: a.publishedAt?.toISOString() || null,
@@ -316,6 +318,10 @@ export async function GET(request: NextRequest) {
         surveyData: a.surveyData || null,
         consentData: a.consentData || null,
         attachments: a.attachments || null,
+        viewCount: a.viewCount || 0,
+        editableBy: a.editableBy || [],
+        lastEditedBy: a.lastEditedBy || null,
+        lastEditedByName: a.lastEditedByName || null,
       })),
     });
   } catch (error) {

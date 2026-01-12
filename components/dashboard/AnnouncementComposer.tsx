@@ -199,6 +199,7 @@ interface AnnouncementComposerPayload {
   parentSelectedClasses?: SelectedClass[];
   surveyData?: SurveyQuestion[];
   consentData?: ConsentData;
+  editableBy?: string[];
 }
 
 interface AnnouncementComposerProps {
@@ -267,6 +268,12 @@ function AnnouncementComposerForm({
     fileSize: number | null;
     mimeType: string | null;
   }[]>([]);
+  const [editableBy, setEditableBy] = useState<string[]>([]);
+  const [selectedTeachers, setSelectedTeachers] = useState<{id: string, name: string, email: string}[]>([]);
+  const [teacherSearchQuery, setTeacherSearchQuery] = useState("");
+  const [teacherOptions, setTeacherOptions] = useState<{id: string, name: string, email: string}[]>([]);
+  const [isTeacherSearchOpen, setIsTeacherSearchOpen] = useState(false);
+  const teacherSearchRef = useRef<HTMLDivElement>(null);
   const targetModalRef = useRef<HTMLDivElement>(null);
   const classSelectionRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -461,6 +468,26 @@ function AnnouncementComposerForm({
           } else {
             setExistingAttachments([]);
           }
+          // 수정 권한 데이터 로드 (있는 경우)
+          if (announcement.editableBy && Array.isArray(announcement.editableBy) && announcement.editableBy.length > 0) {
+            try {
+              const editableByData = announcement.editableBy;
+              setEditableBy(editableByData);
+              // 교사 정보 로드
+              const teacherIds = editableByData.join(',');
+              const teachersResponse = await fetch(`/api/teachers?ids=${encodeURIComponent(teacherIds)}`);
+              if (teachersResponse.ok) {
+                const teachersData = await teachersResponse.json();
+                setSelectedTeachers(teachersData.teachers || []);
+              }
+            } catch (e) {
+              setEditableBy([]);
+              setSelectedTeachers([]);
+            }
+          } else {
+            setEditableBy([]);
+            setSelectedTeachers([]);
+          }
         } catch (err: any) {
           console.error("Failed to load announcement:", err);
           setError(err.message || "안내문을 불러오는 중 오류가 발생했습니다.");
@@ -481,6 +508,46 @@ function AnnouncementComposerForm({
       setShowSignaturePanel(true);
     }
   }, [category]);
+
+  // 교사 검색
+  useEffect(() => {
+    if (!isTeacherSearchOpen || !teacherSearchQuery.trim()) {
+      setTeacherOptions([]);
+      return;
+    }
+
+    const searchTeachers = async () => {
+      try {
+        const response = await fetch(`/api/teachers?search=${encodeURIComponent(teacherSearchQuery)}`);
+        if (response.ok) {
+          const data = await response.json();
+          setTeacherOptions(data.teachers || []);
+        }
+      } catch (error) {
+        console.error("Failed to search teachers:", error);
+      }
+    };
+
+    const timeoutId = setTimeout(searchTeachers, 300);
+    return () => clearTimeout(timeoutId);
+  }, [teacherSearchQuery, isTeacherSearchOpen]);
+
+  // 교사 검색 모달 외부 클릭 처리
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (teacherSearchRef.current && !teacherSearchRef.current.contains(event.target as Node)) {
+        setIsTeacherSearchOpen(false);
+      }
+    };
+
+    if (isTeacherSearchOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [isTeacherSearchOpen]);
 
   // 파일 선택 핸들러
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -523,6 +590,22 @@ function AnnouncementComposerForm({
   // 알림 대상 모달 열기/닫기 핸들러
   const handleTargetModalToggle = () => {
     setIsTargetModalOpen(prev => !prev);
+  };
+
+  // 교사 선택 핸들러
+  const handleTeacherSelect = (teacher: {id: string, name: string, email: string}) => {
+    if (!editableBy.includes(teacher.id)) {
+      setEditableBy([...editableBy, teacher.id]);
+      setSelectedTeachers([...selectedTeachers, teacher]);
+    }
+    setTeacherSearchQuery("");
+    setIsTeacherSearchOpen(false);
+  };
+
+  // 교사 제거 핸들러
+  const handleTeacherRemove = (teacherId: string) => {
+    setEditableBy(editableBy.filter(id => id !== teacherId));
+    setSelectedTeachers(selectedTeachers.filter(t => t.id !== teacherId));
   };
 
   // 제목이 비어있거나 알림 대상이 없거나 제출 중일 때 비활성화
@@ -865,6 +948,7 @@ function AnnouncementComposerForm({
         }
         return undefined;
       })(),
+      editableBy: editableBy.length > 0 ? editableBy : undefined,
     };
 
     try {
@@ -924,6 +1008,8 @@ function AnnouncementComposerForm({
       setPublishAt("");
       setFiles([]);
       setExistingAttachments([]);
+      setEditableBy([]);
+      setSelectedTeachers([]);
       setIsSubmitting(false);
       clearSignature();
 
@@ -1308,7 +1394,7 @@ function AnnouncementComposerForm({
           </div>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-[1fr_1fr_1.2fr]">
+        <div className="grid gap-4 md:grid-cols-4">
           <Input label="작성자" value={authorName} readOnly />
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -1567,6 +1653,65 @@ function AnnouncementComposerForm({
                 </div>
               </div>
             )}
+          </div>
+          <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
+            <div className="flex items-start justify-between gap-2 mb-3">
+              <div>
+                <p className="text-sm font-semibold text-gray-900">수정 권한</p>
+                <p className="text-xs text-gray-500">다른 교사에게 수정 권한 부여 (선택사항)</p>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <div className="relative" ref={teacherSearchRef}>
+                <Input
+                  type="text"
+                  placeholder="교사 이름 또는 이메일 검색"
+                  value={teacherSearchQuery}
+                  onChange={(e) => {
+                    setTeacherSearchQuery(e.target.value);
+                    setIsTeacherSearchOpen(true);
+                  }}
+                  onFocus={() => setIsTeacherSearchOpen(true)}
+                  className="w-full"
+                />
+                {isTeacherSearchOpen && teacherOptions.length > 0 && (
+                  <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                    {teacherOptions
+                      .filter(t => !editableBy.includes(t.id))
+                      .map((teacher) => (
+                        <button
+                          key={teacher.id}
+                          type="button"
+                          onClick={() => handleTeacherSelect(teacher)}
+                          className="w-full px-4 py-2 text-left hover:bg-gray-50 transition-colors"
+                        >
+                          <div className="text-sm font-medium text-gray-900">{teacher.name}</div>
+                          <div className="text-xs text-gray-500">{teacher.email}</div>
+                        </button>
+                      ))}
+                  </div>
+                )}
+              </div>
+              {selectedTeachers.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {selectedTeachers.map((teacher) => (
+                    <div
+                      key={teacher.id}
+                      className="inline-flex items-center gap-1.5 px-2 py-1 bg-blue-50 text-blue-700 rounded-md text-sm"
+                    >
+                      <span>{teacher.name}</span>
+                      <button
+                        type="button"
+                        onClick={() => handleTeacherRemove(teacher.id)}
+                        className="hover:text-blue-900"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
           <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
             <div className="flex items-center justify-between gap-2">
