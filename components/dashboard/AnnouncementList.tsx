@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { useSession } from "next-auth/react";
 import { useToastContext } from "@/components/providers/ToastProvider";
-import { Eye, ChevronLeft, ChevronRight } from "lucide-react";
+import { Eye, ChevronLeft, ChevronRight, Paperclip } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Select } from "@/components/ui/Select";
 import { Button } from "@/components/ui/Button";
@@ -20,6 +20,7 @@ interface Announcement {
   content: string;
   audience: string;
   author: string;
+  authorId?: string;
   isScheduled: boolean;
   publishAt: string | null;
   publishedAt: string | null;
@@ -31,6 +32,10 @@ interface Announcement {
   surveyData?: string | null;
   consentData?: string | null;
   attachments?: string | null;
+  viewCount?: number;
+  editableBy?: string[];
+  lastEditedBy?: string | null;
+  lastEditedByName?: string | null;
 }
 
 interface AnnouncementListProps {
@@ -310,8 +315,48 @@ export function AnnouncementList({ includeScheduled = false, audience, refreshKe
     });
   };
 
-  const handleAnnouncementClick = (announcement: Announcement) => {
+  // 첨부 파일이 있는지 확인하는 함수
+  const hasAttachments = (attachments: string | null | undefined): boolean => {
+    if (!attachments) return false;
+    try {
+      const parsed = JSON.parse(attachments);
+      return Array.isArray(parsed) && parsed.length > 0;
+    } catch {
+      return false;
+    }
+  };
+
+  const handleAnnouncementClick = async (announcement: Announcement) => {
     setSelectedAnnouncement(announcement);
+    
+    // 조회수 증가 API 호출
+    try {
+      const response = await fetch(`/api/announcements/${announcement.id}`, {
+        method: "PATCH",
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        // 로컬 상태 업데이트
+        setAnnouncements((prev) =>
+          prev.map((a) =>
+            a.id === announcement.id
+              ? { ...a, viewCount: data.viewCount }
+              : a
+          )
+        );
+      } else {
+        // 에러 응답 처리
+        const errorData = await response.json().catch(() => ({}));
+        console.error("Failed to increment view count:", {
+          status: response.status,
+          statusText: response.statusText,
+          error: errorData,
+        });
+      }
+    } catch (error) {
+      console.error("Failed to increment view count:", error);
+    }
   };
 
   if (isLoading) {
@@ -473,9 +518,11 @@ export function AnnouncementList({ includeScheduled = false, audience, refreshKe
           <div className="col-span-1 text-center">번호</div>
           <div className="col-span-1 text-center">구분</div>
           <div className="col-span-4">제목</div>
-          <div className="col-span-2 text-center">작성자</div>
-          <div className="col-span-2 text-center">작성일</div>
-          <div className="col-span-2 text-center">대상</div>
+          <div className="col-span-1 text-center">첨부</div>
+          <div className="col-span-2 text-center">알림 대상</div>
+          <div className="col-span-1 text-center">작성자</div>
+          <div className="col-span-1 text-center">작성일</div>
+          <div className="col-span-1 text-center">조회수</div>
         </div>
       </div>
 
@@ -517,9 +564,10 @@ export function AnnouncementList({ includeScheduled = false, audience, refreshKe
                     </span>
                   )}
                 </div>
-                <div className="col-span-2 text-center text-gray-600">{announcement.author}</div>
-                <div className="col-span-2 text-center text-gray-500 text-xs">
-                  {formatDateShort(displayDate)}
+                <div className="col-span-1 text-center flex items-center justify-center">
+                  {hasAttachments(announcement.attachments) && (
+                    <Paperclip className="h-4 w-4 text-gray-400" />
+                  )}
                 </div>
                 <div className="col-span-2 text-center min-w-0 flex items-center justify-center gap-1 flex-wrap">
                   {(() => {
@@ -580,6 +628,17 @@ export function AnnouncementList({ includeScheduled = false, audience, refreshKe
                       </span>
                     );
                   })()}
+                </div>
+                <div className="col-span-1 text-center text-gray-600 text-xs truncate">
+                  {announcement.lastEditedByName 
+                    ? `${announcement.author} (${announcement.lastEditedByName})`
+                    : announcement.author}
+                </div>
+                <div className="col-span-1 text-center text-gray-500 text-xs">
+                  {formatDateShort(displayDate)}
+                </div>
+                <div className="col-span-1 text-center text-gray-500 text-xs">
+                  {announcement.viewCount || 0}
                 </div>
               </div>
             </div>

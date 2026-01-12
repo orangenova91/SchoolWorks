@@ -246,104 +246,122 @@ model TeacherProfile {
 }
 
 model CalendarEvent {
-  id               String   @id @default(auto()) @map("_id") @db.ObjectId
-  title            String
-  description      String?
-  startDate        DateTime
-  endDate          DateTime?
-  eventType        String?  @default("기타") // "평가", "행사", "휴업일", "개인일정", "기타"
-  scope            String   // "school" | "personal" | "class"
-  school           String?  // scope가 "school"일 때 학교 필터링
-  teacherId        String?  @db.ObjectId // 개인일정일 때
-  courseId         String?  @db.ObjectId // 수업별 일정일 때
-  department        String?   // 담당 부서
-  responsiblePerson String?   // 담당자
-  scheduleArea      String?   // 일정 구분: "창의적 체험활동", "교과"
-  gradeLevels       String[] @default([])
+  id                String    @id @default(auto()) @map("_id") @db.ObjectId
+  title             String
+  description       String?
+  startDate         DateTime
+  endDate           DateTime?
+  eventType         String?   @default("기타") // "평가", "행사", "휴업일", "개인일정", "기타"
+  scope             String // "school" | "personal" | "class"
+  school            String? // scope가 "school"일 때 학교 필터링
+  teacherId         String?   @db.ObjectId // 개인일정일 때
+  courseId          String?   @db.ObjectId // 수업별 일정일 때
+  department        String? // 담당 부서
+  responsiblePerson String? // 담당자
+  scheduleArea      String? // 일정 구분: "창의적 체험활동", "교과"
+  gradeLevels       String[]  @default([])
   periods           String[]  @default([])
-  createdBy        String   @db.ObjectId // 생성한 사용자 ID
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  createdBy         String    @db.ObjectId // 생성한 사용자 ID
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
-  @@map("calendar_events")
   @@index([scope, school])
   @@index([teacherId])
   @@index([startDate])
+  @@map("calendar_events")
 }
 
 model Announcement {
-  id                  String   @id @default(auto()) @map("_id") @db.ObjectId
-  title               String
-  category            String?  // "notice", "survey", "consent" (단순 알림, 설문 조사, 동의서)
-  content             String   // HTML 형식의 본문
-  audience            String   // "all", "grade-1", "grade-2", "grade-3", "parents"
-  author              String   // 작성자 이름
-  authorId            String   @db.ObjectId // 작성자 User ID
-  isScheduled         Boolean  @default(false)
-  publishAt           DateTime? // 예약 발행 시각
-  publishedAt         DateTime? // 실제 발행 시각
-  school              String?  // 학교 필터링
-  selectedClasses     String?  // 재학생 학급 선택 정보 (JSON 배열)
+  id                    String             @id @default(auto()) @map("_id") @db.ObjectId
+  title                 String
+  category              String? // "notice", "survey", "consent" (단순 알림, 설문 조사, 동의서)
+  content               String // HTML 형식의 본문
+  audience              String // "all", "grade-1", "grade-2", "grade-3", "parents"
+  author                String // 작성자 이름
+  authorId              String             @db.ObjectId // 작성자 User ID
+  isScheduled           Boolean            @default(false)
+  publishAt             DateTime? // 예약 발행 시각
+  publishedAt           DateTime? // 실제 발행 시각
+  school                String? // 학교 필터링
+  selectedClasses       String? // 재학생 학급 선택 정보 (JSON 배열)
   parentSelectedClasses String? // 학부모 학급 선택 정보 (JSON 배열)
-  surveyData          String?  // 설문 조사 질문 데이터 (JSON 배열)
-  consentData         String?  // 동의서 서명 데이터 (JSON 객체: {signatureImage: string, signedAt?: string})
-  attachments         String?  // 첨부 파일 데이터 (JSON 배열: [{filePath, originalFileName, fileSize, mimeType}])
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
+  surveyData            String? // 설문 조사 질문 데이터 (JSON 배열)
+  consentData           String? // 동의서 서명 데이터 (JSON 객체: {signatureImage: string, signedAt?: string})
+  attachments           String? // 첨부 파일 데이터 (JSON 배열: [{filePath, originalFileName, fileSize, mimeType}])
+  viewCount             Int                @default(0) // 조회수
+  editableBy            String[]           @default([]) // 수정 권한을 가진 교사 ID 배열
+  lastEditedBy          String?            @db.ObjectId // 마지막으로 수정한 사용자 ID (원래 작성자가 아닌 경우)
+  lastEditedByName      String? // 마지막으로 수정한 사용자 이름
+  views                 AnnouncementView[] // 조회 이력
+  createdAt             DateTime           @default(now())
+  updatedAt             DateTime           @updatedAt
 
-  @@map("announcements")
   @@index([audience])
   @@index([authorId])
   @@index([publishAt])
   @@index([publishedAt])
+  @@map("announcements")
+}
+
+model AnnouncementView {
+  id             String       @id @default(auto()) @map("_id") @db.ObjectId
+  announcementId String       @db.ObjectId
+  announcement   Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+  userId         String       @db.ObjectId
+  viewedAt       DateTime     @default(now())
+
+  @@unique([announcementId, userId])
+  @@index([announcementId])
+  @@index([userId])
+  @@map("announcement_views")
 }
 
 model School {
-  id              String   @id @default(auto()) @map("_id") @db.ObjectId
-  name            String   // 학교 이름
-  adminUserId     String   @db.ObjectId // 담당 Admin 계정 ID
-  admin           User     @relation("SchoolAdminUser", fields: [adminUserId], references: [id], onDelete: Cascade)
-  createdBy       String?  @db.ObjectId // 생성한 슈퍼어드민 ID
-  creator         User?    @relation("SchoolCreator", fields: [createdBy], references: [id], onDelete: SetNull)
-  adminProfiles   AdminProfile[] // AdminProfile과의 관계
-  
+  id            String         @id @default(auto()) @map("_id") @db.ObjectId
+  name          String // 학교 이름
+  adminUserId   String         @db.ObjectId // 담당 Admin 계정 ID
+  admin         User           @relation("SchoolAdminUser", fields: [adminUserId], references: [id], onDelete: Cascade)
+  createdBy     String?        @db.ObjectId // 생성한 슈퍼어드민 ID
+  creator       User?          @relation("SchoolCreator", fields: [createdBy], references: [id], onDelete: SetNull)
+  adminProfiles AdminProfile[] // AdminProfile과의 관계
+
   // 학교 구분
-  schoolType      String   @default("기타") // "초등학교", "중학교", "고등학교", "대학교", "기타"
-  
+  schoolType String @default("기타") // "초등학교", "중학교", "고등학교", "대학교", "기타"
+
   // 담당자 정보
-  contactName     String   // 스쿨허브 담당자 이름
-  contactPhone    String   // 담당자 전화번호
-  
+  contactName  String // 스쿨허브 담당자 이름
+  contactPhone String // 담당자 전화번호
+
   // 학교 규모 정보 (학년별 학급수 및 총 학생수)
-  gradeInfo       String   // JSON 형식: [{grade: "1", classCount: 5, studentCount: 150}, ...]
-  totalClasses    Int?     // 총 학급수 (계산된 값)
-  totalStudents   Int?     // 총 학생수 (계산된 값)
-  
-  status          String   @default("active") // "active", "inactive", "suspended"
-  notes           String?  // 메모
-  
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  
-  @@map("schools")
+  gradeInfo     String // JSON 형식: [{grade: "1", classCount: 5, studentCount: 150}, ...]
+  totalClasses  Int? // 총 학급수 (계산된 값)
+  totalStudents Int? // 총 학생수 (계산된 값)
+
+  status String  @default("active") // "active", "inactive", "suspended"
+  notes  String? // 메모
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@index([adminUserId])
   @@index([createdBy])
   @@index([status])
+  @@map("schools")
 }
 
 model AdminProfile {
-  id              String   @id @default(auto()) @map("_id") @db.ObjectId
-  userId          String   @unique @db.ObjectId
-  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  schoolId        String?  @db.ObjectId
-  school          School?  @relation(fields: [schoolId], references: [id], onDelete: SetNull)
-  phoneNumber     String?
-  notes           String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  
-  @@map("admin_profiles")
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId      String   @unique @db.ObjectId
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  schoolId    String?  @db.ObjectId
+  school      School?  @relation(fields: [schoolId], references: [id], onDelete: SetNull)
+  phoneNumber String?
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
   @@index([schoolId])
+  @@map("admin_profiles")
 }
 
 model ParentProfile {
@@ -352,21 +370,20 @@ model ParentProfile {
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   studentIds   String[] // 자녀 학생들의 User ID 배열
   phoneNumber  String?
-  relationship String?  // "mother", "father", "guardian" 등
+  relationship String? // "mother", "father", "guardian" 등
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
-  
+
   @@map("parent_profiles")
-  
 }
 
 model TeacherBanner {
-  id          String   @id @default(auto()) @map("_id") @db.ObjectId
-  teacherId   String   @unique @db.ObjectId
-  user        User     @relation("TeacherBanners", fields: [teacherId], references: [id], onDelete: Cascade)
-  banners     String   @default("[]") // JSON 배열: [{icon: "BookOpen", title: "수업 관리", url: "/dashboard/teacher/manage-classes"}, ...]
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  teacherId String   @unique @db.ObjectId
+  user      User     @relation("TeacherBanners", fields: [teacherId], references: [id], onDelete: Cascade)
+  banners   String   @default("[]") // JSON 배열: [{icon: "BookOpen", title: "수업 관리", url: "/dashboard/teacher/manage-classes"}, ...]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@map("teacher_banners")
 }

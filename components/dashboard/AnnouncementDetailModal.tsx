@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { X, User, Calendar, Edit, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToastContext } from "@/components/providers/ToastProvider";
+import { useSession } from "next-auth/react";
 
 interface SelectedClass {
   grade: string;
@@ -31,6 +32,7 @@ interface Announcement {
   content: string;
   audience: string;
   author: string;
+  authorId?: string;
   isScheduled: boolean;
   publishAt: string | null;
   publishedAt: string | null;
@@ -42,6 +44,7 @@ interface Announcement {
   surveyData?: string | null;
   consentData?: string | null;
   attachments?: string | null;
+  editableBy?: string[];
 }
 
 interface AnnouncementDetailModalProps {
@@ -179,6 +182,7 @@ export function AnnouncementDetailModal({
   onDeleteConfirm,
 }: AnnouncementDetailModalProps) {
   const { showToast } = useToastContext();
+  const { data: session } = useSession();
   const [mounted, setMounted] = useState(false);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -250,6 +254,16 @@ export function AnnouncementDetailModal({
 
   if (!isOpen || !announcement || !mounted) return null;
 
+  // 작성자 확인
+  const isAuthor = announcement.authorId && session?.user?.id 
+    ? announcement.authorId === session.user.id 
+    : false;
+  
+  // 수정 권한 확인
+  const editableBy = announcement.editableBy || [];
+  const hasEditPermission = isAuthor || 
+    (session?.user?.id && editableBy.includes(session.user.id));
+
   const isScheduled = announcement.isScheduled && !announcement.publishedAt;
   const displayDate = isScheduled
     ? announcement.publishAt
@@ -320,10 +334,19 @@ export function AnnouncementDetailModal({
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    onEdit(announcement.id);
-                    onClose();
+                    if (hasEditPermission) {
+                      onEdit(announcement.id);
+                      onClose();
+                    }
                   }}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-blue-600 bg-blue-50 rounded-md hover:bg-blue-100 transition-colors"
+                  disabled={!hasEditPermission}
+                  className={cn(
+                    "inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md transition-colors",
+                    hasEditPermission
+                      ? "text-blue-600 bg-blue-50 hover:bg-blue-100"
+                      : "text-gray-400 bg-gray-50 cursor-not-allowed"
+                  )}
+                  title={!hasEditPermission ? "수정 권한이 없습니다." : ""}
                 >
                   <Edit className="h-4 w-4" />
                   수정
@@ -332,7 +355,14 @@ export function AnnouncementDetailModal({
               {showDeleteButton && (
                 <button
                   onClick={handleDeleteClick}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-red-600 bg-red-50 rounded-md hover:bg-red-100 transition-colors"
+                  disabled={!isAuthor}
+                  className={cn(
+                    "inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md transition-colors",
+                    isAuthor
+                      ? "text-red-600 bg-red-50 hover:bg-red-100"
+                      : "text-gray-400 bg-gray-50 cursor-not-allowed"
+                  )}
+                  title={!isAuthor ? "본인이 작성한 안내문만 삭제할 수 있습니다." : ""}
                 >
                   <Trash2 className="h-4 w-4" />
                   삭제

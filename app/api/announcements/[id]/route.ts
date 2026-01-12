@@ -46,6 +46,7 @@ const updateAnnouncementSchema = z.object({
   parentSelectedClasses: z.array(selectedClassSchema).optional(),
   surveyData: z.array(surveyQuestionSchema).optional(),
   consentData: consentDataSchema.optional(),
+  editableBy: z.array(z.string()).optional(),
 });
 
 export const dynamic = 'force-dynamic';
@@ -95,12 +96,138 @@ export async function GET(
         surveyData: announcement.surveyData || null,
         consentData: announcement.consentData || null,
         attachments: announcement.attachments || null,
+        viewCount: announcement.viewCount || 0,
+        editableBy: announcement.editableBy || [],
+        lastEditedBy: announcement.lastEditedBy || null,
+        lastEditedByName: announcement.lastEditedByName || null,
       },
     });
   } catch (error) {
     console.error("Get announcement error:", error);
     return NextResponse.json(
       { error: "안내문을 불러오는 중 오류가 발생했습니다." },
+      { status: 500 }
+    );
+  }
+}
+
+// 조회수 증가
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const session = await getServerSession(authOptions);
+    
+    if (!session || !session.user) {
+      return NextResponse.json({ error: "인증이 필요합니다." }, { status: 401 });
+    }
+
+    // 안내문 존재 여부 확인
+    const existingAnnouncement = await (prisma as any).announcement.findUnique({
+      where: { id: params.id },
+    });
+
+    if (!existingAnnouncement) {
+      return NextResponse.json(
+        { error: "안내문을 찾을 수 없습니다." },
+        { status: 404 }
+      );
+    }
+
+    // 학교 필터 확인
+    if (session.user.school && existingAnnouncement.school !== session.user.school) {
+      return NextResponse.json({ error: "권한이 없습니다." }, { status: 403 });
+    }
+
+    // 이미 조회한 이력이 있는지 확인
+    const existingView = await (prisma as any).announcementView.findUnique({
+      where: {
+        announcementId_userId: {
+          announcementId: params.id,
+          userId: session.user.id,
+        },
+      },
+    });
+
+    // 이미 조회한 경우 조회수 증가하지 않음
+    if (existingView) {
+      const announcement = await (prisma as any).announcement.findUnique({
+        where: { id: params.id },
+        select: { viewCount: true },
+      });
+      
+      return NextResponse.json({
+        viewCount: announcement?.viewCount || 0,
+        alreadyViewed: true,
+      });
+    }
+
+    // 조회 이력 생성 (upsert 사용으로 중복 방지)
+    try {
+      await (prisma as any).announcementView.create({
+        data: {
+          announcementId: params.id,
+          userId: session.user.id,
+        },
+      });
+
+      // 조회수 증가
+      const announcement = await (prisma as any).announcement.update({
+        where: { id: params.id },
+        data: {
+          viewCount: { increment: 1 },
+        },
+        select: { viewCount: true },
+      });
+
+      return NextResponse.json({
+        viewCount: announcement?.viewCount || 0,
+        alreadyViewed: false,
+      });
+    } catch (createError: any) {
+      // unique constraint 에러 - 동시 요청으로 인해 이미 생성된 경우
+      if (createError?.code === 'P2002') {
+        const announcement = await (prisma as any).announcement.findUnique({
+          where: { id: params.id },
+          select: { viewCount: true },
+        });
+        
+        return NextResponse.json({
+          viewCount: announcement?.viewCount || 0,
+          alreadyViewed: true,
+        });
+      }
+      throw createError;
+    }
+  } catch (error: any) {
+    console.error("Increment view count error:", error);
+    console.error("Error details:", {
+      code: error?.code,
+      message: error?.message,
+      announcementId: params.id,
+      userId: session?.user?.id,
+    });
+
+    // unique constraint 에러는 이미 조회한 것으로 처리
+    if (error?.code === 'P2002') {
+      try {
+        const announcement = await (prisma as any).announcement.findUnique({
+          where: { id: params.id },
+          select: { viewCount: true },
+        });
+        
+        return NextResponse.json({
+          viewCount: announcement?.viewCount || 0,
+          alreadyViewed: true,
+        });
+      } catch (fetchError) {
+        console.error("Failed to fetch announcement after P2002 error:", fetchError);
+      }
+    }
+
+    return NextResponse.json(
+      { error: "조회수 증가 중 오류가 발생했습니다." },
       { status: 500 }
     );
   }
@@ -133,8 +260,9 @@ export async function PUT(
       );
     }
 
-    // 작성자 확인 (본인이 작성한 안내문만 수정 가능)
-    if (existingAnnouncement.authorId !== session.user.id) {
+    // 작성자 확인 (본인이 작성한 안내문 또는 수정 권한이 있는 경우만 수정 가능)
+    const editableBy = existingAnnouncement.editableBy || [];
+    if (existingAnnouncement.authorId !== session.user.id && !editableBy.includes(session.user.id)) {
       return NextResponse.json(
         { error: "본인이 작성한 안내문만 수정할 수 있습니다." },
         { status: 403 }
@@ -254,13 +382,17 @@ export async function PUT(
     // 첨부 파일 병합 (기존 + 새 파일)
     const allAttachments = [...existingAttachments, ...savedFiles];
 
+    // 수정한 사람 정보 확인 (원래 작성자가 아닌 경우에만 저장)
+    const isOriginalAuthor = existingAnnouncement.authorId === session.user.id;
+    
     // 안내문 수정
     const updateData: any = {
       title: validatedData.title,
       category: validatedData.category || null,
       content: validatedData.content,
       audience: validatedData.audience,
-      author: validatedData.author,
+      // author와 authorId는 원래 작성자 정보를 유지하므로 업데이트하지 않음
+      // (수정 권한을 받은 사용자가 수정해도 원래 작성자는 변경되지 않음)
       isScheduled: validatedData.isScheduled,
       publishAt: validatedData.publishAt ? new Date(validatedData.publishAt) : null,
       selectedClasses: validatedData.selectedClasses ? JSON.stringify(validatedData.selectedClasses) : null,
@@ -268,7 +400,14 @@ export async function PUT(
       surveyData: validatedData.surveyData ? JSON.stringify(validatedData.surveyData) : null,
       consentData: validatedData.consentData ? JSON.stringify(validatedData.consentData) : null,
       attachments: allAttachments.length > 0 ? JSON.stringify(allAttachments) : null,
+      editableBy: validatedData.editableBy || [],
     };
+
+    // 원래 작성자가 아닌 경우에만 수정한 사람 정보 저장
+    if (!isOriginalAuthor) {
+      updateData.lastEditedBy = session.user.id;
+      updateData.lastEditedByName = session.user.name || null;
+    }
 
     // 예약 발행 상태 변경 처리
     if (validatedData.isScheduled) {
