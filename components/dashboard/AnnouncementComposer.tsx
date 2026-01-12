@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useState, useEffect, useRef } from "react";
+import { FormEvent, useState, useEffect, useRef, useMemo } from "react";
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
@@ -9,7 +9,7 @@ import { TextStyle } from "@tiptap/extension-text-style";
 import UnderlineExtension from "@tiptap/extension-underline";
 import TiptapImage from "@tiptap/extension-image";
 import { Extension } from "@tiptap/core";
-import { Bold, Italic, Underline, List, ListOrdered, Quote, Link as LinkIcon, Undo, Redo, Heading2, Send, ChevronDown, X, Check, Plus, Trash2, Type, Image as ImageIcon } from "lucide-react";
+import { Bold, Italic, Underline, List, ListOrdered, Link as LinkIcon, Undo, Redo, Send, ChevronDown, X, Check, Plus, Trash2, Type, Image as ImageIcon } from "lucide-react";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { Select } from "@/components/ui/Select";
@@ -273,16 +273,36 @@ function AnnouncementComposerForm({
   const [teacherSearchQuery, setTeacherSearchQuery] = useState("");
   const [teacherOptions, setTeacherOptions] = useState<{id: string, name: string, email: string}[]>([]);
   const [isTeacherSearchOpen, setIsTeacherSearchOpen] = useState(false);
+  const [editorUpdateKey, setEditorUpdateKey] = useState(0);
   const teacherSearchRef = useRef<HTMLDivElement>(null);
   const targetModalRef = useRef<HTMLDivElement>(null);
   const classSelectionRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   const editor = useEditor({
+    onUpdate: () => {
+      setEditorUpdateKey(prev => prev + 1);
+    },
+    onSelectionUpdate: () => {
+      setEditorUpdateKey(prev => prev + 1);
+    },
+    onTransaction: () => {
+      setEditorUpdateKey(prev => prev + 1);
+    },
     extensions: [
       StarterKit.configure({
-        bulletList: { keepMarks: true },
-        orderedList: { keepMarks: true },
+        bulletList: {
+          keepMarks: true,
+          HTMLAttributes: {
+            class: 'bullet-list',
+          },
+        },
+        orderedList: {
+          keepMarks: true,
+          HTMLAttributes: {
+            class: 'ordered-list',
+          },
+        },
       }),
       Placeholder.configure({
         placeholder: "공지 내용을 입력하세요...",
@@ -1222,9 +1242,10 @@ function AnnouncementComposerForm({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [category, showSignaturePanel, signatureData]);
 
-  const toolbarItems =
-    editor &&
-    [
+  const toolbarItems = useMemo(() => {
+    if (!editor) return [];
+    
+    return [
       {
         label: "굵게",
         icon: <Bold className="h-4 w-4" />,
@@ -1244,12 +1265,6 @@ function AnnouncementComposerForm({
         active: editor.isActive("underline"),
       },
       {
-        label: "소제목",
-        icon: <Heading2 className="h-4 w-4" />,
-        action: () => editor.chain().focus().toggleHeading({ level: 2 }).run(),
-        active: editor.isActive("heading", { level: 2 }),
-      },
-      {
         label: "불릿 리스트",
         icon: <List className="h-4 w-4" />,
         action: () => editor.chain().focus().toggleBulletList().run(),
@@ -1262,21 +1277,20 @@ function AnnouncementComposerForm({
         active: editor.isActive("orderedList"),
       },
       {
-        label: "인용구",
-        icon: <Quote className="h-4 w-4" />,
-        action: () => editor.chain().focus().toggleBlockquote().run(),
-        active: editor.isActive("blockquote"),
-      },
-      {
         label: "링크",
         icon: <LinkIcon className="h-4 w-4" />,
         action: () => {
           const previousUrl = editor.getAttributes("link").href;
-          const url = window.prompt("링크 주소를 입력하세요.", previousUrl);
-          if (url === null) return;
-          if (url === "") {
+          const urlInput = window.prompt("링크 주소를 입력하세요.", previousUrl);
+          if (urlInput === null) return;
+          if (urlInput === "") {
             editor.chain().focus().extendMarkRange("link").unsetLink().run();
             return;
+          }
+          // URL에 프로토콜이 없으면 https:// 추가
+          let url = urlInput.trim();
+          if (!url.match(/^https?:\/\//i)) {
+            url = `https://${url}`;
           }
           editor.chain().focus().extendMarkRange("link").setLink({ href: url }).run();
         },
@@ -1340,6 +1354,7 @@ function AnnouncementComposerForm({
         action: () => editor.chain().focus().redo().run(),
       },
     ];
+  }, [editor, editorUpdateKey]);
 
   if (isLoading) {
     return (
@@ -1802,8 +1817,10 @@ function AnnouncementComposerForm({
                 onClick={item.action}
                 aria-label={item.label}
                 className={cn(
-                  "rounded-md p-2 text-sm text-gray-600 transition hover:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500",
-                  item.active && "bg-white text-blue-600 shadow-sm"
+                  "rounded-md p-2 text-sm transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500",
+                  item.active 
+                    ? "bg-blue-500 text-white border-2 border-blue-600 shadow-md font-semibold [&_svg]:text-white" 
+                    : "text-gray-500 hover:bg-gray-200 hover:text-gray-700 border-2 border-transparent [&_svg]:text-gray-500"
                 )}
               >
                 {item.icon}
