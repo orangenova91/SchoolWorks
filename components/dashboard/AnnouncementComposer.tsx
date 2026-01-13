@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useState, useEffect, useRef, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
@@ -9,7 +10,7 @@ import { TextStyle } from "@tiptap/extension-text-style";
 import UnderlineExtension from "@tiptap/extension-underline";
 import TiptapImage from "@tiptap/extension-image";
 import { Extension } from "@tiptap/core";
-import { Bold, Italic, Underline, List, ListOrdered, Link as LinkIcon, Undo, Redo, Send, ChevronDown, X, Check, Plus, Trash2, Type, Image as ImageIcon } from "lucide-react";
+import { Bold, Italic, Underline, List, ListOrdered, Link as LinkIcon, Undo, Redo, Send, ChevronDown, X, Check, Plus, Trash2, Type, Image as ImageIcon, Palette, Eraser } from "lucide-react";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { Select } from "@/components/ui/Select";
@@ -61,6 +62,49 @@ const FontSize = Extension.create({
   },
 });
 
+// 텍스트 색상 커스텀 Extension
+const TextColor = Extension.create({
+  name: 'textColor',
+  addOptions() {
+    return {
+      types: ['textStyle'],
+    };
+  },
+  addGlobalAttributes() {
+    return [
+      {
+        types: this.options.types,
+        attributes: {
+          color: {
+            default: null,
+            parseHTML: element => element.style.color || null,
+            renderHTML: attributes => {
+              if (!attributes.color) {
+                return {};
+              }
+              return { style: `color: ${attributes.color}` };
+            },
+          },
+        },
+      },
+    ];
+  },
+  addCommands() {
+    return {
+      setColor: (color: string) => ({ chain }: any) => {
+        return chain()
+          .setMark('textStyle', { color })
+          .run();
+      },
+      unsetColor: () => ({ chain }: any) => {
+        return chain()
+          .unsetMark('textStyle')
+          .run();
+      },
+    } as any;
+  },
+});
+
 const targetOptions = [
   { value: "students", label: "모든 재학생" },
   { value: "parents", label: "모든 학부모" },
@@ -78,6 +122,28 @@ const fontSizeOptions = [
   { value: "32", label: "32px" },
   { value: "36", label: "36px" },
   { value: "48", label: "48px" },
+];
+
+// 색상 옵션: 3행 5열 (15개 색상)
+const colorOptions = [
+  // 첫 번째 행: 그레이스케일
+  { value: "#000000", label: "검정", color: "#000000" },
+  { value: "#4A4A4A", label: "진한 회색", color: "#4A4A4A" },
+  { value: "#808080", label: "중간 회색", color: "#808080" },
+  { value: "#C0C0C0", label: "밝은 회색", color: "#C0C0C0" },
+  { value: "#FFFFFF", label: "흰색", color: "#FFFFFF" },
+  // 두 번째 행: 따뜻한 색상
+  { value: "#FF6B6B", label: "빨간-주황", color: "#FF6B6B" },
+  { value: "#FFA500", label: "주황", color: "#FFA500" },
+  { value: "#FFD700", label: "노랑", color: "#FFD700" },
+  { value: "#90EE90", label: "라임 그린", color: "#90EE90" },
+  { value: "#32CD32", label: "초록", color: "#32CD32" },
+  // 세 번째 행: 차가운 색상
+  { value: "#40E0D0", label: "청록", color: "#40E0D0" },
+  { value: "#87CEEB", label: "하늘색", color: "#87CEEB" },
+  { value: "#4169E1", label: "파랑", color: "#4169E1" },
+  { value: "#9370DB", label: "보라-파랑", color: "#9370DB" },
+  { value: "#DDA0DD", label: "연한 보라", color: "#DDA0DD" },
 ];
 
 const categoryOptions = [
@@ -178,8 +244,20 @@ const CLASS_NUMBERS = Array.from({ length: 7 }, (_, i) =>
   String(i + 1).padStart(2, "0")
 );
 
-const getDefaultPublishAt = () =>
-  new Date(Date.now() + 60 * 60 * 1000).toISOString().slice(0, 16);
+const getDefaultPublishAt = () => {
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  tomorrow.setHours(8, 30, 0, 0);
+  
+  // 로컬 시간으로 변환 (datetime-local은 로컬 시간을 사용)
+  const year = tomorrow.getFullYear();
+  const month = String(tomorrow.getMonth() + 1).padStart(2, '0');
+  const day = String(tomorrow.getDate()).padStart(2, '0');
+  const hours = String(tomorrow.getHours()).padStart(2, '0');
+  const minutes = String(tomorrow.getMinutes()).padStart(2, '0');
+  
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
+};
 
 interface ConsentData {
   signatureImage?: string; // Base64 이미지 (선택사항)
@@ -216,6 +294,11 @@ interface AnnouncementComposerProps {
 
 export function AnnouncementComposer({ authorName, onPreview, isOpen: controlledIsOpen, onOpenChange, showButton = true, editId, onEditComplete }: AnnouncementComposerProps) {
   const [internalIsOpen, setInternalIsOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  
+  useEffect(() => {
+    setMounted(true);
+  }, []);
   
   // 외부에서 제어하는 경우와 내부에서 제어하는 경우 모두 지원
   const isOpen = controlledIsOpen !== undefined ? controlledIsOpen : internalIsOpen;
@@ -225,6 +308,10 @@ export function AnnouncementComposer({ authorName, onPreview, isOpen: controlled
     } else {
       setInternalIsOpen(open);
     }
+  };
+
+  const handleClose = () => {
+    setIsOpen(false);
   };
 
   if (!isOpen) {
@@ -238,7 +325,18 @@ export function AnnouncementComposer({ authorName, onPreview, isOpen: controlled
     );
   }
 
-  return <AnnouncementComposerForm authorName={authorName} onPreview={onPreview} onClose={() => setIsOpen(false)} editId={editId} onEditComplete={onEditComplete} />;
+  const modalContent = (
+    <AnnouncementComposerForm authorName={authorName} onPreview={onPreview} onClose={handleClose} editId={editId} onEditComplete={onEditComplete} />
+  );
+
+  return (
+    <>
+      {mounted && typeof window !== "undefined" && createPortal(
+        modalContent,
+        document.body
+      )}
+    </>
+  );
 }
 
 function AnnouncementComposerForm({
@@ -278,10 +376,12 @@ function AnnouncementComposerForm({
   const [teacherOptions, setTeacherOptions] = useState<{id: string, name: string, email: string}[]>([]);
   const [isTeacherSearchOpen, setIsTeacherSearchOpen] = useState(false);
   const [editorUpdateKey, setEditorUpdateKey] = useState(0);
+  const [isColorPickerOpen, setIsColorPickerOpen] = useState(false);
   const teacherSearchRef = useRef<HTMLDivElement>(null);
   const targetModalRef = useRef<HTMLDivElement>(null);
   const classSelectionRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const colorPickerRef = useRef<HTMLDivElement>(null);
 
   const editor = useEditor({
     onUpdate: () => {
@@ -318,6 +418,7 @@ function AnnouncementComposerForm({
       }),
       TextStyle,
       FontSize,
+      TextColor,
       UnderlineExtension,
       TiptapImage.configure({
         inline: true,
@@ -328,6 +429,38 @@ function AnnouncementComposerForm({
       attributes: {
         class:
           "min-h-[200px] rounded-lg border border-gray-200 bg-white p-4 text-sm leading-6 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500",
+      },
+      // 링크 클릭 처리: Ctrl/Cmd 키를 누른 상태에서만 링크로 이동 (새 창에서 열기)
+      handleClick: (view, pos, event) => {
+        const target = event.target as HTMLElement;
+        // 링크 요소인지 확인
+        if (target.tagName === 'A' || target.closest('a')) {
+          const linkElement = target.tagName === 'A' ? target : target.closest('a') as HTMLAnchorElement;
+          // Ctrl (Windows/Linux) 또는 Cmd (Mac) 키가 눌려있지 않으면 기본 동작 방지
+          if (!event.ctrlKey && !event.metaKey) {
+            event.preventDefault();
+            return true; // 이벤트 처리됨
+          }
+          // Ctrl/Cmd 키가 눌려있을 때 새 창에서 열기
+          if (event.ctrlKey || event.metaKey) {
+            event.preventDefault();
+            const href = linkElement.getAttribute('href');
+            if (href) {
+              // 새 창으로 열기 (창 크기와 위치 지정)
+              const width = 1200;
+              const height = 800;
+              const left = (window.screen.width - width) / 2;
+              const top = (window.screen.height - height) / 2;
+              window.open(
+                href,
+                '_blank',
+                `width=${width},height=${height},left=${left},top=${top},toolbar=no,location=yes,status=no,menubar=no,scrollbars=yes,resizable=yes,noopener,noreferrer`
+              );
+            }
+            return true; // 이벤트 처리됨
+          }
+        }
+        return false; // 다른 경우는 기본 동작 허용
       },
       // 클립보드에서 이미지 붙여넣기 처리
       handlePaste: (view, event) => {
@@ -606,21 +739,232 @@ function AnnouncementComposerForm({
   // ESC 키로 모달 닫기 및 body 스크롤 방지
   useEffect(() => {
     const handleEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && isTargetModalOpen) {
+      if (event.key === "Escape") {
+        if (isTargetModalOpen) {
         setIsTargetModalOpen(false);
+        } else {
+          onClose();
+        }
       }
     };
 
-    if (isTargetModalOpen) {
-      document.addEventListener("keydown", handleEscape);
+    // 모달이 열릴 때 body 스크롤 방지
       document.body.style.overflow = "hidden";
-    }
+    document.addEventListener("keydown", handleEscape);
 
     return () => {
       document.removeEventListener("keydown", handleEscape);
+      // 모달이 닫힐 때 body 스크롤 복원
+      if (!isTargetModalOpen) {
       document.body.style.overflow = "unset";
+      }
     };
-  }, [isTargetModalOpen]);
+  }, [isTargetModalOpen, onClose]);
+
+  // 에디터 내 링크의 커서 스타일 및 툴팁 동적 적용 (Ctrl/Cmd 키 상태에 따라 변경)
+  useEffect(() => {
+    if (!editor) return;
+
+    const editorElement = editor.view.dom as HTMLElement;
+    
+    // 툴팁 요소 생성
+    const createTooltip = (): HTMLElement => {
+      const tooltip = document.createElement('div');
+      tooltip.id = 'link-tooltip';
+      tooltip.style.cssText = `
+        position: absolute;
+        background-color: #1f2937;
+        color: white;
+        padding: 6px 10px;
+        border-radius: 6px;
+        font-size: 12px;
+        pointer-events: none;
+        z-index: 10000;
+        white-space: nowrap;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        opacity: 0;
+        transition: opacity 0.2s;
+      `;
+      document.body.appendChild(tooltip);
+      return tooltip;
+    };
+
+    let tooltip: HTMLElement | null = null;
+    let currentLink: HTMLAnchorElement | null = null;
+    
+    // 툴팁 표시
+    const showTooltip = (link: HTMLAnchorElement, event: MouseEvent, isCtrlPressed: boolean) => {
+      if (!tooltip) {
+        tooltip = createTooltip();
+      }
+      
+      const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+      const keyText = isMac ? 'Cmd' : 'Ctrl';
+      tooltip.textContent = isCtrlPressed 
+        ? `${keyText}+클릭하여 링크로 이동` 
+        : `${keyText} 키를 누르고 클릭하여 링크로 이동`;
+      
+      // 툴팁을 먼저 표시하여 크기 계산 가능하도록 함
+      tooltip.style.opacity = '1';
+      tooltip.style.visibility = 'hidden';
+      tooltip.style.display = 'block';
+      
+      // 툴팁 위치 설정 (링크 위쪽 중앙)
+      const rect = link.getBoundingClientRect();
+      const tooltipRect = tooltip.getBoundingClientRect();
+      const left = rect.left + (rect.width / 2) - (tooltipRect.width / 2);
+      const top = rect.top - tooltipRect.height - 8;
+      
+      // 화면 경계 체크 및 조정
+      const adjustedLeft = Math.max(8, Math.min(left, window.innerWidth - tooltipRect.width - 8));
+      const adjustedTop = top < 8 ? rect.bottom + 8 : top;
+      
+      tooltip.style.left = `${adjustedLeft}px`;
+      tooltip.style.top = `${adjustedTop}px`;
+      tooltip.style.visibility = 'visible';
+    };
+
+    // 툴팁 숨기기
+    const hideTooltip = () => {
+      if (tooltip) {
+        tooltip.style.opacity = '0';
+        currentLink = null;
+      }
+    };
+
+    // 툴팁 제거
+    const removeTooltip = () => {
+      if (tooltip) {
+        tooltip.remove();
+        tooltip = null;
+      }
+    };
+    
+    // 에디터 내 모든 링크에 기본적으로 text 커서 적용
+    const updateLinkCursors = () => {
+      const links = editorElement.querySelectorAll('a');
+      links.forEach(link => {
+        (link as HTMLElement).style.cursor = 'text';
+      });
+    };
+
+    // Ctrl/Cmd 키 상태 추적
+    let isCtrlPressed = false;
+
+    // 키 눌림 감지
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.ctrlKey || event.metaKey) {
+        isCtrlPressed = true;
+        // 링크 위에 마우스가 있는 경우 커서 및 툴팁 업데이트
+        if (currentLink) {
+          currentLink.style.cursor = 'pointer';
+          const mouseEvent = new MouseEvent('mousemove', { bubbles: true });
+          showTooltip(currentLink, mouseEvent, true);
+        }
+      }
+    };
+
+    // 키 떼어짐 감지
+    const handleKeyUp = (event: KeyboardEvent) => {
+      if (!event.ctrlKey && !event.metaKey) {
+        isCtrlPressed = false;
+        // 모든 링크의 커서를 text로 복원
+        updateLinkCursors();
+        // 툴팁 업데이트
+        if (currentLink) {
+          const mouseEvent = new MouseEvent('mousemove', { bubbles: true });
+          showTooltip(currentLink, mouseEvent, false);
+        }
+      }
+    };
+
+    // 링크에 마우스를 올렸을 때
+    const handleLinkMouseEnter = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (target.tagName === 'A' || target.closest('a')) {
+        const linkElement = (target.tagName === 'A' ? target : target.closest('a')) as HTMLAnchorElement;
+        currentLink = linkElement;
+        // Ctrl/Cmd 키가 눌려있으면 pointer, 아니면 text
+        if (isCtrlPressed || event.ctrlKey || event.metaKey) {
+          linkElement.style.cursor = 'pointer';
+        } else {
+          linkElement.style.cursor = 'text';
+        }
+        // 툴팁 표시
+        showTooltip(linkElement, event, isCtrlPressed || event.ctrlKey || event.metaKey);
+      }
+    };
+
+    // 링크에서 마우스가 벗어났을 때
+    const handleLinkMouseLeave = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (target.tagName === 'A' || target.closest('a')) {
+        const linkElement = (target.tagName === 'A' ? target : target.closest('a')) as HTMLAnchorElement;
+        // Ctrl/Cmd 키가 눌려있지 않으면 text로 복원
+        if (!isCtrlPressed) {
+          linkElement.style.cursor = 'text';
+        }
+        // 툴팁 숨기기
+        hideTooltip();
+        currentLink = null;
+      }
+    };
+
+    // 링크 위에서 마우스 이동 시 (키 상태 변경 감지)
+    const handleLinkMouseMove = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (target.tagName === 'A' || target.closest('a')) {
+        const linkElement = (target.tagName === 'A' ? target : target.closest('a')) as HTMLAnchorElement;
+        currentLink = linkElement;
+        const ctrlState = event.ctrlKey || event.metaKey || isCtrlPressed;
+        if (ctrlState) {
+          linkElement.style.cursor = 'pointer';
+        } else {
+          linkElement.style.cursor = 'text';
+        }
+        // 툴팁 업데이트
+        showTooltip(linkElement, event, ctrlState);
+      }
+    };
+
+    // 전역 키 이벤트 리스너 추가
+    document.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('keyup', handleKeyUp);
+    
+    // 에디터 내 링크 이벤트 리스너 추가
+    editorElement.addEventListener('mouseenter', handleLinkMouseEnter, true);
+    editorElement.addEventListener('mouseleave', handleLinkMouseLeave, true);
+    editorElement.addEventListener('mousemove', handleLinkMouseMove, true);
+    
+    // 초기 커서 설정
+    updateLinkCursors();
+
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('keyup', handleKeyUp);
+      editorElement.removeEventListener('mouseenter', handleLinkMouseEnter, true);
+      editorElement.removeEventListener('mouseleave', handleLinkMouseLeave, true);
+      editorElement.removeEventListener('mousemove', handleLinkMouseMove, true);
+      removeTooltip();
+    };
+  }, [editor, editorUpdateKey]);
+
+  // 색상 선택 드롭다운 외부 클릭 시 닫기
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (colorPickerRef.current && !colorPickerRef.current.contains(event.target as Node)) {
+        setIsColorPickerOpen(false);
+      }
+    };
+
+    if (isColorPickerOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isColorPickerOpen]);
 
   // 알림 대상 모달 열기/닫기 핸들러
   const handleTargetModalToggle = () => {
@@ -1290,6 +1634,14 @@ function AnnouncementComposerForm({
         active: editor.isActive("underline"),
       },
       {
+        label: "글씨 색상",
+        icon: <Palette className="h-4 w-4" />,
+        action: () => setIsColorPickerOpen(prev => !prev),
+        active: !!editor.getAttributes('textStyle').color,
+        isColorPicker: true,
+      },
+      { isDivider: true },
+      {
         label: "불릿 리스트",
         icon: <List className="h-4 w-4" />,
         action: () => editor.chain().focus().toggleBulletList().run(),
@@ -1301,6 +1653,7 @@ function AnnouncementComposerForm({
         action: () => editor.chain().focus().toggleOrderedList().run(),
         active: editor.isActive("orderedList"),
       },
+      { isDivider: true },
       {
         label: "링크",
         icon: <LinkIcon className="h-4 w-4" />,
@@ -1368,6 +1721,7 @@ function AnnouncementComposerForm({
         },
         active: false,
       },
+      { isDivider: true },
       {
         label: "되돌리기",
         icon: <Undo className="h-4 w-4" />,
@@ -1383,16 +1737,30 @@ function AnnouncementComposerForm({
 
   if (isLoading) {
     return (
-      <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-        <div className="flex items-center justify-center py-8">
+      <div
+        className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 px-4 py-8 sm:py-8"
+        role="dialog"
+        aria-modal="true"
+      >
+        <div className="relative w-full max-w-6xl max-h-[92vh] rounded-xl bg-white shadow-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 flex flex-col">
+          <div className="flex items-center justify-center py-8 p-6">
           <div className="text-sm text-gray-500">안내문을 불러오는 중...</div>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-5 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+    <div
+      className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 px-4 py-8 sm:py-8"
+      role="dialog"
+      aria-modal="true"
+    >
+      <div 
+        className="relative w-full max-w-6xl max-h-[92vh] rounded-xl bg-white shadow-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 flex flex-col"
+      >
+        <form onSubmit={handleSubmit} className="space-y-5 p-6 overflow-y-auto flex-1 min-h-0">
       <div className="flex items-start justify-between gap-4">
         <div className="space-y-1">
           <p className="text-xs font-semibold uppercase tracking-wider text-blue-600">
@@ -1440,18 +1808,19 @@ function AnnouncementComposerForm({
             <label className="block text-sm font-medium text-gray-700 mb-1">
               알림 대상 <span className="ml-1 text-red-500">*</span>
             </label>
-            <Button
+            <button
               type="button"
-              variant="outline"
               onClick={handleTargetModalToggle}
-              className="w-full justify-start"
+              className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-left text-gray-900 placeholder:text-gray-500 hover:border-gray-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
             >
+              <span className={selectedTargets.length === 0 ? "text-gray-500" : "text-gray-900"}>
               {selectedTargets.length === 0 ? "알림 대상을 선택하세요" : getTargetDisplayText()}
-            </Button>
+              </span>
+            </button>
 
             {/* 알림 대상 선택 모달 */}
             {isTargetModalOpen && (
-              <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+              <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4">
                 {/* 배경 오버레이 */}
                 <div
                   className="absolute inset-0 bg-black/50 transition-opacity"
@@ -1694,13 +2063,10 @@ function AnnouncementComposerForm({
               </div>
             )}
           </div>
-          <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
-            <div className="flex items-start justify-between gap-2 mb-3">
               <div>
-                <p className="text-sm font-semibold text-gray-900">수정 권한</p>
-                <p className="text-xs text-gray-500">다른 교사에게 수정 권한 부여 (선택사항)</p>
-              </div>
-            </div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              수정 권한
+            </label>
             <div className="space-y-2">
               <div className="relative" ref={teacherSearchRef}>
                 <Input
@@ -1729,7 +2095,7 @@ function AnnouncementComposerForm({
                           <div className="text-xs text-gray-500">{teacher.email}</div>
                         </button>
                       ))}
-                  </div>
+              </div>
                 )}
               </div>
               {selectedTeachers.length > 0 && (
@@ -1753,13 +2119,12 @@ function AnnouncementComposerForm({
               )}
             </div>
           </div>
-          <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
-            <div className="flex items-center justify-between gap-2">
-              <div>
-                <p className="text-sm font-semibold text-gray-900">예약 발행</p>
-                <p className="text-xs text-gray-500">필요 시 자동 게시 시간 지정</p>
-              </div>
-              <label className="inline-flex items-center gap-2 text-sm font-medium text-gray-700">
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <label className="block text-sm font-medium text-gray-700">
+                예약 발행
+              </label>
+              <label className="flex items-center gap-1.5 text-sm text-gray-700 cursor-pointer">
                 <input
                   type="checkbox"
                   className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
@@ -1768,24 +2133,22 @@ function AnnouncementComposerForm({
                     const checked = event.target.checked;
                     setUseSchedule(checked);
                     // 예약 발행을 체크하면 기본값 설정, 해제하면 빈 문자열
-                    if (checked && !publishAt) {
+                    if (checked) {
                       setPublishAt(getDefaultPublishAt());
-                    } else if (!checked) {
+                    } else {
                       setPublishAt("");
                     }
                   }}
                 />
-                사용
+                <span>사용</span>
               </label>
             </div>
             {useSchedule && (
               <Input
                 type="datetime-local"
-                label="시작 시각"
                 value={publishAt}
                 onChange={(event) => setPublishAt(event.target.value)}
                 min={new Date().toISOString().slice(0, 16)}
-                className="mt-3"
               />
             )}
           </div>
@@ -1835,22 +2198,79 @@ function AnnouncementComposerForm({
                 </div>
               </div>
             )}
-            {toolbarItems?.map((item) => (
-              <button
-                key={item.label}
-                type="button"
-                onClick={item.action}
-                aria-label={item.label}
-                className={cn(
-                  "rounded-md p-2 text-sm transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500",
-                  item.active 
-                    ? "bg-blue-500 text-white border-2 border-blue-600 shadow-md font-semibold [&_svg]:text-white" 
-                    : "text-gray-500 hover:bg-gray-200 hover:text-gray-700 border-2 border-transparent [&_svg]:text-gray-500"
-                )}
-              >
-                {item.icon}
-              </button>
-            ))}
+            {toolbarItems?.map((item: any, index: number) => {
+              // 구분선 처리
+              if (item.isDivider) {
+                return <div key={`divider-${index}`} className="h-6 w-px bg-gray-300 mx-1" />;
+              }
+              
+              return (
+                <div key={item.label} className="relative">
+                  <button
+                    type="button"
+                    onClick={item.action}
+                    aria-label={item.label}
+                    className={cn(
+                      "rounded-md p-2 text-sm transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500",
+                      item.active 
+                        ? "bg-blue-500 text-white border-2 border-blue-600 shadow-md font-semibold [&_svg]:text-white" 
+                        : "text-gray-500 hover:bg-gray-200 hover:text-gray-700 border-2 border-transparent [&_svg]:text-gray-500"
+                    )}
+                  >
+                    {item.icon}
+                  </button>
+                  {item.isColorPicker && isColorPickerOpen && (
+                  <div
+                    ref={colorPickerRef}
+                    className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-50"
+                    style={{ minWidth: '240px' }}
+                  >
+                    {/* 색깔 제거 옵션 */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!editor) return;
+                        editor.chain().focus().unsetMark('textStyle').run();
+                        setIsColorPickerOpen(false);
+                      }}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-blue-50 border-b border-gray-200 transition-colors"
+                    >
+                      <Eraser className="h-4 w-4" />
+                      <span>색깔 제거</span>
+                    </button>
+                    
+                    {/* 색상 격자: 3행 5열 */}
+                    <div className="p-3">
+                      <div className="grid grid-cols-5 gap-2">
+                        {colorOptions.map((colorOption) => (
+                          <button
+                            key={colorOption.value}
+                            type="button"
+                            onClick={() => {
+                              if (!editor) return;
+                              editor.chain().focus().setMark('textStyle', { color: colorOption.value }).run();
+                              setIsColorPickerOpen(false);
+                            }}
+                            className={cn(
+                              "w-8 h-8 rounded border-2 transition-all",
+                              editor?.getAttributes('textStyle').color === colorOption.value
+                                ? "border-blue-500 ring-2 ring-blue-300 scale-110"
+                                : "border-gray-300 hover:border-gray-400 hover:scale-105"
+                            )}
+                            style={{ 
+                              backgroundColor: colorOption.color,
+                              borderColor: colorOption.value === '#FFFFFF' ? '#E5E7EB' : undefined
+                            }}
+                            title={colorOption.label}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
 
           <EditorContent editor={editor} />
@@ -2151,6 +2571,8 @@ function AnnouncementComposerForm({
         </Button>
       </div>
     </form>
+      </div>
+    </div>
   );
 }
 
