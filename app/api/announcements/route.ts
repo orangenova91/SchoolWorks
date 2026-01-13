@@ -5,7 +5,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { put } from '@vercel/blob';
 
-const AUDIENCE_VALUES = ["all", "grade-1", "grade-2", "grade-3", "parents"] as const;
+const AUDIENCE_VALUES = ["all", "grade-1", "grade-2", "grade-3", "parents", "teacher"] as const;
 
 const selectedClassSchema = z.object({
   grade: z.string(),

@@ -108,6 +108,7 @@ const TextColor = Extension.create({
 const targetOptions = [
   { value: "students", label: "모든 재학생" },
   { value: "parents", label: "모든 학부모" },
+  { value: "teacher", label: "교직원" },
 ];
 
 const fontSizeOptions = [
@@ -156,10 +157,14 @@ const categoryOptions = [
 const convertTargetsToAudience = (selectedTargets: string[]): string => {
   if (selectedTargets.length === 0) return "";
   if (selectedTargets.length === 1) {
-    return selectedTargets[0] === "students" ? "all" : selectedTargets[0];
+    if (selectedTargets[0] === "students") return "all";
+    if (selectedTargets[0] === "teacher") return "teacher";
+    return selectedTargets[0];
   }
   // 여러 개 선택된 경우 첫 번째 값을 사용 (하위 호환성)
-  return selectedTargets[0] === "students" ? "all" : selectedTargets[0];
+  if (selectedTargets[0] === "students") return "all";
+  if (selectedTargets[0] === "teacher") return "teacher";
+  return selectedTargets[0];
 };
 
 // selectedClasses와 parentSelectedClasses를 기반으로 정확한 audience 값 계산
@@ -170,9 +175,15 @@ const calculateAudienceFromClasses = (
 ): string => {
   const hasStudents = selectedTargets.includes("students");
   const hasParents = selectedTargets.includes("parents");
+  const hasTeacher = selectedTargets.includes("teacher");
+
+  // 교직원만 선택된 경우
+  if (!hasStudents && !hasParents && hasTeacher) {
+    return "teacher";
+  }
 
   // 학부모만 선택된 경우
-  if (!hasStudents && hasParents) {
+  if (!hasStudents && hasParents && !hasTeacher) {
     return "parents";
   }
 
@@ -220,7 +231,7 @@ const convertAudienceToTargets = (audience: string): string[] => {
   if (audience === "all" || audience.startsWith("grade-")) {
     return ["students"];
   }
-  if (audience === "parents" || audience === "teachers") {
+  if (audience === "parents" || audience === "teacher") {
     return [audience];
   }
   return [];
