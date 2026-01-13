@@ -10,13 +10,15 @@ interface AnnouncementPageClientProps {
   description: string;
   authorName: string;
   includeScheduled?: boolean;
+  audience?: string;
 }
 
 export function AnnouncementPageClient({ 
   title, 
   description, 
   authorName, 
-  includeScheduled = true 
+  includeScheduled = true,
+  audience
 }: AnnouncementPageClientProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [editId, setEditId] = useState<string | undefined>(undefined);
@@ -68,6 +70,7 @@ export function AnnouncementPageClient({
         <AnnouncementList 
           refreshKey={refreshKey} 
           includeScheduled={includeScheduled}
+          audience={audience}
           onEdit={handleEdit}
           showEditButton={true}
           onDelete={handleDelete}

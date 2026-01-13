@@ -105,6 +105,12 @@ export default async function DashboardLayout({
             iconName: "Bell"
           },
           {
+            href: "/dashboard/teacher/staff-announcements",
+            label: "교직원 게시판",
+            icon: <FileText className="w-5 h-5" />,
+            iconName: "FileText"
+          },
+          {
             href: googleChatLink,
             label: isGoogleWorkspaceUser ? "Google Chat" : "메시지",
             icon: <MessageCircle className="w-5 h-5" />,
