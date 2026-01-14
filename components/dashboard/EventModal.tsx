@@ -327,7 +327,7 @@ export default function EventModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6"
+      className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 px-4 py-8 sm:py-8"
       role="dialog"
       aria-modal="true"
       onClick={(e) => {
@@ -335,10 +335,10 @@ export default function EventModal({
       }}
     >
       <div
-        className="relative w-full max-w-2xl rounded-xl bg-white shadow-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+        className="relative w-full max-w-2xl max-h-[92vh] rounded-xl bg-white shadow-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
+        <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4 flex-shrink-0">
           <h2 className="text-lg font-semibold text-gray-900">
             {event ? "일정 수정" : "일정 추가"}
           </h2>
@@ -351,7 +351,7 @@ export default function EventModal({
           </button>
         </div>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="px-6 py-6 space-y-4">
+        <form onSubmit={handleSubmit(onSubmit)} className="px-6 py-6 space-y-4 overflow-y-auto flex-1 min-h-0">
           <Input
             {...register("title")}
             label="제목"

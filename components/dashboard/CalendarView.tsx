@@ -8,6 +8,7 @@ import {
   useImperativeHandle,
   useRef,
 } from "react";
+import { createPortal } from "react-dom";
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
@@ -57,6 +58,7 @@ const CalendarView = forwardRef<CalendarViewHandle, CalendarViewProps>(
   const [selectedEndDate, setSelectedEndDate] = useState<Date | null>(null);
   const calendarRef = useRef<FullCalendar | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
     const openEventModal = useCallback((eventData: CalendarEvent) => {
       setSelectedEvent(eventData);
@@ -189,6 +191,11 @@ const CalendarView = forwardRef<CalendarViewHandle, CalendarViewProps>(
     };
   });
 
+  // 마운트 상태 설정
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   // initialEvents가 변경될 때 events 상태 업데이트
   useEffect(() => {
     setEvents(initialEvents);
@@ -251,7 +258,7 @@ const CalendarView = forwardRef<CalendarViewHandle, CalendarViewProps>(
           />
         </div>
 
-        {isModalOpen && (
+        {mounted && typeof window !== "undefined" && isModalOpen && createPortal(
           <EventModal
             isOpen={isModalOpen}
             onClose={handleCloseModal}
@@ -260,7 +267,8 @@ const CalendarView = forwardRef<CalendarViewHandle, CalendarViewProps>(
             selectedEndDate={selectedEndDate}
             onSaved={handleEventSaved}
             onDeleted={handleEventDeleted}
-          />
+          />,
+          document.body
         )}
       </div>
     );

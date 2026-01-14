@@ -21,6 +21,7 @@ import {
   MessageCircle,
   ChevronDown,
   ChevronRight,
+  Newspaper,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -60,6 +61,7 @@ const iconMap: Record<string, React.ReactNode> = {
   User: <User className="w-5 h-5" />,
   UserCheck: <UserCheck className="w-5 h-5" />,
   MessageCircle: <MessageCircle className="w-5 h-5" />,
+  Newspaper: <Newspaper className="w-5 h-5" />,
 };
 
 const formatGrade = (grade: string | null): string => {

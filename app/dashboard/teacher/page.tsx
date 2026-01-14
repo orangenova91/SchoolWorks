@@ -6,7 +6,7 @@ import { getTranslations } from "@/lib/i18n";
 import { prisma } from "@/lib/prisma";
 import WeeklyScheduleSection from "@/components/dashboard/WeeklyScheduleSection";
 import BannerSection from "@/components/dashboard/teacher/BannerSection";
-import { Calendar, Users, UserCheck, MessageSquare } from "lucide-react";
+import { Calendar, Users, UserCheck, MessageSquare, Paperclip } from "lucide-react";
 
 const t = getTranslations("ko");
 
@@ -527,6 +527,154 @@ export default async function TeacherDashboardPage() {
     });
   });
 
+  // 교직원 게시판 전체 개수 가져오기
+  const staffAnnouncementsCount = await (prisma as any).announcement.count({
+    where: {
+      audience: "teacher",
+      school: session.user.school || undefined,
+      publishedAt: { not: null }, // 발행된 것만
+    },
+  });
+
+  // 교직원 게시판 데이터 가져오기
+  const staffAnnouncements = await (prisma as any).announcement.findMany({
+    where: {
+      audience: "teacher",
+      school: session.user.school || undefined,
+      publishedAt: { not: null }, // 발행된 것만
+    },
+    orderBy: { publishedAt: "desc" },
+    take: 5,
+  });
+
+  // 가정 안내문 전체 개수 가져오기 (실제 게시판과 동일한 조건)
+  const parentAnnouncementsCount = await (prisma as any).announcement.count({
+    where: {
+      AND: [
+        {
+          OR: [
+            { audience: "all" },
+            { audience: "parents" },
+            { audience: "grade-1" },
+            { audience: "grade-2" },
+            { audience: "grade-3" },
+          ],
+        },
+        {
+          NOT: { audience: "teacher" },
+        },
+      ],
+      school: session.user.school || undefined,
+      publishedAt: { not: null },
+    },
+  });
+
+  // 가정 안내문 데이터 가져오기 (전체 데이터, 명시적으로 전체 개수만큼 가져오기)
+  const parentAnnouncementsRaw = await (prisma as any).announcement.findMany({
+    where: {
+      AND: [
+        {
+          OR: [
+            { audience: "all" },
+            { audience: "parents" },
+            { audience: "grade-1" },
+            { audience: "grade-2" },
+            { audience: "grade-3" },
+          ],
+        },
+        {
+          NOT: { audience: "teacher" },
+        },
+      ],
+      school: session.user.school || undefined,
+      publishedAt: { not: null },
+    },
+    orderBy: { createdAt: "desc" },
+    take: parentAnnouncementsCount > 0 ? parentAnnouncementsCount : undefined, // 전체 개수만큼 명시적으로 가져오기
+  });
+
+  // API route와 동일하게 정렬: publishedAt 우선, 없으면 publishAt, 없으면 createdAt
+  const parentAnnouncementsSorted = parentAnnouncementsRaw.sort((a: any, b: any) => {
+    const aDate = a.publishedAt || a.publishAt || a.createdAt;
+    const bDate = b.publishedAt || b.publishAt || b.createdAt;
+    return new Date(bDate).getTime() - new Date(aDate).getTime();
+  });
+
+  // 상위 5개만 표시
+  const parentAnnouncements = parentAnnouncementsSorted.slice(0, 5);
+
+  // 디버깅: 실제 가져온 데이터 개수 확인 (개발 환경에서만)
+  if (process.env.NODE_ENV === "development") {
+    console.log(`[가정 안내문] 전체 개수: ${parentAnnouncementsCount}, 실제 가져온 개수: ${parentAnnouncementsRaw.length}`);
+  }
+
+  // 첨부파일 확인 함수
+  const hasAttachments = (attachments: string | null | undefined): boolean => {
+    if (!attachments) return false;
+    try {
+      const parsed = JSON.parse(attachments);
+      return Array.isArray(parsed) && parsed.length > 0;
+    } catch {
+      return false;
+    }
+  };
+
+  // 날짜 포맷 함수
+  const formatDateShort = (dateString: string | null) => {
+    if (!dateString) return "-";
+    const date = new Date(dateString);
+    return date.toLocaleDateString("ko-KR", {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    });
+  };
+
+  // 구분 뱃지 함수
+  const getCategoryBadge = (category: string | null | undefined) => {
+    if (!category) {
+      return (
+        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600">
+          -
+        </span>
+      );
+    }
+
+    const categoryLabels: Record<string, string> = {
+      notice: "단순 알림",
+      survey: "설문 조사",
+      consent: "동의서",
+    };
+
+    const label = categoryLabels[category] || category;
+    
+    if (category === "notice") {
+      return (
+        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+          {label}
+        </span>
+      );
+    } else if (category === "survey") {
+      return (
+        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800">
+          {label}
+        </span>
+      );
+    } else if (category === "consent") {
+      return (
+        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800">
+          {label}
+        </span>
+      );
+    }
+    
+    return (
+      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600">
+        {label}
+      </span>
+    );
+  };
+
   return (
     <div className="space-y-6">
       <header className="border-4 border-dashed border-gray-200 rounded-lg p-8 bg-white">
@@ -685,133 +833,112 @@ export default async function TeacherDashboardPage() {
         </section>
       </div>
 
-      <section className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-gray-900">오늘 수업 예정 학반</h2>
-          <span className="text-sm text-gray-500">총 {todaysGroupCount}개 학반</span>
-        </div>
-        {todaysClasses.length === 0 ? (
-          <p className="mt-3 text-sm text-gray-600">
-            오늘 일정에 해당하는 수업이 없습니다. 학반에 요일 스케줄을 등록하면 이곳에 표시됩니다.
-          </p>
-        ) : (
-          <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {todaysClasses.map((course) => (
-              <Link
-                key={course.id}
-                href={`/dashboard/teacher/manage-classes/${course.id}`}
-                className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm flex flex-col justify-between transition hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
-              >
-                <article className="flex h-full flex-col justify-between">
-                  <div className="space-y-4">
-                    <div className="space-y-1">
-                      {(course.academicYear?.trim() || course.semester?.trim()) && (
-                        <div className="flex items-center gap-2 text-[11px] text-gray-500">
-                          {course.academicYear?.trim() && (
-                            <span>{course.academicYear.trim()}학년도</span>
-                          )}
-                          {course.semester?.trim() && <span>{course.semester.trim()}</span>}
-                        </div>
-                      )}
-                      <div className="flex items-center justify-between text-xs text-gray-600">
-                        <div className="flex items-center gap-1 overflow-hidden">
-                          {course.joinCode ? (
-                            <span className="inline-flex items-center gap-1 rounded-md bg-indigo-50 px-2.5 py-0.5 font-medium text-indigo-700 border border-indigo-100">
-                              <span className="uppercase tracking-wide text-[10px] text-indigo-500">
-                                코드
-                              </span>
-                              <span className="font-mono text-sm">{course.joinCode}</span>
-                            </span>
-                          ) : (
-                            <span className="text-gray-400">수업 코드 미발급</span>
-                          )}
-                        </div>
-                        <span className="inline-flex items-center rounded-md bg-slate-100 px-2 py-0.5 font-medium text-slate-700 border border-slate-200">
-                          {formatGrade(course.grade)}
-                        </span>
+      <section className="grid gap-6 lg:grid-cols-2">
+        {/* 교직원 게시판 */}
+        <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-gray-900">교직원 게시판</h2>
+            <Link
+              href="/dashboard/teacher/staff-announcements"
+              className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+            >
+              더보기 →
+            </Link>
+          </div>
+          {staffAnnouncements.length === 0 ? (
+            <p className="text-sm text-gray-500 py-4">등록된 게시글이 없습니다.</p>
+          ) : (
+            <div className="space-y-3">
+              {staffAnnouncements.map((announcement: any, index: number) => {
+                // 전체 목록에서의 실제 글번호 계산 (역순)
+                const globalIndex = index;
+                const announcementNumber = staffAnnouncementsCount - globalIndex;
+                return (
+                <Link
+                  key={announcement.id}
+                  href={`/dashboard/teacher/staff-announcements`}
+                  className="block p-3 rounded-lg border border-gray-100 hover:bg-gray-50 hover:border-gray-200 transition-colors"
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="flex-shrink-0 w-8 text-center text-xs text-gray-500 font-medium pt-0.5">
+                      {announcementNumber}
+                    </div>
+                    <div className="flex-shrink-0">
+                      {getCategoryBadge(announcement.category)}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="text-sm font-medium text-gray-900 truncate mb-1">
+                        {announcement.title}
+                      </h3>
+                      <div className="flex items-center gap-2 text-xs text-gray-500">
+                        <span>{announcement.author}</span>
+                        <span>·</span>
+                        <span>{formatDateShort(announcement.publishedAt || announcement.createdAt)}</span>
                       </div>
                     </div>
-
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between gap-4">
-                        <h3 className="text-lg font-semibold text-gray-900 flex-1 text-center">
-                          {course.subject}
-                        </h3>
-                        <dl className="space-y-1 text-right text-sm text-gray-600">
-                          <div className="flex items-center justify-end gap-2">
-                            <dt className="font-medium text-gray-500">강사</dt>
-                            <dd>{course.instructor}</dd>
-                          </div>
-                          <div className="flex items-center justify-end gap-2">
-                            <dt className="font-medium text-gray-500">강의실</dt>
-                            <dd>{course.classroom}</dd>
-                          </div>
-                        </dl>
-                      </div>
-                    </div>
-
-                    {course.todayGroups.length > 0 ? (
-                      <div className="mt-4 space-y-3">
-                        <div className="flex items-center justify-between text-sm font-medium text-gray-800">
-                          <span>오늘 수업 학반</span>
-                          <span className="text-xs text-gray-500">
-                            총 {course.todayGroups.length}개
-                          </span>
-                        </div>
-                        <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
-                          {course.todayGroups.map((group) => {
-                            const schedules = parseSchedules(group.schedules);
-                            const todaysSchedules = schedules.filter(
-                              (schedule) => schedule.day === todayDay
-                            );
-                            return (
-                              <div
-                                key={group.id}
-                                className="rounded-lg border border-gray-100 bg-gray-50 p-3 text-sm text-gray-700"
-                              >
-                                <div className="flex items-center justify-between">
-                                  <span className="font-semibold text-gray-900">
-                                    {group.name}
-                                  </span>
-                                  {group.period && (
-                                    <span className="text-xs text-gray-500">차시 {group.period}</span>
-                                  )}
-                                </div>
-                                {todaysSchedules.length > 0 && (
-                                  <div className="mt-2 flex flex-wrap gap-2 text-xs text-gray-600">
-                                    {todaysSchedules.map((schedule, index) => (
-                                      <span
-                                        key={`${group.id}-schedule-${index}`}
-                                        className="rounded-md bg-white px-2 py-1 border border-gray-200"
-                                      >
-                                        {schedule.day} {schedule.period}교시
-                                      </span>
-                                    ))}
-                                  </div>
-                                )}
-                                <p className="mt-2 text-xs text-gray-500">
-                                  학생 {group.studentIds.length}명
-                                </p>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    ) : (
-                      <p className="mt-4 text-sm text-gray-500">
-                        오늘 수업이 예정된 학반이 없습니다.
-                      </p>
+                    {hasAttachments(announcement.attachments) && (
+                      <Paperclip className="h-4 w-4 text-gray-400 flex-shrink-0 mt-1" />
                     )}
                   </div>
+                </Link>
+                );
+              })}
+            </div>
+          )}
+        </div>
 
-                  <footer className="mt-4 text-xs text-gray-400">
-                    생성일 · {course.createdAt.toLocaleString("ko-KR")}
-                  </footer>
-                </article>
-              </Link>
-            ))}
+        {/* 가정 안내문 */}
+        <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-gray-900">가정 안내문</h2>
+            <Link
+              href="/dashboard/teacher/announcements"
+              className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+            >
+              더보기 →
+            </Link>
           </div>
-        )}
+          {parentAnnouncements.length === 0 ? (
+            <p className="text-sm text-gray-500 py-4">등록된 안내문이 없습니다.</p>
+          ) : (
+            <div className="space-y-3">
+              {parentAnnouncements.map((announcement: any, index: number) => {
+                // 전체 목록에서의 실제 글번호 계산 (역순)
+                const globalIndex = index;
+                const announcementNumber = parentAnnouncementsCount - globalIndex;
+                return (
+                <Link
+                  key={announcement.id}
+                  href={`/dashboard/teacher/announcements`}
+                  className="block p-3 rounded-lg border border-gray-100 hover:bg-gray-50 hover:border-gray-200 transition-colors"
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="flex-shrink-0 w-8 text-center text-xs text-gray-500 font-medium pt-0.5">
+                      {announcementNumber}
+                    </div>
+                    <div className="flex-shrink-0">
+                      {getCategoryBadge(announcement.category)}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="text-sm font-medium text-gray-900 truncate mb-1">
+                        {announcement.title}
+                      </h3>
+                      <div className="flex items-center gap-2 text-xs text-gray-500">
+                        <span>{announcement.author}</span>
+                        <span>·</span>
+                        <span>{formatDateShort(announcement.publishedAt || announcement.createdAt)}</span>
+                      </div>
+                    </div>
+                    {hasAttachments(announcement.attachments) && (
+                      <Paperclip className="h-4 w-4 text-gray-400 flex-shrink-0 mt-1" />
+                    )}
+                  </div>
+                </Link>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </section>
 
       <BannerSection isEditable={false} />

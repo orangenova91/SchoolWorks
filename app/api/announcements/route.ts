@@ -309,12 +309,18 @@ export async function GET(request: NextRequest) {
 
     }
 
+    // 전체 개수 먼저 가져오기
+    const totalCount = await (prisma as any).announcement.count({
+      where,
+    });
+
+    // 전체 데이터 가져오기 (전체 개수만큼 명시적으로 가져오기)
     const announcements = await (prisma as any).announcement.findMany({
       where,
       orderBy: [
         { createdAt: "desc" },
       ],
-      take: 50, // 최대 50개
+      take: totalCount > 0 ? totalCount : undefined, // 전체 개수만큼 가져오기
     });
 
     // 클라이언트 측에서 정렬: publishedAt 우선, 없으면 publishAt, 없으면 createdAt
