@@ -41,12 +41,25 @@ export async function GET(request: NextRequest) {
         id: true,
         name: true,
         email: true,
+        teacherProfile: {
+          select: {
+            roleLabel: true,
+          },
+        },
       },
       orderBy: { name: "asc" },
       ...(ids ? {} : { take: 50 }), // ID로 검색할 때는 제한 없음
     });
 
-    return NextResponse.json({ teachers });
+    // roleLabel을 평탄화하여 반환
+    const teachersWithRoleLabel = teachers.map((teacher: any) => ({
+      id: teacher.id,
+      name: teacher.name,
+      email: teacher.email,
+      roleLabel: teacher.teacherProfile?.roleLabel || null,
+    }));
+
+    return NextResponse.json({ teachers: teachersWithRoleLabel });
   } catch (error) {
     console.error("Get teachers error:", error);
     return NextResponse.json(

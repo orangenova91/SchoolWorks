@@ -69,12 +69,6 @@ export default async function DashboardLayout({
             iconName: "Home"
           },
           {
-            href: "/dashboard/teacher/students",
-            label: "구성원 조회",
-            icon: <UserCheck className="w-5 h-5" />,
-            iconName: "UserCheck"
-          },
-          {
             href: "/dashboard/teacher/schedule",
             label: t.sidebar.teacher.schedule,
             icon: <Calendar className="w-5 h-5" />,
@@ -109,6 +103,12 @@ export default async function DashboardLayout({
             label: "교직원 게시판",
             icon: <FileText className="w-5 h-5" />,
             iconName: "FileText"
+          },
+          {
+            href: "/dashboard/teacher/students",
+            label: "구성원 조회",
+            icon: <UserCheck className="w-5 h-5" />,
+            iconName: "UserCheck"
           },
           {
             href: googleChatLink,
