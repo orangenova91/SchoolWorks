@@ -62,6 +62,7 @@ export function AnnouncementPageClient({
           onOpenChange={handleClose}
           onAnnouncementCreated={handleAnnouncementCreated}
           editId={editId}
+          restrictedAudience={audience}
         />
       </div>
       

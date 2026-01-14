@@ -108,7 +108,7 @@ const TextColor = Extension.create({
 const targetOptions = [
   { value: "students", label: "모든 재학생" },
   { value: "parents", label: "모든 학부모" },
-  { value: "teacher", label: "교직원" },
+  { value: "teacher", label: "전 교직원" },
 ];
 
 const fontSizeOptions = [
@@ -286,6 +286,7 @@ interface AnnouncementComposerPayload {
   publishAt?: string;
   selectedClasses?: SelectedClass[];
   parentSelectedClasses?: SelectedClass[];
+  selectedTeacherIds?: string[];
   surveyData?: SurveyQuestion[];
   surveyStartDate?: string;
   surveyEndDate?: string;
@@ -301,9 +302,10 @@ interface AnnouncementComposerProps {
   showButton?: boolean;
   editId?: string; // 수정 모드일 때 안내문 ID
   onEditComplete?: () => void; // 수정 완료 후 콜백
+  restrictedAudience?: string; // 제한된 알림 대상 (예: "teacher"일 경우 교직원만 선택 가능)
 }
 
-export function AnnouncementComposer({ authorName, onPreview, isOpen: controlledIsOpen, onOpenChange, showButton = true, editId, onEditComplete }: AnnouncementComposerProps) {
+export function AnnouncementComposer({ authorName, onPreview, isOpen: controlledIsOpen, onOpenChange, showButton = true, editId, onEditComplete, restrictedAudience }: AnnouncementComposerProps) {
   const [internalIsOpen, setInternalIsOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   
@@ -337,7 +339,7 @@ export function AnnouncementComposer({ authorName, onPreview, isOpen: controlled
   }
 
   const modalContent = (
-    <AnnouncementComposerForm authorName={authorName} onPreview={onPreview} onClose={handleClose} editId={editId} onEditComplete={onEditComplete} />
+    <AnnouncementComposerForm authorName={authorName} onPreview={onPreview} onClose={handleClose} editId={editId} onEditComplete={onEditComplete} restrictedAudience={restrictedAudience} />
   );
 
   return (
@@ -356,7 +358,8 @@ function AnnouncementComposerForm({
   onClose,
   editId,
   onEditComplete,
-}: AnnouncementComposerProps & { onClose: () => void; editId?: string; onEditComplete?: () => void }) {
+  restrictedAudience,
+}: AnnouncementComposerProps & { onClose: () => void; editId?: string; onEditComplete?: () => void; restrictedAudience?: string }) {
   const [title, setTitle] = useState("");
   const [category, setCategory] = useState<string>("notice");
   const [selectedTargets, setSelectedTargets] = useState<string[]>([]);
@@ -386,6 +389,11 @@ function AnnouncementComposerForm({
   const [teacherSearchQuery, setTeacherSearchQuery] = useState("");
   const [teacherOptions, setTeacherOptions] = useState<{id: string, name: string, email: string}[]>([]);
   const [isTeacherSearchOpen, setIsTeacherSearchOpen] = useState(false);
+  const [teacherList, setTeacherList] = useState<{id: string, name: string, email: string, roleLabel: string | null}[]>([]);
+  const [selectedTeacherIds, setSelectedTeacherIds] = useState<string[]>([]);
+  const [isLoadingTeachers, setIsLoadingTeachers] = useState(false);
+  const [targetTeacherSearchQuery, setTargetTeacherSearchQuery] = useState("");
+  const [selectedRoleLabelFilter, setSelectedRoleLabelFilter] = useState<string>("");
   const [editorUpdateKey, setEditorUpdateKey] = useState(0);
   const [isColorPickerOpen, setIsColorPickerOpen] = useState(false);
   const teacherSearchRef = useRef<HTMLDivElement>(null);
@@ -647,6 +655,17 @@ function AnnouncementComposerForm({
           } else {
             setExistingAttachments([]);
           }
+          // 선택된 교직원 ID 로드 (있는 경우)
+          if (announcement.selectedTeacherIds && Array.isArray(announcement.selectedTeacherIds) && announcement.selectedTeacherIds.length > 0) {
+            setSelectedTeacherIds(announcement.selectedTeacherIds);
+          } else if (announcement.audience && announcement.audience.startsWith('teacher:')) {
+            // audience에서 교직원 ID 추출 (형식: teacher:id1,id2,...)
+            const teacherIds = announcement.audience.replace('teacher:', '').split(',').filter((id: string) => id.trim());
+            setSelectedTeacherIds(teacherIds);
+          } else {
+            setSelectedTeacherIds([]);
+          }
+          
           // 수정 권한 데이터 로드 (있는 경우)
           if (announcement.editableBy && Array.isArray(announcement.editableBy) && announcement.editableBy.length > 0) {
             try {
@@ -679,6 +698,11 @@ function AnnouncementComposerForm({
     }
   }, [editId, editor]);
 
+  // restrictedAudience에 따라 필터링된 targetOptions 생성
+  const availableTargetOptions = restrictedAudience === "teacher" 
+    ? targetOptions.filter(opt => opt.value === "teacher")
+    : targetOptions.filter(opt => opt.value !== "teacher"); // 가정 안내문에서는 "전 교직원" 제외
+
   // category 변경 시 showSignaturePanel 초기화 (동의서가 아닌 경우)
   useEffect(() => {
     if (category !== "consent" && category !== "survey") {
@@ -687,6 +711,39 @@ function AnnouncementComposerForm({
       setShowSignaturePanel(true);
     }
   }, [category]);
+
+  // restrictedAudience가 "teacher"일 때 초기값 설정
+  useEffect(() => {
+    if (restrictedAudience === "teacher" && selectedTargets.length === 0 && !editId) {
+      setSelectedTargets(["teacher"]);
+    }
+  }, [restrictedAudience, editId]);
+
+  // 교직원 목록 가져오기 (모달이 열릴 때)
+  useEffect(() => {
+    if (isTargetModalOpen && restrictedAudience === "teacher" && teacherList.length === 0) {
+      const fetchTeachers = async () => {
+        setIsLoadingTeachers(true);
+        try {
+          const response = await fetch('/api/teachers');
+          if (response.ok) {
+            const data = await response.json();
+            const teachers = data.teachers || [];
+            setTeacherList(teachers);
+            // 초기값: selectedTeacherIds가 비어있으면 모든 교직원 선택
+            if (selectedTeacherIds.length === 0 && teachers.length > 0 && !editId) {
+              setSelectedTeacherIds(teachers.map((t: {id: string}) => t.id));
+            }
+          }
+        } catch (error) {
+          console.error("Failed to fetch teachers:", error);
+        } finally {
+          setIsLoadingTeachers(false);
+        }
+      };
+      fetchTeachers();
+    }
+  }, [isTargetModalOpen, restrictedAudience, editId]);
 
   // 교사 검색
   useEffect(() => {
@@ -1000,7 +1057,9 @@ function AnnouncementComposerForm({
 
   // 제목이 비어있거나 알림 대상이 없거나 제출 중일 때 비활성화
   const hasTitle = title.trim().length > 0;
-  const hasTargets = selectedTargets.length > 0;
+  const hasTargets = restrictedAudience === "teacher" 
+    ? selectedTeacherIds.length > 0 || selectedTargets.length > 0
+    : selectedTargets.length > 0;
   const isDisabled = !hasTitle || !hasTargets || isSubmitting;
 
   // 모든 학반 조합 생성
@@ -1244,10 +1303,128 @@ function AnnouncementComposerForm({
     );
   };
 
+  // 교직원 선택/해제 핸들러 (알림 대상용)
+  const handleTargetTeacherSelect = (teacherId: string) => {
+    if (selectedTeacherIds.includes(teacherId)) {
+      setSelectedTeacherIds(selectedTeacherIds.filter(id => id !== teacherId));
+    } else {
+      setSelectedTeacherIds([...selectedTeacherIds, teacherId]);
+    }
+  };
+
+  // 전 교직원 선택 여부 확인
+  const isAllTeachersSelected = () => {
+    if (teacherList.length === 0) return false;
+    // 모든 교직원이 선택된 경우
+    return selectedTeacherIds.length === teacherList.length && teacherList.length > 0;
+  };
+
+  // 고유한 roleLabel 목록 추출
+  const uniqueRoleLabels = useMemo(() => {
+    const roleLabels = new Set<string>();
+    teacherList.forEach((teacher) => {
+      const roleLabel = teacher.roleLabel?.trim();
+      if (roleLabel && roleLabel !== "-" && roleLabel !== "") {
+        roleLabels.add(roleLabel);
+      }
+    });
+    return Array.from(roleLabels).sort();
+  }, [teacherList]);
+
+  // 필터링된 교직원 목록 (검색어 및 roleLabel 필터 적용)
+  const filteredTeachers = useMemo(() => {
+    let result = [...teacherList];
+
+    // roleLabel 필터 적용
+    if (selectedRoleLabelFilter) {
+      result = result.filter((teacher) => {
+        const teacherRoleLabel = teacher.roleLabel?.trim() || "";
+        return teacherRoleLabel === selectedRoleLabelFilter;
+      });
+    }
+
+    // 검색 필터 적용 (콤마로 구분된 다중 검색어 지원)
+    if (targetTeacherSearchQuery.trim()) {
+      // 콤마로 구분하여 검색어 배열 생성
+      const searchTerms = targetTeacherSearchQuery
+        .split(',')
+        .map(term => term.trim().toLowerCase())
+        .filter(term => term.length > 0); // 빈 검색어 제거
+
+      if (searchTerms.length > 0) {
+        result = result.filter((teacher) => {
+          const teacherName = teacher.name?.toLowerCase() || '';
+          const teacherEmail = teacher.email.toLowerCase();
+          const teacherRoleLabel = teacher.roleLabel?.toLowerCase() || '';
+          
+          // 여러 검색어 중 하나라도 포함되면 표시 (OR 검색)
+          return searchTerms.some(term => 
+            teacherName.includes(term) || 
+            teacherEmail.includes(term) ||
+            teacherRoleLabel.includes(term)
+          );
+        });
+      }
+    }
+
+    // 이름 순서로 정렬
+    result = [...result].sort((a, b) => {
+      return (a.name || "").localeCompare(b.name || "");
+    });
+
+    return result;
+  }, [teacherList, targetTeacherSearchQuery, selectedRoleLabelFilter]);
+
+  // 필터링된 교직원 중 선택된 수
+  const selectedFilteredCount = useMemo(() => {
+    return filteredTeachers.filter(t => selectedTeacherIds.includes(t.id)).length;
+  }, [filteredTeachers, selectedTeacherIds]);
+
+  // 필터링된 교직원 전체 선택 여부
+  const allFilteredSelected = useMemo(() => {
+    return filteredTeachers.length > 0 && 
+           filteredTeachers.every(t => selectedTeacherIds.includes(t.id));
+  }, [filteredTeachers, selectedTeacherIds]);
+
+  // 필터링된 교직원 전체 선택/해제
+  const selectAllFiltered = () => {
+    const filteredIds = filteredTeachers.map(t => t.id);
+    const newSelectedIds = new Set(selectedTeacherIds);
+    filteredIds.forEach(id => newSelectedIds.add(id));
+    setSelectedTeacherIds(Array.from(newSelectedIds));
+  };
+
+  const deselectAllFiltered = () => {
+    const filteredIds = new Set(filteredTeachers.map(t => t.id));
+    setSelectedTeacherIds(selectedTeacherIds.filter(id => !filteredIds.has(id)));
+  };
+
+  // 전체 선택/해제 (전 교직원)
+  const handleSelectAllTeachers = () => {
+    if (isAllTeachersSelected()) {
+      // 모두 선택된 경우 -> 모두 해제
+      setSelectedTeacherIds([]);
+    } else {
+      // 일부만 선택되었거나 선택되지 않은 경우 -> 모두 선택
+      setSelectedTeacherIds(teacherList.map(t => t.id));
+    }
+  };
+
   // 선택된 대상 표시 텍스트
   const getTargetDisplayText = () => {
     if (selectedTargets.length === 0) {
       return "알림 대상을 선택하세요";
+    }
+    
+    // restrictedAudience가 "teacher"인 경우
+    if (restrictedAudience === "teacher") {
+      if (selectedTeacherIds.length === 0) {
+        return "전 교직원";
+      } else if (selectedTeacherIds.length === teacherList.length) {
+        return "전 교직원";
+      } else {
+        return `교직원 ${selectedTeacherIds.length}명`;
+      }
     }
     
     // 재학생 → 학부모 순서로 정렬
@@ -1297,11 +1474,15 @@ function AnnouncementComposerForm({
     setIsSubmitting(true);
 
     // selectedClasses와 parentSelectedClasses를 기반으로 정확한 audience 값 계산
-    const audience = calculateAudienceFromClasses(
-      selectedTargets,
-      selectedTargets.includes("students") ? selectedClasses : [],
-      selectedTargets.includes("parents") ? parentSelectedClasses : []
-    );
+    const audience = restrictedAudience === "teacher"
+      ? (selectedTeacherIds.length > 0 
+          ? `teacher:${selectedTeacherIds.join(',')}` 
+          : "teacher") // 선택된 교직원이 없으면 전체 교직원
+      : calculateAudienceFromClasses(
+          selectedTargets,
+          selectedTargets.includes("students") ? selectedClasses : [],
+          selectedTargets.includes("parents") ? parentSelectedClasses : []
+        );
 
     const payload: AnnouncementComposerPayload = {
       title: title.trim(),
@@ -1313,6 +1494,7 @@ function AnnouncementComposerForm({
       publishAt: useSchedule && publishAt.trim() ? publishAt : undefined,
       selectedClasses: selectedTargets.includes("students") ? selectedClasses : [],
       parentSelectedClasses: selectedTargets.includes("parents") ? parentSelectedClasses : [],
+      selectedTeacherIds: restrictedAudience === "teacher" ? selectedTeacherIds : undefined,
       surveyData: category === "survey" && surveyQuestions.length > 0 ? surveyQuestions : undefined,
       surveyStartDate: category === "survey" && surveyStartDate ? surveyStartDate : undefined,
       surveyEndDate: category === "survey" && surveyEndDate ? surveyEndDate : undefined,
@@ -1399,6 +1581,8 @@ function AnnouncementComposerForm({
       setSelectedTargets([]);
       setSelectedClasses([]);
       setParentSelectedClasses([]);
+      setSelectedTeacherIds([]);
+      setTeacherList([]);
       setSurveyQuestions([]);
       setSurveyStartDate("");
       setSurveyEndDate("");
@@ -1858,8 +2042,145 @@ function AnnouncementComposerForm({
 
                   {/* 모달 본문 */}
                   <div className="flex-1 overflow-y-auto p-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {targetOptions.map((option) => (
+                    {restrictedAudience === "teacher" ? (
+                      // 교직원 게시판: 교직원 명단 표시
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                          <h4 className="text-lg font-semibold text-gray-900">교직원 선택</h4>
+                        </div>
+                        
+                        {/* 전 교직원 체크박스 */}
+                        <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                          <label className="flex items-center gap-3 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={isAllTeachersSelected()}
+                              onChange={handleSelectAllTeachers}
+                              className="h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                            />
+                            <span className="text-base font-medium text-gray-900">전 교직원</span>
+                            {isAllTeachersSelected() && teacherList.length > 0 && (
+                              <span className="text-sm text-gray-500 px-3 py-1 bg-gray-100 rounded-full">
+                                {teacherList.length}명
+                              </span>
+                            )}
+                          </label>
+                        </div>
+
+                        {/* 검색 입력 필드 및 roleLabel 필터 */}
+                        {teacherList.length > 0 && (
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between">
+                              <label className="block text-sm font-medium text-gray-700">
+                                교직원 검색
+                              </label>
+                              {filteredTeachers.length > 0 && (
+                                <div className="flex items-center gap-2">
+                                  {allFilteredSelected ? (
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={deselectAllFiltered}
+                                      className="text-xs h-7 px-2"
+                                    >
+                                      필터 전체 해제
+                                    </Button>
+                                  ) : (
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={selectAllFiltered}
+                                      className="text-xs h-7 px-2"
+                                    >
+                                      필터 전체 선택
+                                    </Button>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex gap-2">
+                              <div className="flex-1">
+                                <Input
+                                  type="text"
+                                  value={targetTeacherSearchQuery}
+                                  onChange={(e) => setTargetTeacherSearchQuery(e.target.value)}
+                                  placeholder="교직원 이름, 이메일 또는 직위로 검색 (콤마로 구분: 김철수, 이영희)"
+                                  className="w-full"
+                                />
+                              </div>
+                              {uniqueRoleLabels.length > 0 && (
+                                <div className="w-40">
+                                  <Select
+                                    options={[
+                                      { value: "", label: "전체 직위" },
+                                      ...uniqueRoleLabels.map((roleLabel) => ({
+                                        value: roleLabel,
+                                        label: roleLabel,
+                                      })),
+                                    ]}
+                                    value={selectedRoleLabelFilter}
+                                    onChange={(e) => setSelectedRoleLabelFilter(e.target.value)}
+                                  />
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                        
+                        {isLoadingTeachers ? (
+                          <div className="text-center py-8 text-gray-500">교직원 목록을 불러오는 중...</div>
+                        ) : teacherList.length === 0 ? (
+                          <div className="text-center py-8 text-gray-500">교직원이 없습니다.</div>
+                        ) : filteredTeachers.length === 0 ? (
+                          <div className="text-center py-8 text-gray-500">검색 결과가 없습니다.</div>
+                        ) : (
+                          <div className="border border-gray-200 rounded-lg divide-y divide-gray-200 max-h-[500px] overflow-y-auto">
+                            {filteredTeachers.map((teacher) => (
+                              <label
+                                key={teacher.id}
+                                className="flex items-center gap-3 p-4 hover:bg-gray-50 cursor-pointer"
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={selectedTeacherIds.includes(teacher.id)}
+                                  onChange={() => handleTargetTeacherSelect(teacher.id)}
+                                  className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-2 focus:ring-blue-500"
+                                />
+                                {teacher.roleLabel && (
+                                  <span className="text-xs font-medium text-gray-600 px-2 py-1 bg-gray-100 rounded">
+                                    {teacher.roleLabel}
+                                  </span>
+                                )}
+                                <div className="flex-1">
+                                  <div className="text-sm font-medium text-gray-900">{teacher.name}</div>
+                                  <div className="text-xs text-gray-500">{teacher.email}</div>
+                                </div>
+                              </label>
+                            ))}
+                          </div>
+                        )}
+                        
+                        {teacherList.length > 0 && (
+                          <div className="text-xs text-gray-500">
+                            {selectedTeacherIds.length}명 선택됨
+                            {(targetTeacherSearchQuery || selectedRoleLabelFilter) && (
+                              <span className="ml-2">
+                                ({filteredTeachers.length}명 표시됨
+                                {selectedFilteredCount > 0 && ` / ${selectedFilteredCount}명 선택됨`}
+                                {targetTeacherSearchQuery && ` / 검색: "${targetTeacherSearchQuery}"`}
+                                {selectedRoleLabelFilter && ` / 직위: ${selectedRoleLabelFilter}`}
+                                )
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      // 기존 로직 (재학생/학부모 선택)
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {availableTargetOptions.map((option) => (
                         <div key={option.value} className="border border-gray-200 rounded-lg p-4">
                           <label className="flex items-center gap-3 cursor-pointer">
                             <input
@@ -2048,7 +2369,8 @@ function AnnouncementComposerForm({
                           )}
                         </div>
                       ))}
-                    </div>
+                      </div>
+                    )}
                   </div>
 
                   {/* 모달 푸터 */}

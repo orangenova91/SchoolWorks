@@ -8,6 +8,7 @@ interface AnnouncementSectionProps {
   onOpenChange?: (open: boolean) => void;
   onAnnouncementCreated?: () => void;
   editId?: string;
+  restrictedAudience?: string;
 }
 
 export function AnnouncementSection({ 
@@ -15,7 +16,8 @@ export function AnnouncementSection({
   isOpen,
   onOpenChange,
   onAnnouncementCreated,
-  editId
+  editId,
+  restrictedAudience
 }: AnnouncementSectionProps) {
   const handleAnnouncementCreated = () => {
     onOpenChange?.(false);
@@ -31,6 +33,7 @@ export function AnnouncementSection({
       showButton={false}
       editId={editId}
       onEditComplete={onAnnouncementCreated}
+      restrictedAudience={restrictedAudience}
     />
   );
 }

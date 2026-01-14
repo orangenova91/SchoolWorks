@@ -276,9 +276,37 @@ export async function GET(request: NextRequest) {
           // { audience: `grade-${studentGrade}` }, // 실제 구현 시 추가
         ];
       } else if (session.user.role === "teacher") {
-        // 교사는 모든 공지사항 조회 가능 (필터 없음)
-        // where.OR 조건을 추가하지 않음
+        // 교사는 일반 안내문만 조회 가능 (교직원 게시판 제외)
+        // audience="teacher"는 제외하고 나머지만 표시
+        where.AND = [
+          {
+            OR: [
+              { audience: "all" },
+              { audience: "parents" },
+              { audience: "grade-1" },
+              { audience: "grade-2" },
+              { audience: "grade-3" },
+            ],
+          },
+          {
+            NOT: { audience: "teacher" },
+          },
+        ];
+      } else if (session.user.role === "parent") {
+        // 학부모는 "all" 또는 "parents"만 볼 수 있음 (teacher 제외)
+        where.AND = [
+          {
+            OR: [
+              { audience: "all" },
+              { audience: "parents" },
+            ],
+          },
+          {
+            NOT: { audience: "teacher" },
+          },
+        ];
       }
+
     }
 
     const announcements = await (prisma as any).announcement.findMany({
@@ -338,4 +366,5 @@ export async function GET(request: NextRequest) {
     );
   }
 }
+
 
