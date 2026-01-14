@@ -24,6 +24,7 @@ import {
   User,
   MessageCircle,
   UserCheck,
+  Newspaper,
 } from "lucide-react";
 
 export default async function DashboardLayout({
@@ -95,8 +96,8 @@ export default async function DashboardLayout({
           {
             href: "/dashboard/teacher/announcements",
             label: t.sidebar.teacher.announcements,
-            icon: <Bell className="w-5 h-5" />,
-            iconName: "Bell"
+            icon: <Newspaper className="w-5 h-5" />,
+            iconName: "Newspaper"
           },
           {
             href: "/dashboard/teacher/staff-announcements",
