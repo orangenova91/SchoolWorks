@@ -677,26 +677,28 @@ export default async function TeacherDashboardPage() {
 
   return (
     <div className="space-y-6">
-      <header className="border-4 border-dashed border-gray-200 rounded-lg p-8 bg-white">
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">
-          안녕하세요 {session.user.name ?? t.dashboard.roleTeacher} 선생님
-        </h2>
+      <header className="border-4 border-dashed border-gray-200 rounded-lg p-4 bg-white">
+        <div className="flex items-center gap-4 flex-wrap">
+          <h2 className="text-2xl font-bold text-gray-900">
+            안녕하세요 {session.user.name ?? t.dashboard.roleTeacher} 선생님 
+          </h2>
 
-        <div className="mt-6 bg-blue-50 border border-blue-100 rounded-lg p-4 text-sm text-blue-800">
-        오늘은{" "}
-        <span className="inline-block mx-1 px-2 py-1 text-xl font-bold text-blue-900 bg-blue-200 rounded-md">
-          {new Intl.DateTimeFormat("ko-KR", {
-            timeZone: "Asia/Seoul",
-            month: "2-digit",
-            day: "2-digit",
-            weekday: "long",
-          }).format(now)}{" "}
-          </span>
-          입니다. 오늘 선생님의 수업은{" "}
-          <span className="inline-block mx-1 px-2 py-1 text-xl font-bold text-blue-900 bg-blue-200 rounded-md">
-            {todaysGroupCount}개
-          </span>{" "}
-          입니다.
+          <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 text-sm text-blue-800 whitespace-nowrap">
+            오늘은{" "}
+            <span className="inline-block mx-1 px-2 py-1 text-xl font-bold text-blue-900 bg-blue-200 rounded-md">
+              {new Intl.DateTimeFormat("ko-KR", {
+                timeZone: "Asia/Seoul",
+                month: "2-digit",
+                day: "2-digit",
+                weekday: "long",
+              }).format(now)}{" "}
+            </span>
+            입니다. 오늘 선생님의 수업은{" "}
+            <span className="inline-block mx-1 px-2 py-1 text-xl font-bold text-blue-900 bg-blue-200 rounded-md">
+              {todaysGroupCount}개
+            </span>{" "}
+            입니다.
+          </div>
         </div>
       </header>
 

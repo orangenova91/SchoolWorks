@@ -13,7 +13,7 @@ import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
 import interactionPlugin from "@fullcalendar/interaction";
-import { EventClickArg, DateSelectArg, EventInput } from "@fullcalendar/core";
+import { EventClickArg, DateSelectArg, EventInput, DatesSetArg } from "@fullcalendar/core";
 import EventModal from "./EventModal";
 import { Button } from "@/components/ui/Button";
 import { useToastContext } from "@/components/providers/ToastProvider";
@@ -42,6 +42,8 @@ export interface CalendarEvent {
 type CalendarViewProps = {
   initialEvents?: CalendarEvent[];
   onEventsChange?: (events: CalendarEvent[]) => void;
+  hideAddButton?: boolean;
+  onViewChange?: (viewDate: Date) => void;
 };
 
 export type CalendarViewHandle = {
@@ -49,7 +51,7 @@ export type CalendarViewHandle = {
 };
 
 const CalendarView = forwardRef<CalendarViewHandle, CalendarViewProps>(
-  ({ initialEvents = [], onEventsChange }, ref) => {
+  ({ initialEvents = [], onEventsChange, hideAddButton = false, onViewChange }, ref) => {
   const { showToast } = useToastContext();
   const [events, setEvents] = useState<CalendarEvent[]>(initialEvents);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -61,9 +63,17 @@ const CalendarView = forwardRef<CalendarViewHandle, CalendarViewProps>(
   const [mounted, setMounted] = useState(false);
 
     const openEventModal = useCallback((eventData: CalendarEvent) => {
-      setSelectedEvent(eventData);
-      setSelectedDate(null);
-      setSelectedEndDate(null);
+      // 새 일정 추가인 경우 (id가 없거나 빈 문자열)
+      if (!eventData.id) {
+        setSelectedEvent(null);
+        setSelectedDate(eventData.start ? new Date(eventData.start) : new Date());
+        setSelectedEndDate(eventData.end ? new Date(eventData.end) : null);
+      } else {
+        // 기존 일정 수정
+        setSelectedEvent(eventData);
+        setSelectedDate(null);
+        setSelectedEndDate(null);
+      }
       setIsModalOpen(true);
     }, []);
 
@@ -103,10 +113,14 @@ const CalendarView = forwardRef<CalendarViewHandle, CalendarViewProps>(
     }
   }, [calendarRef, showToast]);
 
-  // 날짜 범위 변경 시 일정 새로고침
-  const handleDatesSet = useCallback(() => {
+  // 날짜 범위 변경 시 일정 새로고침 및 뷰 변경 알림
+  const handleDatesSet = useCallback((dateInfo: DatesSetArg) => {
     refreshEvents();
-  }, [refreshEvents]);
+    // view.currentStart를 사용 - FullCalendar의 title에 표시되는 기준 날짜
+    if (onViewChange && dateInfo.view.currentStart) {
+      onViewChange(dateInfo.view.currentStart);
+    }
+  }, [refreshEvents, onViewChange]);
 
     // 일정 클릭
     const handleEventClick = (clickInfo: EventClickArg) => {
@@ -211,20 +225,22 @@ const CalendarView = forwardRef<CalendarViewHandle, CalendarViewProps>(
 
     return (
       <div className="w-full">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-xl font-semibold text-gray-900">학사일정</h2>
-          <Button
-            variant="primary"
-            onClick={() => {
-              setSelectedDate(new Date());
-              setSelectedEndDate(null);
-              setSelectedEvent(null);
-              setIsModalOpen(true);
-            }}
-          >
-            일정 추가
-          </Button>
-        </div>
+        {!hideAddButton && (
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-xl font-semibold text-gray-900">학사일정</h2>
+            <Button
+              variant="primary"
+              onClick={() => {
+                setSelectedDate(new Date());
+                setSelectedEndDate(null);
+                setSelectedEvent(null);
+                setIsModalOpen(true);
+              }}
+            >
+              일정 추가
+            </Button>
+          </div>
+        )}
 
         <div className="rounded-lg border border-gray-200 bg-white p-4">
           <FullCalendar

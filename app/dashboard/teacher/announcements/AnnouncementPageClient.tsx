@@ -47,7 +47,7 @@ export function AnnouncementPageClient({
 
   return (
     <div className="space-y-6">
-      <div className="border-4 border-dashed border-gray-200 rounded-lg p-8 bg-white space-y-6">
+      <header className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm space-y-4">
         <AnnouncementHeader 
           title={title} 
           description={description} 
@@ -64,7 +64,7 @@ export function AnnouncementPageClient({
           editId={editId}
           restrictedAudience={audience}
         />
-      </div>
+      </header>
       
       <div className="rounded-lg border border-gray-200 bg-white p-6">
         <h2 className="text-lg font-semibold text-gray-900 mb-4">안내문 목록</h2>
