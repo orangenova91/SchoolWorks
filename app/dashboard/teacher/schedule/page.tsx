@@ -86,16 +86,11 @@ export default async function TeacherSchedulePage() {
 
   return (
     <div className="space-y-6">
-      <div className="border-4 border-dashed border-gray-200 rounded-lg p-8 bg-white">
-        <header>
-          <h1 className="text-2xl font-bold text-gray-900">{t.dashboard.teacherScheduleTitle}</h1>
-          <p className="mt-2 text-sm text-gray-600">
-            학교 운영(창의적 체험활동 포함) 및 개인 일정을 확인하고 관리할 수 있습니다.
-          </p>
-        </header>
-      </div>
-
-      <TeacherScheduleClient initialEvents={formattedEvents} />
+      <TeacherScheduleClient 
+        initialEvents={formattedEvents}
+        title={t.dashboard.teacherScheduleTitle}
+        description="학교 운영(창의적 체험활동 포함) 및 개인 일정을 확인하고 관리할 수 있습니다."
+      />
     </div>
   );
 }

@@ -76,6 +76,12 @@ export default async function DashboardLayout({
             iconName: "Calendar"
           },
           {
+            href: "/dashboard/teacher/staff-announcements",
+            label: "교직원 게시판",
+            icon: <FileText className="w-5 h-5" />,
+            iconName: "FileText"
+          },
+          {
             href: "/dashboard/teacher/manage-classes",
             label: t.sidebar.teacher.manageClasses,
             icon: <BookOpen className="w-5 h-5" />,
@@ -98,12 +104,6 @@ export default async function DashboardLayout({
             label: t.sidebar.teacher.announcements,
             icon: <Newspaper className="w-5 h-5" />,
             iconName: "Newspaper"
-          },
-          {
-            href: "/dashboard/teacher/staff-announcements",
-            label: "교직원 게시판",
-            icon: <FileText className="w-5 h-5" />,
-            iconName: "FileText"
           },
           {
             href: "/dashboard/teacher/students",

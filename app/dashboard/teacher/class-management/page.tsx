@@ -7,6 +7,7 @@ import { getTranslations } from "@/lib/i18n";
 import CourseTabs from "@/components/dashboard/CourseTabs";
 import StudentListTable from "@/components/dashboard/StudentListTable";
 import WeeklyAttendanceTable from "@/components/dashboard/WeeklyAttendanceTable";
+import UpdateHomeroomModalButton from "@/components/dashboard/UpdateHomeroomModalButton";
 
 export default async function ClassManagementPage() {
   const session = await getServerSession(authOptions);
@@ -117,18 +118,13 @@ export default async function ClassManagementPage() {
     });
   }
 
-  // 담임반 정보 칩 생성
+  // 담임반 정보 칩 생성 (classLabel 제외)
   const infoChips = [
     teacherProfile?.grade?.trim() ? `${teacherProfile.grade.trim()}학년` : null,
-    teacherProfile?.classLabel?.trim()
-      ? `${teacherProfile.classLabel.trim()}학반`
-      : null,
     teacherProfile?.section?.trim() ? teacherProfile.section.trim() : null,
   ].filter(Boolean) as string[];
 
-  const homeroomTitle = teacherProfile?.grade && teacherProfile?.classLabel
-    ? `${teacherProfile.grade}학년 ${teacherProfile.classLabel}학반`
-    : "담임반 관리";
+  const homeroomTitle = "담임반 관리";
 
   return (
     <div className="space-y-6">
@@ -145,9 +141,16 @@ export default async function ClassManagementPage() {
             ))}
           </div>
         )}
-        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div className="flex items-start justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">{homeroomTitle}</h1>
+            <div className="flex items-center gap-3">
+              <h1 className="text-2xl font-bold text-gray-900">{homeroomTitle}</h1>
+              {teacherProfile?.classLabel?.trim() && (
+                <span className="inline-flex items-center rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700">
+                  {teacherProfile.classLabel.trim()}학반
+                </span>
+              )}
+            </div>
             <p className="text-sm text-gray-600 mt-1">
               {teacherProfile?.school || "학교 정보 없음"}
             </p>
@@ -159,6 +162,7 @@ export default async function ClassManagementPage() {
               </div>
             )}
           </div>
+          <UpdateHomeroomModalButton initialClassLabel={teacherProfile?.classLabel} />
         </div>
       </header>
 
