@@ -4,9 +4,21 @@
 }
 
 .fc-toolbar-title {
-  font-size: 1.5rem !important; /* 9px - 현재 크기의 절반 */
+  font-size: 0 !important;
   font-weight: 600;
-  color: #111827; /* text-gray-900 - 진한 색상 */
+  color: transparent;
+}
+
+.fc-title-year {
+  font-size: 1rem;
+  font-weight: 500;
+  color: #111827;
+}
+
+.fc-title-rest {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #111827;
 }
 
 .fc-button {
@@ -84,7 +96,7 @@
 }
 
 .fc-day-today {
-  background-color: #eff6ff !important;
+  background-color: #e0eeff !important; /* #eff6ff -> #e0eeff */
 }
 
 .fc-daygrid-day-frame {

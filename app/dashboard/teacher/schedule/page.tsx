@@ -52,6 +52,9 @@ export default async function TeacherSchedulePage() {
     courseId: string | null;
     department: string | null;
     responsiblePerson: string | null;
+    scheduleArea: string | null;
+    gradeLevels: string[];
+    periods: string[];
   }>;
 
   // FullCalendar 형식으로 변환
@@ -67,6 +70,9 @@ export default async function TeacherSchedulePage() {
     courseId: string | null;
     department: string | null;
     responsiblePerson: string | null;
+    scheduleArea: string | null;
+    gradeLevels: string[];
+    periods: string[];
   }) => ({
     id: event.id,
     title: event.title,
@@ -81,6 +87,9 @@ export default async function TeacherSchedulePage() {
       courseId: event.courseId || undefined,
       department: event.department || undefined,
       responsiblePerson: event.responsiblePerson || undefined,
+      scheduleArea: event.scheduleArea || undefined,
+      gradeLevels: event.gradeLevels || [],
+      periods: event.periods || [],
     },
   }));
 

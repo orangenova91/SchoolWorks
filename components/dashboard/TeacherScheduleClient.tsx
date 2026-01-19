@@ -20,6 +20,7 @@ export default function TeacherScheduleClient({ initialEvents, title, descriptio
   const today = new Date();
   // 현재 캘린더 뷰에 표시되는 날짜 (기본값: 오늘)
   const [viewDate, setViewDate] = useState<Date>(today);
+  const [viewType, setViewType] = useState<string>("dayGridMonth");
 
   const handleAddEvent = useCallback(() => {
     if (calendarRef.current) {
@@ -65,14 +66,29 @@ export default function TeacherScheduleClient({ initialEvents, title, descriptio
   }, []);
 
   // 캘린더 뷰 변경 시 호출되는 콜백
-  const handleViewChange = useCallback((date: Date) => {
+  const handleViewChange = useCallback((date: Date, nextViewType: string) => {
     setViewDate(date);
+    setViewType(nextViewType);
   }, []);
 
-  // 현재 캘린더 뷰에 표시되는 월의 이벤트 필터링
+  // 현재 캘린더 뷰에 표시되는 기간의 이벤트 필터링
   const currentMonthEvents = useMemo<CalendarEventWithDate[]>(() => {
     const viewMonthStart = new Date(viewDate.getFullYear(), viewDate.getMonth(), 1);
     const nextMonthStart = new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 1);
+
+    const semesterStart =
+      viewType === "semester1"
+        ? new Date(viewDate.getFullYear(), 2, 1) // Mar 1
+        : viewType === "semester2"
+          ? new Date(viewDate.getFullYear(), 7, 1) // Aug 1
+          : viewMonthStart;
+
+    const semesterEnd =
+      viewType === "semester1"
+        ? new Date(viewDate.getFullYear(), 7, 1) // Aug 1
+        : viewType === "semester2"
+          ? new Date(viewDate.getFullYear() + 1, 2, 1) // Mar 1 next year
+          : nextMonthStart;
 
     return events
       .map<CalendarEventWithDate>((event) => ({
@@ -80,11 +96,10 @@ export default function TeacherScheduleClient({ initialEvents, title, descriptio
         startDate: new Date(event.start),
       }))
       .filter(
-        (event) =>
-          event.startDate >= viewMonthStart && event.startDate < nextMonthStart
+        (event) => event.startDate >= semesterStart && event.startDate < semesterEnd
       )
       .sort((a, b) => a.startDate.getTime() - b.startDate.getTime());
-  }, [events, viewDate]);
+  }, [events, viewDate, viewType]);
 
   const formatDate = useCallback(
     (date: Date) =>
@@ -110,7 +125,7 @@ export default function TeacherScheduleClient({ initialEvents, title, descriptio
         </div>
       </header>
 
-      <div className="flex flex-col gap-6 lg:flex-row">
+      <div className="flex flex-col gap-6 lg:flex-row items-stretch">
         <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm w-full lg:w-1/2">
           <CalendarView
             ref={calendarRef}
@@ -121,14 +136,19 @@ export default function TeacherScheduleClient({ initialEvents, title, descriptio
           />
         </div>
 
-        <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm w-full lg:flex-1">
+        <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm w-full lg:flex-1 flex flex-col">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">
-            {viewDate.getMonth() + 1}월 일정
+            {viewType === "semester1"
+              ? "1학기"
+              : viewType === "semester2"
+                ? "2학기"
+                : `${viewDate.getMonth() + 1}월`}{" "}
+            일정
           </h3>
           {currentMonthEvents.length === 0 ? (
             <p className="text-sm text-gray-500">이번 달 예정된 일정이 없습니다.</p>
           ) : (
-            <ul className="space-y-3 max-h-[480px] overflow-y-auto pr-2">
+            <ul className="space-y-3 flex-1 overflow-y-auto pr-2">
               {currentMonthEvents.map((event) => {
                 const { startDate, ...eventData } = event;
                 return (
@@ -145,18 +165,47 @@ export default function TeacherScheduleClient({ initialEvents, title, descriptio
                       }
                     }}
                   >
-                    <div className="flex items-center justify-between text-sm text-gray-600">
-                      <span>{formatDate(startDate)}</span>
-                      <span className="text-xs px-2 py-0.5 rounded-full bg-blue-50 text-blue-600">
-                        {event.extendedProps.eventType || "교과"}
+                    <div className="flex items-center gap-3 text-sm text-gray-600 min-w-0">
+                      {(() => {
+                        const eventType = event.extendedProps.eventType || "교과";
+                        const colors: Record<string, string> = {
+                          "자율*자치": "#dc2626",
+                          "동아리": "#2563eb",
+                          "진로": "#16a34a",
+                          "봉사": "#ca8a04",
+                          "개인 일정": "#0d9488",
+                        };
+                        const eventColor = eventType in colors ? colors[eventType] : "#6b7280";
+
+                        return (
+                          <>
+                      <span className="whitespace-nowrap w-[60px] shrink-0">{formatDate(startDate)}</span>
+                      <span className="text-xs text-gray-500 whitespace-nowrap min-w-[30px] shrink-0">
+                        {event.extendedProps.periods?.length
+                          ? `${event.extendedProps.periods.join(", ")}교시`
+                          : "-"}
                       </span>
+                      <span className="text-gray-900 font-medium flex-1 min-w-0 break-words">
+                        {event.title}
+                      </span>
+                      <span className="text-xs text-gray-500 truncate w-[70px] shrink-0 text-right">
+                        {event.extendedProps.department || "-"}
+                      </span>
+                      <span className="text-xs text-gray-500 whitespace-nowrap w-[70px] shrink-0 text-center">
+                        {event.extendedProps.gradeLevels?.length
+                          ? `${event.extendedProps.gradeLevels.join(", ")}학년`
+                          : "-"}
+                      </span>
+                      <span
+                        className="text-xs px-2 py-0.5 rounded-full whitespace-nowrap border w-[70px] shrink-0 text-center"
+                        style={{ backgroundColor: eventColor, borderColor: eventColor, color: "#ffffff" }}
+                      >
+                        {eventType}
+                      </span>
+                          </>
+                        );
+                      })()}
                     </div>
-                    <p className="mt-2 text-gray-900 font-medium">{event.title}</p>
-                    {event.extendedProps.department && (
-                      <p className="text-xs text-gray-500 mt-1">
-                        담당 부서: {event.extendedProps.department}
-                      </p>
-                    )}
                   </li>
                 );
               })}

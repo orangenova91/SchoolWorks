@@ -13,6 +13,7 @@ import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
 import interactionPlugin from "@fullcalendar/interaction";
+import multiMonthPlugin from "@fullcalendar/multimonth";
 import { EventClickArg, DateSelectArg, EventInput, DatesSetArg } from "@fullcalendar/core";
 import EventModal from "./EventModal";
 import { Button } from "@/components/ui/Button";
@@ -43,7 +44,7 @@ type CalendarViewProps = {
   initialEvents?: CalendarEvent[];
   onEventsChange?: (events: CalendarEvent[]) => void;
   hideAddButton?: boolean;
-  onViewChange?: (viewDate: Date) => void;
+  onViewChange?: (viewDate: Date, viewType: string) => void;
 };
 
 export type CalendarViewHandle = {
@@ -59,6 +60,7 @@ const CalendarView = forwardRef<CalendarViewHandle, CalendarViewProps>(
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedEndDate, setSelectedEndDate] = useState<Date | null>(null);
   const calendarRef = useRef<FullCalendar | null>(null);
+  const calendarContainerRef = useRef<HTMLDivElement | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [mounted, setMounted] = useState(false);
 
@@ -118,8 +120,22 @@ const CalendarView = forwardRef<CalendarViewHandle, CalendarViewProps>(
     refreshEvents();
     // view.currentStart를 사용 - FullCalendar의 title에 표시되는 기준 날짜
     if (onViewChange && dateInfo.view.currentStart) {
-      onViewChange(dateInfo.view.currentStart);
+      onViewChange(dateInfo.view.currentStart, dateInfo.view.type);
     }
+    requestAnimationFrame(() => {
+      const titleEl = calendarContainerRef.current?.querySelector(".fc-toolbar-title");
+      if (!titleEl) return;
+      const title = dateInfo.view.title;
+      const parts = title.split(/(\d{4}년)/g).filter(Boolean);
+      titleEl.textContent = "";
+      parts.forEach((part, index) => {
+        const span = document.createElement("span");
+        span.className = /^\d{4}년$/.test(part) ? "fc-title-year" : "fc-title-rest";
+        span.textContent = part;
+        span.dataset.key = String(index);
+        titleEl.append(span);
+      });
+    });
   }, [refreshEvents, onViewChange]);
 
     // 일정 클릭
@@ -185,6 +201,7 @@ const CalendarView = forwardRef<CalendarViewHandle, CalendarViewProps>(
       "동아리": "#2563eb", // blue
       "진로": "#16a34a", // green
       "봉사": "#ca8a04", // yellow
+      "개인 일정": "#0d9488", // teal
     };
     
     // eventType이 null인 경우 (교과 일정) 기본 색상 사용
@@ -223,7 +240,19 @@ const CalendarView = forwardRef<CalendarViewHandle, CalendarViewProps>(
     onEventsChange?.(events);
   }, [events, onEventsChange]);
 
-    return (
+  const getSemesterStartDate = (type: "first" | "second", baseDate: Date) => {
+    const year = baseDate.getFullYear();
+
+    if (type === "first") {
+      // 1학기: 3~7월 (항상 현재 연도 기준)
+      return new Date(year, 2, 1); // Mar 1
+    }
+
+    // 2학기: 8~다음해 2월 (항상 현재 연도 기준)
+    return new Date(year, 7, 1); // Aug 1
+  };
+
+  return (
       <div className="w-full">
         {!hideAddButton && (
           <div className="mb-4 flex items-center justify-between">
@@ -242,15 +271,49 @@ const CalendarView = forwardRef<CalendarViewHandle, CalendarViewProps>(
           </div>
         )}
 
-        <div className="rounded-lg border border-gray-200 bg-white p-4">
+        <div ref={calendarContainerRef} className="rounded-lg border border-gray-200 bg-white p-4">
           <FullCalendar
             ref={calendarRef}
-            plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
+            plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin, multiMonthPlugin]}
             initialView="dayGridMonth"
             headerToolbar={{
               left: "prev,next today",
               center: "title",
-              right: "dayGridMonth,timeGridWeek,timeGridDay",
+              right: "dayGridMonth,semester1,semester2",
+            }}
+            views={{
+              semester1: {
+                type: "multiMonth",
+                duration: { months: 5 },
+                multiMonthMaxColumns: 3,
+                multiMonthTitleFormat: { month: "long" },
+              },
+              semester2: {
+                type: "multiMonth",
+                duration: { months: 7 },
+                multiMonthMaxColumns: 3,
+                multiMonthTitleFormat: { month: "long" },
+              },
+            }}
+            customButtons={{
+              semester1: {
+                text: "1학기",
+                click: () => {
+                  if (!calendarRef.current) return;
+                  const calendarApi = calendarRef.current.getApi();
+                  const startDate = getSemesterStartDate("first", calendarApi.getDate());
+                  calendarApi.changeView("semester1", startDate);
+                },
+              },
+              semester2: {
+                text: "2학기",
+                click: () => {
+                  if (!calendarRef.current) return;
+                  const calendarApi = calendarRef.current.getApi();
+                  const startDate = getSemesterStartDate("second", calendarApi.getDate());
+                  calendarApi.changeView("semester2", startDate);
+                },
+              },
             }}
             locale="ko"
             editable={true}

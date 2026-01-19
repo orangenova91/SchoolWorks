@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Button } from "@/components/ui/Button";
 import { useToastContext } from "@/components/providers/ToastProvider";
+import type { CalendarEvent as CalendarViewEvent } from "./CalendarView";
 
 const PERIOD_VALUES = ["1", "2", "3", "4", "5", "6", "7", "8", "9"] as const;
 const GRADE_VALUES = ["1", "2", "3"] as const;
@@ -23,13 +24,13 @@ const eventFormSchema = z.object({
   endTime: z.string().optional(),
   eventType: z.preprocess(
     (val) => val === "" ? undefined : val,
-    z.enum(["자율*자치", "동아리", "진로", "봉사", "학사행사", "개인 일정"]).optional()
+    z.enum(["자율*자치", "동아리", "진로", "봉사", "학사행사", "개인 일정", "기타 행사"]).optional()
   ),
   scope: z.enum(["school", "personal"]).default("school"),
   allDay: z.boolean().default(true),
   department: z.string().trim().max(100, "담당 부서는 100자 이하여야 합니다").optional(),
   responsiblePerson: z.string().trim().max(100, "담당자는 100자 이하여야 합니다").optional(),
-  scheduleArea: z.enum(["창의적 체험활동", "교과", "개인일정(나만 보기)"], {
+  scheduleArea: z.enum(["창의적 체험활동", "교과", "기타", "개인일정(나만 보기)"], {
     required_error: "일정 영역을 선택하세요",
   }).optional(),
   gradeLevels: z.array(z.enum(GRADE_VALUES)).optional(),
@@ -47,25 +48,11 @@ const eventFormSchema = z.object({
 
 type EventFormValues = z.infer<typeof eventFormSchema>;
 
-interface CalendarEvent {
-  id: string;
-  title: string;
-  description?: string;
-  start: string;
-  end?: string | null;
-  allDay: boolean;
-  extendedProps: {
-    eventType: string;
-    scope: string;
-    school?: string;
-    courseId?: string;
-    department?: string;
-    responsiblePerson?: string;
+type CalendarEvent = CalendarViewEvent & {
+  extendedProps: CalendarViewEvent["extendedProps"] & {
     scheduleArea?: string;
-    gradeLevels?: string[];
-    periods?: string[];
   };
-}
+};
 
 type EventModalProps = {
   isOpen: boolean;
@@ -211,6 +198,8 @@ export default function EventModal({
       setValue("eventType", "학사행사" as any);
     } else if (scheduleArea === "개인일정(나만 보기)") {
       setValue("eventType", "개인 일정" as any);
+    } else if (scheduleArea === "기타") {
+      setValue("eventType", "기타 행사" as any);
     }
   }, [scheduleArea, setValue]);
 
@@ -305,12 +294,13 @@ export default function EventModal({
     { value: "봉사", label: "봉사" },
     { value: "학사행사", label: "학사행사" },
     { value: "개인 일정", label: "개인 일정" },
+    { value: "기타 행사", label: "기타 행사" },
   ];
 
-  // 일정 구분이 '창의적 체험활동'일 때는 '학사행사'와 '개인 일정' 옵션 제외
+  // 일정 구분이 '창의적 체험활동'일 때는 '학사행사'와 '개인 일정', "기타 행사" 옵션 제외
   const eventTypeOptions = scheduleArea === "창의적 체험활동"
     ? allEventTypeOptions.filter(
-        (option) => option.value !== "학사행사" && option.value !== "개인 일정"
+        (option) => option.value !== "학사행사" && option.value !== "개인 일정" && option.value !== "기타 행사"
       )
     : allEventTypeOptions;
 
@@ -322,6 +312,7 @@ export default function EventModal({
   const scheduleAreaOptions = [
     { value: "창의적 체험활동", label: "창의적 체험활동" },
     { value: "교과", label: "교과" },
+    { value: "기타", label: "기타" },
     { value: "개인일정(나만 보기)", label: "개인일정(나만 보기)" },
   ];
 
@@ -378,7 +369,8 @@ export default function EventModal({
               disabled={
                 !hasScheduleArea ||
                 scheduleArea === "교과" ||
-                scheduleArea === "개인일정(나만 보기)"
+                scheduleArea === "개인일정(나만 보기)" ||
+                scheduleArea === "기타"
               }
             />
           </div>
@@ -518,7 +510,7 @@ export default function EventModal({
             {event && onDeleted && (
               <Button
                 type="button"
-                variant="outline"
+                variant="danger"
                 onClick={handleDelete}
                 isLoading={isDeleting}
               >
