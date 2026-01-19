@@ -45,6 +45,8 @@ type CalendarViewProps = {
   onEventsChange?: (events: CalendarEvent[]) => void;
   hideAddButton?: boolean;
   onViewChange?: (viewDate: Date, viewType: string) => void;
+  allowedScheduleAreas?: string[];
+  editableScopes?: string[];
 };
 
 export type CalendarViewHandle = {
@@ -52,7 +54,17 @@ export type CalendarViewHandle = {
 };
 
 const CalendarView = forwardRef<CalendarViewHandle, CalendarViewProps>(
-  ({ initialEvents = [], onEventsChange, hideAddButton = false, onViewChange }, ref) => {
+  (
+    {
+      initialEvents = [],
+      onEventsChange,
+      hideAddButton = false,
+      onViewChange,
+      allowedScheduleAreas,
+      editableScopes,
+    },
+    ref
+  ) => {
   const { showToast } = useToastContext();
   const [events, setEvents] = useState<CalendarEvent[]>(initialEvents);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -346,6 +358,8 @@ const CalendarView = forwardRef<CalendarViewHandle, CalendarViewProps>(
             selectedEndDate={selectedEndDate}
             onSaved={handleEventSaved}
             onDeleted={handleEventDeleted}
+            allowedScheduleAreas={allowedScheduleAreas}
+            editableScopes={editableScopes}
           />,
           document.body
         )}

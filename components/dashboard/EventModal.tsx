@@ -62,6 +62,8 @@ type EventModalProps = {
   selectedEndDate?: Date | null;
   onSaved: () => void;
   onDeleted?: () => void;
+  allowedScheduleAreas?: string[];
+  editableScopes?: string[];
 };
 
 export default function EventModal({
@@ -72,6 +74,8 @@ export default function EventModal({
   selectedEndDate,
   onSaved,
   onDeleted,
+  allowedScheduleAreas,
+  editableScopes,
 }: EventModalProps) {
   const { showToast } = useToastContext();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -108,6 +112,9 @@ export default function EventModal({
   const scope = watch("scope");
   const scheduleArea = watch("scheduleArea");
   const hasScheduleArea = Boolean(scheduleArea);
+  const isReadOnlyEvent = Boolean(
+    event && editableScopes?.length && !editableScopes.includes(event.extendedProps.scope)
+  );
 
   // ESC key to close modal
   useEffect(() => {
@@ -165,6 +172,11 @@ export default function EventModal({
       const startDateStr = formatLocalDate(selectedDate);
       const endDateStr = selectedEndDate ? formatLocalDate(selectedEndDate) : "";
 
+      const defaultScheduleArea =
+        allowedScheduleAreas?.length === 1 ? allowedScheduleAreas[0] : "";
+      const defaultScope =
+        defaultScheduleArea === "개인일정(나만 보기)" ? "personal" : "school";
+
       reset({
         title: "",
         description: "",
@@ -173,16 +185,16 @@ export default function EventModal({
         endDate: endDateStr,
         endTime: "",
         eventType: "" as any,
-        scope: "school" as any,
+        scope: defaultScope as any,
         allDay: true,
         department: "",
         responsiblePerson: "",
-        scheduleArea: "" as any,
+        scheduleArea: defaultScheduleArea as any,
         gradeLevels: [] as GradeValue[],
         periods: [] as PeriodValue[],
       });
     }
-  }, [event, selectedDate, selectedEndDate, reset]);
+  }, [event, selectedDate, selectedEndDate, reset, allowedScheduleAreas]);
 
   // 종일 여부 변경 시 시간 필드 초기화
   useEffect(() => {
@@ -204,6 +216,10 @@ export default function EventModal({
   }, [scheduleArea, setValue]);
 
   const onSubmit = async (values: EventFormValues) => {
+    if (isReadOnlyEvent) {
+      showToast("학교 일정은 수정할 수 없습니다.", "error");
+      return;
+    }
     setIsSubmitting(true);
     try {
       // 날짜/시간 결합
@@ -316,6 +332,13 @@ export default function EventModal({
     { value: "개인일정(나만 보기)", label: "개인일정(나만 보기)" },
   ];
 
+  const filteredScheduleAreaOptions =
+    !event && allowedScheduleAreas?.length
+      ? scheduleAreaOptions.filter((option) =>
+          allowedScheduleAreas.includes(option.value)
+        )
+      : scheduleAreaOptions;
+
   return (
     <div
       className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 px-4 py-8 sm:py-8"
@@ -355,9 +378,10 @@ export default function EventModal({
             <Select
               {...register("scheduleArea")}
               label="일정 구분"
-              options={scheduleAreaOptions}
+              options={filteredScheduleAreaOptions}
               error={errors.scheduleArea?.message}
               placeholder="선택"
+              disabled={isReadOnlyEvent}
             />
             <Select
               {...register("eventType")}
@@ -367,6 +391,7 @@ export default function EventModal({
               required={scheduleArea !== "교과" && hasScheduleArea}
               placeholder="선택"
               disabled={
+                isReadOnlyEvent ||
                 !hasScheduleArea ||
                 scheduleArea === "교과" ||
                 scheduleArea === "개인일정(나만 보기)" ||
@@ -381,12 +406,14 @@ export default function EventModal({
               label="담당 부서"
               placeholder="예: 교무부, 학생부 등"
               error={errors.department?.message}
+              disabled={isReadOnlyEvent}
             />
             <Input
               {...register("responsiblePerson")}
               label="담당자"
               placeholder="담당자 이름을 입력하세요"
               error={errors.responsiblePerson?.message}
+              disabled={isReadOnlyEvent}
             />
           </div>
 
@@ -402,6 +429,7 @@ export default function EventModal({
                       value={grade}
                       {...register("gradeLevels")}
                       className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      disabled={isReadOnlyEvent}
                     />
                   </label>
                 ))}
@@ -426,6 +454,7 @@ export default function EventModal({
                       value={period}
                       {...register("periods")}
                       className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      disabled={isReadOnlyEvent}
                     />
                   </label>
                 ))}
@@ -446,6 +475,7 @@ export default function EventModal({
                 type="checkbox"
                 {...register("allDay")}
                 className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                disabled={isReadOnlyEvent}
               />
               <span className="text-sm font-medium text-gray-700">종일</span>
             </label>
@@ -459,6 +489,7 @@ export default function EventModal({
                 type="date"
                 error={errors.startDate?.message}
                 required
+                disabled={isReadOnlyEvent}
               />
               {!allDay && (
                 <Input
@@ -467,6 +498,7 @@ export default function EventModal({
                   type="time"
                   error={errors.startTime?.message}
                   className="mt-2"
+                  disabled={isReadOnlyEvent}
                 />
               )}
             </div>
@@ -476,6 +508,7 @@ export default function EventModal({
                 label="종료 날짜 (선택)"
                 type="date"
                 error={errors.endDate?.message}
+                disabled={isReadOnlyEvent}
               />
               {!allDay && (
                 <Input
@@ -484,6 +517,7 @@ export default function EventModal({
                   type="time"
                   error={errors.endTime?.message}
                   className="mt-2"
+                  disabled={isReadOnlyEvent}
                 />
               )}
             </div>
@@ -498,6 +532,7 @@ export default function EventModal({
               rows={3}
               className="flex w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 ring-offset-white placeholder:text-gray-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
               placeholder="일정에 대한 설명을 입력하세요"
+              disabled={isReadOnlyEvent}
             />
             {errors.description && (
               <p className="mt-1 text-sm text-red-600" role="alert">
@@ -507,7 +542,7 @@ export default function EventModal({
           </div>
 
           <div className="flex items-center justify-between pt-4 border-t border-gray-200">
-            {event && onDeleted && (
+            {event && onDeleted && !isReadOnlyEvent && (
               <Button
                 type="button"
                 variant="danger"
@@ -517,13 +552,20 @@ export default function EventModal({
                 삭제
               </Button>
             )}
-            <div className="flex gap-3 ml-auto">
+            <div className="flex gap-3 ml-auto items-center">
+              {isReadOnlyEvent && (
+                <span className="text-sm text-gray-500 mr-2">
+                  학교 일정은 수정/삭제할 수 없습니다.
+                </span>
+              )}
               <Button type="button" variant="outline" onClick={onClose}>
                 취소
               </Button>
-              <Button type="submit" isLoading={isSubmitting}>
-                {event ? "수정" : "추가"}
-              </Button>
+              {!isReadOnlyEvent && (
+                <Button type="submit" isLoading={isSubmitting}>
+                  {event ? "수정" : "추가"}
+                </Button>
+              )}
             </div>
           </div>
         </form>
