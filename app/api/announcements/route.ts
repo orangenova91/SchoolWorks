@@ -248,6 +248,8 @@ export async function GET(request: NextRequest) {
 
     // 기본 조회 조건
     const where: any = {};
+    let studentGrade: string | null = null;
+    let studentClassNumber: string | null = null;
 
     // 발행된 공지사항만 조회 (예약 포함 여부에 따라)
     if (!includeScheduled) {
@@ -270,10 +272,30 @@ export async function GET(request: NextRequest) {
       // 사용자 역할에 따른 기본 필터
       if (session.user.role === "student") {
         // 학생은 자신의 학년과 전체 대상만 볼 수 있음
-        // TODO: 학생의 학년 정보를 StudentProfile에서 가져와야 함
+        const studentProfile = await prisma.studentProfile.findUnique({
+          where: { userId: session.user.id },
+          select: { grade: true, classLabel: true, section: true },
+        });
+        studentGrade = studentProfile?.grade?.trim() || null;
+        const gradeAudience = studentGrade ? `grade-${studentGrade}` : null;
+
+        const sectionValue = studentProfile?.section?.trim() || null;
+        let classNumber = sectionValue || null;
+        if (!classNumber) {
+          const classLabel = studentProfile?.classLabel?.trim() || "";
+          const match = classLabel.match(/(\d+)\s*[-학년\s]*(\d+)\s*반?/);
+          if (match) {
+            if (!studentGrade) {
+              studentGrade = match[1];
+            }
+            classNumber = match[2];
+          }
+        }
+        studentClassNumber = classNumber ? classNumber.replace(/^0+/, "") : null;
+
         where.OR = [
           { audience: "all" },
-          // { audience: `grade-${studentGrade}` }, // 실제 구현 시 추가
+          ...(gradeAudience ? [{ audience: gradeAudience }] : []),
         ];
       } else if (session.user.role === "teacher") {
         // 교사는 일반 안내문만 조회 가능 (교직원 게시판 제외)
@@ -315,13 +337,35 @@ export async function GET(request: NextRequest) {
     });
 
     // 전체 데이터 가져오기 (전체 개수만큼 명시적으로 가져오기)
-    const announcements = await (prisma as any).announcement.findMany({
+    let announcements = await (prisma as any).announcement.findMany({
       where,
       orderBy: [
         { createdAt: "desc" },
       ],
       take: totalCount > 0 ? totalCount : undefined, // 전체 개수만큼 가져오기
     });
+
+    // 학생의 학반 단위 필터링 (selectedClasses가 있는 경우에만 적용)
+    if (session.user.role === "student") {
+      const normalizeNumber = (value: string) => value.trim().replace(/^0+/, "");
+      announcements = announcements.filter((announcement: any) => {
+        if (!announcement.selectedClasses) return true;
+        if (!studentGrade || !studentClassNumber) return false;
+        try {
+          const selected = JSON.parse(announcement.selectedClasses) as Array<{
+            grade: string;
+            classNumber: string;
+          }>;
+          return selected.some((cls) =>
+            normalizeNumber(cls.grade) === normalizeNumber(studentGrade) &&
+            normalizeNumber(cls.classNumber) === normalizeNumber(studentClassNumber)
+          );
+        } catch (error) {
+          console.error("Error parsing selectedClasses:", error);
+          return false;
+        }
+      });
+    }
 
     // 클라이언트 측에서 정렬: publishedAt 우선, 없으면 publishAt, 없으면 createdAt
     announcements.sort((a: any, b: any) => {

@@ -9,11 +9,21 @@ type TeacherScheduleClientProps = {
   initialEvents: CalendarEvent[];
   title: string;
   description: string;
+  allowedScheduleAreas?: string[];
+  editableScopes?: string[];
+  showAddButton?: boolean;
 };
 
 type CalendarEventWithDate = CalendarEvent & { startDate: Date };
 
-export default function TeacherScheduleClient({ initialEvents, title, description }: TeacherScheduleClientProps) {
+export default function TeacherScheduleClient({
+  initialEvents,
+  title,
+  description,
+  allowedScheduleAreas,
+  editableScopes,
+  showAddButton = true,
+}: TeacherScheduleClientProps) {
   const [events, setEvents] = useState<CalendarEvent[]>(initialEvents);
   const calendarRef = useRef<CalendarViewHandle>(null);
   const router = useRouter();
@@ -119,9 +129,11 @@ export default function TeacherScheduleClient({ initialEvents, title, descriptio
             <h1 className="text-2xl font-bold text-gray-900">{title}</h1>
             <p className="mt-2 text-sm text-gray-600">{description}</p>
           </div>
-          <Button onClick={handleAddEvent}>
-            일정 추가
-          </Button>
+          {showAddButton && (
+            <Button onClick={handleAddEvent}>
+              일정 추가
+            </Button>
+          )}
         </div>
       </header>
 
@@ -133,6 +145,8 @@ export default function TeacherScheduleClient({ initialEvents, title, descriptio
             onEventsChange={handleEventsChange}
             hideAddButton={true}
             onViewChange={handleViewChange}
+            allowedScheduleAreas={allowedScheduleAreas}
+            editableScopes={editableScopes}
           />
         </div>
 
