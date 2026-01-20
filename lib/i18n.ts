@@ -6,7 +6,7 @@ export const defaultLocale: Locale = "ko";
 export const translations = {
   ko: {
     app: {
-      version: "Ver.30.0.0",
+      version: "Ver.30.0.1",
     },
     auth: {
       login: "로그인",
@@ -111,6 +111,8 @@ export const translations = {
       studentScheduleEmpty: "오늘 예정된 수업이 없습니다. 자유 시간을 계획해보세요.",
       studentAssignmentsTitle: "마감 임박 자료",
       studentAssignmentsEmpty: "확인해야 할 자료가 없습니다. 수고하셨어요!",
+      studentClassroomTitle: "강의실",
+      studentClassroomDescription: "수업 자료와 진행 중인 강의를 확인하세요.",
       studentAnnouncementsTitle: "최근 공지",
       missingRoleTitle: "역할 정보가 필요합니다",
       missingRoleDescription:
@@ -128,6 +130,7 @@ export const translations = {
       student: {
         overview: "대시보드 홈",
         todaysSchedule: "학사일정",
+        classroom: "강의실",
         assignments: "자료 확인",
         announcements: "가정 안내문",
         support: "문의하기",
@@ -136,7 +139,7 @@ export const translations = {
   },
   en: {
     app: {
-      version: "Ver.30.0.0",
+      version: "Ver.30.0.1",
     },
     auth: {
       login: "Login",
@@ -243,6 +246,8 @@ export const translations = {
       studentAssignmentsTitle: "Approaching Deadlines",
       studentAssignmentsEmpty:
         "You have no pending assignments. Great job!",
+      studentClassroomTitle: "Classroom",
+      studentClassroomDescription: "Check course materials and active classes.",
       studentAnnouncementsTitle: "Latest Announcements",
       missingRoleTitle: "Role information required",
       missingRoleDescription:
@@ -260,6 +265,7 @@ export const translations = {
       student: {
         overview: "Overview",
         todaysSchedule: "Academic Calendar",
+        classroom: "Classroom",
         assignments: "Assignments",
         announcements: "Family Notices",
         support: "Support",

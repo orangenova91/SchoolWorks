@@ -134,6 +134,12 @@ export default async function DashboardLayout({
             iconName: "Calendar"
           },
           {
+            href: "/dashboard/student/classroom",
+            label: t.sidebar.student.classroom,
+            icon: <BookOpen className="w-5 h-5" />,
+            iconName: "BookOpen"
+          },
+          {
             href: "/dashboard/student/assignments",
             label: t.sidebar.student.assignments,
             icon: <FileText className="w-5 h-5" />,
