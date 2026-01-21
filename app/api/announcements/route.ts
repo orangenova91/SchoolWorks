@@ -38,6 +38,7 @@ const createAnnouncementSchema = z.object({
   title: z.string().trim().min(1, "제목을 입력하세요").max(200, "제목은 200자 이하여야 합니다"),
   category: z.string().optional(),
   content: z.string().trim().min(1, "본문을 입력하세요"),
+  courseId: z.string().trim().optional(),
   audience: z.enum(AUDIENCE_VALUES),
   author: z.string().trim().min(1, "작성자를 입력하세요"),
   isScheduled: z.boolean().default(false),
@@ -158,6 +159,7 @@ export async function POST(request: NextRequest) {
         title: validatedData.title,
         category: validatedData.category || null,
         content: validatedData.content,
+        courseId: validatedData.courseId || null,
         audience: validatedData.audience,
         author: validatedData.author,
         authorId: session.user.id,
@@ -217,6 +219,11 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "인증이 필요합니다." }, { status: 401 });
     }
 
+    const { searchParams } = new URL(request.url);
+    const audience = searchParams.get("audience");
+    const courseId = searchParams.get("courseId");
+    const includeScheduled = searchParams.get("includeScheduled") === "true";
+
     // 예약된 공지사항 중 발행 시간이 지난 항목 자동 발행
     const now = new Date();
     const scheduledAnnouncements = await (prisma as any).announcement.findMany({
@@ -224,6 +231,7 @@ export async function GET(request: NextRequest) {
         isScheduled: true,
         publishAt: { lte: now }, // publishAt이 현재 시간보다 이전이거나 같음
         publishedAt: null, // 아직 발행되지 않음
+        ...(courseId ? { courseId } : {}),
         ...(session.user.school ? { school: session.user.school } : {}), // 같은 학교의 공지사항만
       },
     });
@@ -242,10 +250,6 @@ export async function GET(request: NextRequest) {
       console.log(`Auto-published ${scheduledAnnouncements.length} scheduled announcements`);
     }
 
-    const { searchParams } = new URL(request.url);
-    const audience = searchParams.get("audience");
-    const includeScheduled = searchParams.get("includeScheduled") === "true";
-
     // 기본 조회 조건
     const where: any = {};
     let studentGrade: string | null = null;
@@ -254,6 +258,10 @@ export async function GET(request: NextRequest) {
     // 발행된 공지사항만 조회 (예약 포함 여부에 따라)
     if (!includeScheduled) {
       where.publishedAt = { not: null };
+    }
+
+    if (courseId) {
+      where.courseId = courseId;
     }
 
     // 학교 필터 (같은 학교의 공지사항만)

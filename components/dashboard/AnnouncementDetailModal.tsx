@@ -56,6 +56,7 @@ interface AnnouncementDetailModalProps {
   showEditButton?: boolean;
   showDeleteButton?: boolean;
   onDeleteConfirm?: (id: string) => void;
+  courseId?: string;
 }
 
 const audienceLabels: Record<string, string> = {
@@ -121,14 +122,17 @@ const isAllClassesSelected = (selectedClassesStr: string | null): boolean => {
 };
 
 // 대상 필드 텍스트 생성
-const getAudienceDisplayText = (announcement: Announcement): string => {
-  const baseLabel = audienceLabels[announcement.audience] || announcement.audience;
+const getAudienceDisplayText = (announcement: Announcement, isCourseContext: boolean): string => {
+  const baseLabel =
+    isCourseContext && announcement.audience === "all"
+      ? "수강생 전체"
+      : audienceLabels[announcement.audience] || announcement.audience;
   
   // 재학생과 학부모 텍스트 생성
   const getStudentText = (): string | null => {
     if (!announcement.selectedClasses) return null;
     if (isAllClassesSelected(announcement.selectedClasses)) {
-      return "모든 재학생";
+      return isCourseContext ? "수강생 전체" : "모든 재학생";
     }
     const selectedClassesText = formatSelectedClasses(announcement.selectedClasses);
     if (selectedClassesText) {
@@ -180,6 +184,7 @@ export function AnnouncementDetailModal({
   showEditButton,
   showDeleteButton,
   onDeleteConfirm,
+  courseId,
 }: AnnouncementDetailModalProps) {
   const { showToast } = useToastContext();
   const { data: session } = useSession();
@@ -274,7 +279,7 @@ export function AnnouncementDetailModal({
   const hasParents = announcement.parentSelectedClasses && 
     (isAllClassesSelected(announcement.parentSelectedClasses) || formatSelectedClasses(announcement.parentSelectedClasses));
   
-  const displayText = getAudienceDisplayText(announcement);
+  const displayText = getAudienceDisplayText(announcement, Boolean(courseId));
 
   const modalContent = (
     <div
@@ -379,7 +384,7 @@ export function AnnouncementDetailModal({
                 <>
                   {(() => {
                     const studentText = isAllClassesSelected(announcement.selectedClasses)
-                      ? "모든 재학생"
+                      ? (courseId ? "수강생 전체" : "모든 재학생")
                       : formatSelectedClasses(announcement.selectedClasses)
                         ? `재학생 (${formatSelectedClasses(announcement.selectedClasses)})`
                         : null;

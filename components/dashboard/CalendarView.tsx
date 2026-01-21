@@ -213,6 +213,7 @@ const CalendarView = forwardRef<CalendarViewHandle, CalendarViewProps>(
       "동아리": "#2563eb", // blue
       "진로": "#16a34a", // green
       "봉사": "#ca8a04", // yellow
+      "학사행사": "#9333ea", // purple
       "개인 일정": "#0d9488", // teal
     };
     

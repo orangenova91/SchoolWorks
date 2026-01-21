@@ -41,6 +41,7 @@ interface Announcement {
 interface AnnouncementListProps {
   includeScheduled?: boolean;
   audience?: string;
+  courseId?: string;
   refreshKey?: number;
   onEdit?: (id: string) => void;
   showEditButton?: boolean;
@@ -155,14 +156,17 @@ const isAllClassesSelected = (selectedClassesStr: string | null): boolean => {
 };
 
 // 대상 필드 텍스트 생성
-const getAudienceDisplayText = (announcement: Announcement): string => {
-  const baseLabel = audienceLabels[announcement.audience] || announcement.audience;
+const getAudienceDisplayText = (announcement: Announcement, isCourseContext: boolean): string => {
+  const baseLabel =
+    isCourseContext && announcement.audience === "all"
+      ? "수강생 전체"
+      : audienceLabels[announcement.audience] || announcement.audience;
   
   // 재학생과 학부모 텍스트 생성
   const getStudentText = (): string | null => {
     if (!announcement.selectedClasses) return null;
     if (isAllClassesSelected(announcement.selectedClasses)) {
-      return "모든 재학생";
+      return isCourseContext ? "수강생 전체" : "모든 재학생";
     }
     const selectedClassesText = formatSelectedClasses(announcement.selectedClasses);
     if (selectedClassesText) {
@@ -205,7 +209,7 @@ const getAudienceDisplayText = (announcement: Announcement): string => {
   return baseLabel;
 };
 
-export function AnnouncementList({ includeScheduled = false, audience, refreshKey, onEdit, showEditButton = false, onDelete, showDeleteButton = false }: AnnouncementListProps) {
+export function AnnouncementList({ includeScheduled = false, audience, courseId, refreshKey, onEdit, showEditButton = false, onDelete, showDeleteButton = false }: AnnouncementListProps) {
   const { data: session } = useSession();
   const { showToast } = useToastContext();
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
@@ -229,6 +233,9 @@ export function AnnouncementList({ includeScheduled = false, audience, refreshKe
       }
       if (audience) {
         params.append("audience", audience);
+      }
+      if (courseId) {
+        params.append("courseId", courseId);
       }
 
       const response = await fetch(`/api/announcements?${params.toString()}`);
@@ -576,12 +583,14 @@ export function AnnouncementList({ includeScheduled = false, audience, refreshKe
                     const hasParents = announcement.parentSelectedClasses && 
                       (isAllClassesSelected(announcement.parentSelectedClasses) || formatSelectedClasses(announcement.parentSelectedClasses));
                     
-                    const displayText = getAudienceDisplayText(announcement);
+                    const displayText = getAudienceDisplayText(announcement, Boolean(courseId));
                     
                     // 재학생과 학부모가 모두 있는 경우 두 개의 뱃지로 표시
                     if (hasStudents && hasParents) {
                       const studentText = (() => {
-                        if (isAllClassesSelected(announcement.selectedClasses)) return "모든 재학생";
+                        if (isAllClassesSelected(announcement.selectedClasses)) {
+                          return courseId ? "수강생 전체" : "모든 재학생";
+                        }
                         const text = formatSelectedClasses(announcement.selectedClasses);
                         return text ? `재학생 (${text})` : null;
                       })();
@@ -746,6 +755,7 @@ export function AnnouncementList({ includeScheduled = false, audience, refreshKe
         onDelete={onDelete}
         showEditButton={showEditButton}
         showDeleteButton={showDeleteButton}
+        courseId={courseId}
         onDeleteConfirm={async (id) => {
           await fetchAnnouncements();
           onDelete?.(id);

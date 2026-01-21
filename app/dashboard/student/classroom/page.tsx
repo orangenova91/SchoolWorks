@@ -1,4 +1,5 @@
 import { getServerSession } from "next-auth";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
 import { getTranslations } from "@/lib/i18n";
@@ -122,11 +123,9 @@ export default async function StudentClassroomPage() {
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {courseEntries.map(({ course, classGroups: groups }) => (
-                <article
-                  key={course.id}
-                  className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm flex flex-col justify-between"
-                >
-                  <div className="space-y-4">
+                <Link key={course.id} href={`/dashboard/student/classroom/${course.id}`}>
+                  <article className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm flex flex-col justify-between transition hover:border-indigo-200 hover:shadow-md">
+                    <div className="space-y-4">
                     <div className="space-y-1">
                       {(course.academicYear?.trim() || course.semester?.trim()) && (
                         <div className="flex items-center gap-2 text-[11px] text-gray-500">
@@ -220,10 +219,11 @@ export default async function StudentClassroomPage() {
                     )}
                   </div>
 
-                  <footer className="mt-4 text-xs text-gray-400">
-                    개설일 · {course.createdAt.toLocaleString("ko-KR")}
-                  </footer>
-                </article>
+                    <footer className="mt-4 text-xs text-gray-400">
+                      개설일 · {course.createdAt.toLocaleString("ko-KR")}
+                    </footer>
+                  </article>
+                </Link>
               ))}
             </div>
           )}

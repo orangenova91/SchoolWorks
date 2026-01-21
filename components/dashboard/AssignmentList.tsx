@@ -14,6 +14,7 @@ interface Assignment {
     fileSize: number | null;
     mimeType: string | null;
   }[];
+  viewCount?: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -31,7 +32,7 @@ export default function AssignmentList({ courseId, onEdit, onDelete }: Assignmen
   const [error, setError] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
-  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [selectedAssignment, setSelectedAssignment] = useState<Assignment | null>(null);
   const [query, setQuery] = useState("");
 
   const fetchAssignments = async () => {
@@ -59,24 +60,19 @@ export default function AssignmentList({ courseId, onEdit, onDelete }: Assignmen
   }, [courseId]);
 
 
-  // 메뉴 외부 클릭 시 닫기
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (openMenuId) {
-        const target = event.target as HTMLElement;
-        if (!target.closest(`[data-menu-id="${openMenuId}"]`)) {
-          setOpenMenuId(null);
-        }
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setSelectedAssignment(null);
       }
     };
-
-    if (openMenuId) {
-      document.addEventListener("mousedown", handleClickOutside);
+    if (selectedAssignment) {
+      document.addEventListener("keydown", handleEscape);
       return () => {
-        document.removeEventListener("mousedown", handleClickOutside);
+        document.removeEventListener("keydown", handleEscape);
       };
     }
-  }, [openMenuId]);
+  }, [selectedAssignment]);
 
   const formatFileSize = (bytes: number | null) => {
     if (!bytes) return "";
@@ -117,6 +113,25 @@ export default function AssignmentList({ courseId, onEdit, onDelete }: Assignmen
       showToast(message, "error");
     } finally {
       setDeletingId(null);
+    }
+  };
+
+  const handleIncrementView = async (assignmentId: string) => {
+    setAssignments((prev) =>
+      prev.map((assignment) =>
+        assignment.id === assignmentId
+          ? { ...assignment, viewCount: (assignment.viewCount ?? 0) + 1 }
+          : assignment
+      )
+    );
+
+    try {
+      await fetch(`/api/courses/${courseId}/assignments/${assignmentId}`, {
+        method: "PATCH",
+        keepalive: true,
+      });
+    } catch (err) {
+      console.error("Failed to increment view count:", err);
     }
   };
 
@@ -211,138 +226,189 @@ export default function AssignmentList({ courseId, onEdit, onDelete }: Assignmen
           </div>
         </div>
       )}
+      {selectedAssignment && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6"
+          role="dialog"
+          aria-modal="true"
+          onClick={() => setSelectedAssignment(null)}
+        >
+          <div
+            className="relative w-full max-w-2xl rounded-xl bg-white shadow-xl p-6"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h4 className="text-lg font-semibold text-gray-900">자료 상세</h4>
+              <button
+                type="button"
+                onClick={() => setSelectedAssignment(null)}
+                className="text-sm text-gray-500 hover:text-gray-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 rounded-md px-2 py-1"
+              >
+                닫기
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <span className="text-xs font-medium text-gray-500">제목</span>
+                <div className="mt-1 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-900">
+                  {selectedAssignment.title}
+                </div>
+              </div>
+              <div>
+                <span className="text-xs font-medium text-gray-500">설명</span>
+                <div className="mt-1 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-600 whitespace-pre-wrap">
+                  {selectedAssignment.description || "설명이 없습니다."}
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-5 grid gap-4 sm:grid-cols-3 text-xs text-gray-600">
+              <div>
+                <span className="font-medium text-gray-700">조회수</span>
+                <div className="mt-1">{selectedAssignment.viewCount ?? 0}</div>
+              </div>
+              <div>
+                <span className="font-medium text-gray-700">생성일</span>
+                <div className="mt-1">{formatDate(selectedAssignment.createdAt)}</div>
+              </div>
+              <div>
+                <span className="font-medium text-gray-700">수정일</span>
+                <div className="mt-1">
+                  {selectedAssignment.updatedAt !== selectedAssignment.createdAt
+                    ? formatDate(selectedAssignment.updatedAt)
+                    : "-"}
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-6">
+              <h4 className="text-sm font-semibold text-gray-900">첨부 파일</h4>
+              {(selectedAssignment.attachments?.length ?? 0) > 0 ? (
+                <ul className="mt-2 space-y-2 text-sm">
+                  {selectedAssignment.attachments?.map((att, index) => (
+                    <li
+                      key={`${att.originalFileName}-${index}`}
+                      className="flex items-center justify-between gap-3 rounded-md border border-gray-200 bg-gray-50 px-3 py-2"
+                    >
+                      <span className="truncate text-gray-700">
+                        {att.originalFileName}
+                        {att.fileSize ? ` (${formatFileSize(att.fileSize)})` : ""}
+                      </span>
+                      <Link
+                        href={att.filePath}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={() => handleIncrementView(selectedAssignment.id)}
+                        className="text-xs font-medium text-blue-600 hover:text-blue-700"
+                      >
+                        다운로드
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="mt-2 text-sm text-gray-500">첨부된 파일이 없습니다.</p>
+              )}
+            </div>
+
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  onEdit?.(selectedAssignment);
+                  setSelectedAssignment(null);
+                }}
+                className="rounded-md border border-blue-200 px-3 py-1.5 text-sm font-medium text-blue-700 hover:bg-blue-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+              >
+                수정
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedAssignment(null);
+                  setConfirmDeleteId(selectedAssignment.id);
+                }}
+                className="rounded-md border border-red-200 px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2"
+              >
+                삭제
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {filteredAssignments.length === 0 ? (
         <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 p-8 text-center text-sm text-gray-500">
           검색 결과가 없습니다.
         </div>
       ) : (
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {filteredAssignments.map((assignment) => (
-        <article
-          key={assignment.id}
-          className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm"
-        >
-          <div className="flex flex-col gap-4">
-            <header className="flex items-start justify-between gap-4">
-              <div className="flex-1">
-                <h3 className="text-lg font-semibold text-gray-900">
-                  {assignment.title}
-                </h3>
-                {assignment.description && (
-                  <p className="mt-2 text-sm text-gray-600 whitespace-pre-wrap">
-                    {assignment.description}
-                  </p>
-                )}
-              </div>
-              {/* 마감일 UI 제거 */}
-            </header>
-
-            {(assignment.attachments && assignment.attachments.length > 0) && (
-              <div className="space-y-2">
-                {assignment.attachments.map((att, idx) => (
-                  <div key={idx} className="flex items-center gap-3 rounded-lg border border-gray-200 bg-gray-50 p-3">
-                    <svg
-                      className="h-5 w-5 text-gray-400"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
+        <div className="rounded-xl border border-gray-200 bg-white">
+          <div className="overflow-x-auto overflow-y-visible">
+            <table className="min-w-full text-sm">
+              <thead className="bg-gray-50 text-gray-600">
+                <tr>
+                  <th className="px-4 py-3 text-left font-medium">번호</th>
+                  <th className="px-4 py-3 text-left font-medium w-[36%] min-w-[240px]">제목</th>
+                  <th className="px-4 py-3 text-left font-medium">첨부</th>
+                  <th className="px-4 py-3 text-left font-medium">조회수</th>
+                  <th className="px-4 py-3 text-left font-medium">생성일</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {filteredAssignments.map((assignment, index) => {
+                  const attachments = assignment.attachments ?? [];
+                  return (
+                    <tr
+                      key={assignment.id}
+                      className="hover:bg-gray-50 cursor-pointer"
+                      onClick={() => setSelectedAssignment(assignment)}
                     >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"
-                      />
-                    </svg>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-900 truncate">
-                        {att.originalFileName}
-                      </p>
-                      {att.fileSize && (
-                        <p className="text-xs text-gray-500">
-                          {formatFileSize(att.fileSize)}
-                        </p>
-                      )}
-                    </div>
-                    <Link
-                      href={att.filePath}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onClick={(e) => e.stopPropagation()}
-                      className="flex-shrink-0 rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
-                    >
-                      다운로드
-                    </Link>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            <footer className="flex items-center justify-between text-xs text-gray-500 border-t border-gray-100 pt-3">
-              <div className="flex items-center gap-4">
-                <span>생성일: {formatDate(assignment.createdAt)}</span>
-                {assignment.updatedAt !== assignment.createdAt && (
-                  <span>수정일: {formatDate(assignment.updatedAt)}</span>
-                )}
-              </div>
-              <div className="relative" data-menu-id={assignment.id}>
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setOpenMenuId(openMenuId === assignment.id ? null : assignment.id);
-                  }}
-                  className="p-1 text-gray-400 hover:text-gray-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 rounded"
-                  aria-label="메뉴 열기"
-                >
-                  <svg
-                    className="h-5 w-5"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"
-                    />
-                  </svg>
-                </button>
-                {openMenuId === assignment.id && (
-                  <div className="absolute right-0 bottom-full mb-2 w-32 rounded-md border border-gray-200 bg-white shadow-lg z-10">
-                    <div className="py-1">
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setOpenMenuId(null);
-                          onEdit?.(assignment);
-                        }}
-                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 focus:outline-none focus:bg-gray-100"
-                      >
-                        수정
-                      </button>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setOpenMenuId(null);
-                          setConfirmDeleteId(assignment.id);
-                        }}
-                        className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 focus:outline-none focus:bg-red-50"
-                      >
-                        삭제
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </footer>
+                      <td className="px-4 py-3 align-top text-xs text-gray-500">
+                        {filteredAssignments.length - index}
+                      </td>
+                      <td className="px-4 py-3 align-top w-[36%] min-w-[240px]">
+                        <div className="font-medium text-gray-900">
+                          {assignment.title}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 align-top">
+                        {attachments.length > 0 ? (
+                          <div className="space-y-1">
+                            {attachments.map((att, index) => (
+                              <Link
+                                key={`${att.originalFileName}-${index}`}
+                                href={att.filePath}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleIncrementView(assignment.id);
+                                }}
+                                className="block text-xs font-medium text-blue-600 hover:text-blue-700 truncate"
+                                title={att.originalFileName}
+                              >
+                                {att.originalFileName}
+                                {att.fileSize ? ` (${formatFileSize(att.fileSize)})` : ""}
+                              </Link>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="text-xs text-gray-400">없음</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 align-top text-xs text-gray-500">
+                        {assignment.viewCount ?? 0}
+                      </td>
+                      <td className="px-4 py-3 align-top text-xs text-gray-500">
+                        {formatDate(assignment.createdAt)}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
-        </article>
-      ))}
-      </div>
+        </div>
       )}
     </>
   );

@@ -187,6 +187,7 @@ export default function TeacherScheduleClient({
                           "동아리": "#2563eb",
                           "진로": "#16a34a",
                           "봉사": "#ca8a04",
+                          "학사행사": "#9333ea",
                           "개인 일정": "#0d9488",
                         };
                         const eventColor = eventType in colors ? colors[eventType] : "#6b7280";

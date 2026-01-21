@@ -279,6 +279,7 @@ interface ConsentData {
 interface AnnouncementComposerPayload {
   title: string;
   category?: string;
+  courseId?: string;
   audience: string;
   author: string;
   content: string;
@@ -296,6 +297,7 @@ interface AnnouncementComposerPayload {
 
 interface AnnouncementComposerProps {
   authorName: string;
+  courseId?: string;
   onPreview?: (payload: AnnouncementComposerPayload) => void;
   isOpen?: boolean;
   onOpenChange?: (open: boolean) => void;
@@ -305,7 +307,7 @@ interface AnnouncementComposerProps {
   restrictedAudience?: string; // 제한된 알림 대상 (예: "teacher"일 경우 교직원만 선택 가능)
 }
 
-export function AnnouncementComposer({ authorName, onPreview, isOpen: controlledIsOpen, onOpenChange, showButton = true, editId, onEditComplete, restrictedAudience }: AnnouncementComposerProps) {
+export function AnnouncementComposer({ authorName, courseId, onPreview, isOpen: controlledIsOpen, onOpenChange, showButton = true, editId, onEditComplete, restrictedAudience }: AnnouncementComposerProps) {
   const [internalIsOpen, setInternalIsOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   
@@ -339,7 +341,7 @@ export function AnnouncementComposer({ authorName, onPreview, isOpen: controlled
   }
 
   const modalContent = (
-    <AnnouncementComposerForm authorName={authorName} onPreview={onPreview} onClose={handleClose} editId={editId} onEditComplete={onEditComplete} restrictedAudience={restrictedAudience} />
+    <AnnouncementComposerForm authorName={authorName} courseId={courseId} onPreview={onPreview} onClose={handleClose} editId={editId} onEditComplete={onEditComplete} restrictedAudience={restrictedAudience} />
   );
 
   return (
@@ -354,6 +356,7 @@ export function AnnouncementComposer({ authorName, onPreview, isOpen: controlled
 
 function AnnouncementComposerForm({
   authorName,
+  courseId,
   onPreview,
   onClose,
   editId,
@@ -401,6 +404,7 @@ function AnnouncementComposerForm({
   const classSelectionRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const colorPickerRef = useRef<HTMLDivElement>(null);
+  const isCourseAudienceLocked = Boolean(courseId);
 
   const editor = useEditor({
     onUpdate: () => {
@@ -719,6 +723,18 @@ function AnnouncementComposerForm({
     }
   }, [restrictedAudience, editId]);
 
+  // courseId가 있는 경우 수강생 전체로 고정
+  useEffect(() => {
+    if (isCourseAudienceLocked) {
+      setSelectedTargets(["students"]);
+      setSelectedClasses([]);
+      setParentSelectedClasses([]);
+      setSelectedTeacherIds([]);
+      setIsTargetModalOpen(false);
+      setCategory("notice");
+    }
+  }, [isCourseAudienceLocked]);
+
   // 교직원 목록 가져오기 (모달이 열릴 때)
   useEffect(() => {
     if (isTargetModalOpen && restrictedAudience === "teacher" && teacherList.length === 0) {
@@ -1036,6 +1052,9 @@ function AnnouncementComposerForm({
 
   // 알림 대상 모달 열기/닫기 핸들러
   const handleTargetModalToggle = () => {
+    if (isCourseAudienceLocked) {
+      return;
+    }
     setIsTargetModalOpen(prev => !prev);
   };
 
@@ -1412,6 +1431,9 @@ function AnnouncementComposerForm({
 
   // 선택된 대상 표시 텍스트
   const getTargetDisplayText = () => {
+    if (isCourseAudienceLocked) {
+      return "수강생 전체";
+    }
     if (selectedTargets.length === 0) {
       return "알림 대상을 선택하세요";
     }
@@ -1487,6 +1509,7 @@ function AnnouncementComposerForm({
     const payload: AnnouncementComposerPayload = {
       title: title.trim(),
       category: category || undefined,
+      courseId: courseId || undefined,
       audience,
       author: authorName.trim(),
       content,
@@ -1962,7 +1985,11 @@ function AnnouncementComposerForm({
             {editId ? "안내문 수정" : "새 안내문 작성"}
           </p>
           <h2 className="text-xl font-bold text-gray-900">{editId ? "안내문 수정" : "안내문 입력"}</h2>
-          <p className="text-sm text-gray-500">제목과 대상을 지정한 뒤 본문을 자유롭게 작성할 수 있어요.</p>
+        <p className="text-sm text-gray-500">
+          {isCourseAudienceLocked
+            ? "수업 관련 공지 사항을 작성할 수 있습니다."
+            : "제목과 대상을 지정한 뒤 본문을 자유롭게 작성할 수 있어요."}
+        </p>
         </div>
         <Button 
           type="button" 
@@ -1978,18 +2005,22 @@ function AnnouncementComposerForm({
       <div className="space-y-4">
         <div className="flex items-end gap-3">
           <div className="w-32">
-            <Select
-              label="구분"
-              value={category}
-              onChange={(e) => setCategory(e.target.value)}
-              options={categoryOptions}
-              required
-            />
+            {isCourseAudienceLocked ? (
+              <Input label="구분" value="단순 알림" readOnly />
+            ) : (
+              <Select
+                label="구분"
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+                options={categoryOptions}
+                required
+              />
+            )}
           </div>
           <div className="flex-1">
             <Input
               label="제목"
-              placeholder="예: 11월 학부모 상담 안내"
+              placeholder={isCourseAudienceLocked ? "예: 수업 관련 공지사항 안내" : "예: 11월 학부모 상담 안내"}
               value={title}
               onChange={(event) => setTitle(event.target.value)}
               required
@@ -2003,18 +2034,22 @@ function AnnouncementComposerForm({
             <label className="block text-sm font-medium text-gray-700 mb-1">
               알림 대상 <span className="ml-1 text-red-500">*</span>
             </label>
-            <button
-              type="button"
-              onClick={handleTargetModalToggle}
-              className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-left text-gray-900 placeholder:text-gray-500 hover:border-gray-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
-            >
-              <span className={selectedTargets.length === 0 ? "text-gray-500" : "text-gray-900"}>
-              {selectedTargets.length === 0 ? "알림 대상을 선택하세요" : getTargetDisplayText()}
-              </span>
-            </button>
+            {isCourseAudienceLocked ? (
+              <Input value="수강생 전체" readOnly />
+            ) : (
+              <button
+                type="button"
+                onClick={handleTargetModalToggle}
+                className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-left text-gray-900 placeholder:text-gray-500 hover:border-gray-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+              >
+                <span className={selectedTargets.length === 0 ? "text-gray-500" : "text-gray-900"}>
+                {selectedTargets.length === 0 ? "알림 대상을 선택하세요" : getTargetDisplayText()}
+                </span>
+              </button>
+            )}
 
             {/* 알림 대상 선택 모달 */}
-            {isTargetModalOpen && (
+            {!isCourseAudienceLocked && isTargetModalOpen && (
               <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4">
                 {/* 배경 오버레이 */}
                 <div

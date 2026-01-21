@@ -11,6 +11,7 @@ interface AnnouncementPageClientProps {
   authorName: string;
   includeScheduled?: boolean;
   audience?: string;
+  courseId?: string;
 }
 
 export function AnnouncementPageClient({ 
@@ -18,7 +19,8 @@ export function AnnouncementPageClient({
   description, 
   authorName, 
   includeScheduled = true,
-  audience
+  audience,
+  courseId
 }: AnnouncementPageClientProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [editId, setEditId] = useState<string | undefined>(undefined);
@@ -58,6 +60,7 @@ export function AnnouncementPageClient({
         />
         <AnnouncementSection 
           authorName={authorName} 
+          courseId={courseId}
           isOpen={isOpen}
           onOpenChange={handleClose}
           onAnnouncementCreated={handleAnnouncementCreated}
@@ -72,6 +75,7 @@ export function AnnouncementPageClient({
           refreshKey={refreshKey} 
           includeScheduled={includeScheduled}
           audience={audience}
+          courseId={courseId}
           onEdit={handleEdit}
           showEditButton={true}
           onDelete={handleDelete}

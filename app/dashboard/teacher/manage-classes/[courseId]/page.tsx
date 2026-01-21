@@ -12,6 +12,7 @@ import CreateClassGroupButton from "@/components/dashboard/CreateClassGroupButto
 import ClassGroupList from "@/components/dashboard/ClassGroupList";
 import AttendanceSection from "@/components/dashboard/AttendanceSection";
 import ClassGroupBadges from "@/components/dashboard/ClassGroupBadges";
+import CourseAnnouncementPanel from "@/components/dashboard/CourseAnnouncementPanel";
 
 interface ManageClassDetailPageProps {
   params: {
@@ -70,6 +71,9 @@ export default async function ManageClassDetailPage({
   if (!course) {
     notFound();
   }
+
+  const instructorName =
+    session.user.name ?? session.user.email ?? course.instructor ?? "";
 
   const classGroups =
     (await (prisma as any).classGroup.findMany({
@@ -200,14 +204,10 @@ export default async function ManageClassDetailPage({
               key="announcements"
               className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm space-y-4"
             >
-              <header className="flex items-center justify-between">
-                <h2 className="text-lg font-semibold text-gray-900">공지사항</h2>
-              </header>
-              <div className="space-y-4">
-                <div className="text-sm text-gray-600">
-                  <p>공지사항 내용이 여기에 표시됩니다.</p>
-                </div>
-              </div>
+              <CourseAnnouncementPanel
+                courseId={course.id}
+                authorName={instructorName}
+              />
             </article>,
             <article
               key="attendance"
