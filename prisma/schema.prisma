@@ -121,6 +121,7 @@ model Assignment {
   courseId         String                 @db.ObjectId
   course           Course                 @relation(fields: [courseId], references: [id], onDelete: Cascade)
   teacherId        String                 @db.ObjectId
+  viewCount        Int                    @default(0) // 조회수
   createdAt        DateTime               @default(now())
   updatedAt        DateTime               @updatedAt
   attachments      AssignmentAttachment[] // 다중 첨부파일
@@ -276,6 +277,7 @@ model Announcement {
   title                 String
   category              String? // "notice", "survey", "consent" (단순 알림, 설문 조사, 동의서)
   content               String // HTML 형식의 본문
+  courseId              String?            @db.ObjectId // 수업별 공지사항
   audience              String // "all", "grade-1", "grade-2", "grade-3", "parents"
   author                String // 작성자 이름
   authorId              String             @db.ObjectId // 작성자 User ID
@@ -299,6 +301,7 @@ model Announcement {
   updatedAt             DateTime           @updatedAt
 
   @@index([audience])
+  @@index([courseId])
   @@index([authorId])
   @@index([publishAt])
   @@index([publishedAt])

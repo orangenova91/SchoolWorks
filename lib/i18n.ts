@@ -6,7 +6,7 @@ export const defaultLocale: Locale = "ko";
 export const translations = {
   ko: {
     app: {
-      version: "Ver.30.0.1",
+      version: "Ver.30.1.0",
     },
     auth: {
       login: "로그인",
@@ -121,7 +121,7 @@ export const translations = {
     sidebar: {
       teacher: {
         overview: "홈",
-        manageClasses: "내 수업",
+        manageClasses: "강의실",
         classManagement: "학급 관리",
         studentProgress: "학생 성과",
         announcements: "가정 안내문",
@@ -139,7 +139,7 @@ export const translations = {
   },
   en: {
     app: {
-      version: "Ver.30.0.1",
+      version: "Ver.30.1.0",
     },
     auth: {
       login: "Login",

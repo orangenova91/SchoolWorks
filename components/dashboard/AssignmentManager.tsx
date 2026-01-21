@@ -98,42 +98,75 @@ export default function AssignmentManager({ courseId }: AssignmentManagerProps) 
             setEditingAssignment(null);
           }}
         >
-          {showForm ? "목록 보기" : "새 자료 생성"}
+          {showForm ? "닫기" : "새 자료 생성"}
         </Button>
       </div>
 
-      {showForm ? (
-        <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-          <h4 className="text-lg font-semibold text-gray-900 mb-4">자료 생성</h4>
-          <AssignmentForm courseId={courseId} onSuccess={handleSuccess} />
-        </div>
-      ) : editingAssignment ? (
-        <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-          <div className="flex items-center justify-between mb-4">
-            <h4 className="text-lg font-semibold text-gray-900">자료 수정</h4>
-            <button
-              type="button"
-              onClick={handleCloseEdit}
-              className="text-sm text-gray-500 hover:text-gray-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 rounded-md px-2 py-1"
-            >
-              닫기
-            </button>
+      {showForm && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6"
+          role="dialog"
+          aria-modal="true"
+          onClick={() => setShowForm(false)}
+        >
+          <div
+            className="relative w-full max-w-2xl rounded-xl bg-white shadow-xl p-6"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h4 className="text-lg font-semibold text-gray-900">자료 생성</h4>
+              <button
+                type="button"
+                onClick={() => setShowForm(false)}
+                className="text-sm text-gray-500 hover:text-gray-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 rounded-md px-2 py-1"
+              >
+                닫기
+              </button>
+            </div>
+            <AssignmentForm courseId={courseId} onSuccess={handleSuccess} />
           </div>
-          <AssignmentForm
-            courseId={courseId}
-            assignmentId={editingAssignment.id}
-            initialData={{
-              title: editingAssignment.title,
-              description: editingAssignment.description,
-              dueDate: editingAssignment.dueDate,
-              originalFileName: editingAssignment.originalFileName,
-              filePath: editingAssignment.filePath,
-              attachments: editingAssignment.attachments,
-            }}
-            onSuccess={handleSuccess}
-          />
         </div>
-      ) : (
+      )}
+
+      {editingAssignment && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6"
+          role="dialog"
+          aria-modal="true"
+          onClick={handleCloseEdit}
+        >
+          <div
+            className="relative w-full max-w-2xl rounded-xl bg-white shadow-xl p-6"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h4 className="text-lg font-semibold text-gray-900">자료 수정</h4>
+              <button
+                type="button"
+                onClick={handleCloseEdit}
+                className="text-sm text-gray-500 hover:text-gray-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 rounded-md px-2 py-1"
+              >
+                닫기
+              </button>
+            </div>
+            <AssignmentForm
+              courseId={courseId}
+              assignmentId={editingAssignment.id}
+              initialData={{
+                title: editingAssignment.title,
+                description: editingAssignment.description,
+                dueDate: editingAssignment.dueDate,
+                originalFileName: editingAssignment.originalFileName,
+                filePath: editingAssignment.filePath,
+                attachments: editingAssignment.attachments,
+              }}
+              onSuccess={handleSuccess}
+            />
+          </div>
+        </div>
+      )}
+
+      {!editingAssignment && (
         <AssignmentList
           key={refreshKey}
           courseId={courseId}

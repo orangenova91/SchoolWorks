@@ -216,6 +216,62 @@ export async function PUT(
   }
 }
 
+// 조회수 증가
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: { courseId: string; assignmentId: string } }
+) {
+  try {
+    const session = await getServerSession(authOptions);
+
+    if (!session || !session.user) {
+      return NextResponse.json({ error: "인증이 필요합니다." }, { status: 401 });
+    }
+
+    const assignment = await (prisma as unknown as {
+      assignment: {
+        findFirst: (args: {
+          where: { id: string; courseId: string; teacherId?: string };
+          select: { id: true };
+        }) => Promise<{ id: string } | null>;
+        update: (args: {
+          where: { id: string };
+          data: { viewCount: { increment: number } };
+          select: { viewCount: true };
+        }) => Promise<{ viewCount: number }>;
+      };
+    }).assignment.findFirst({
+      where: {
+        id: params.assignmentId,
+        courseId: params.courseId,
+        ...(session.user?.role === "teacher" ? { teacherId: session.user.id } : {}),
+      },
+      select: { id: true },
+    });
+
+    if (!assignment) {
+      return NextResponse.json(
+        { error: "자료를 찾을 수 없거나 권한이 없습니다." },
+        { status: 404 }
+      );
+    }
+
+    const updated = await (prisma as any).assignment.update({
+      where: { id: params.assignmentId },
+      data: { viewCount: { increment: 1 } },
+      select: { viewCount: true },
+    });
+
+    return NextResponse.json({ viewCount: updated.viewCount });
+  } catch (error) {
+    console.error("Increment assignment view error:", error);
+    return NextResponse.json(
+      { error: "조회수 증가 중 오류가 발생했습니다." },
+      { status: 500 }
+    );
+  }
+}
+
 export async function DELETE(
   request: NextRequest,
   { params }: { params: { courseId: string; assignmentId: string } }
