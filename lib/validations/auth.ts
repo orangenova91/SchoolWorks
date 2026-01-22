@@ -66,6 +66,41 @@ export const verifyEmailSchema = z.object({
   token: z.string().min(1, "토큰이 필요합니다"),
 });
 
+// 계정 찾기 스키마
+export const findAccountSchema = z
+  .object({
+    role: z.enum(["staff", "student", "parent"], {
+      errorMap: () => ({ message: "역할을 선택해주세요" }),
+    }),
+    school: z.string().min(1, "학교명을 입력해주세요").max(100, "학교명은 100자 이하여야 합니다"),
+    studentNumber: z.string().optional(),
+    name: z.string().min(1, "이름을 입력해주세요").max(50, "이름은 50자 이하여야 합니다"),
+  })
+  .refine(
+    (data) => {
+      // 교직원(staff)인 경우 학번이 있으면 안됨
+      if (data.role === "staff") {
+        return !data.studentNumber || data.studentNumber.trim().length === 0;
+      }
+      // 학생 또는 학부모인 경우 학번 필수
+      return data.studentNumber && data.studentNumber.trim().length > 0;
+    },
+    (data) => {
+      if (data.role === "staff") {
+        return {
+          message: "학번을 지우세요",
+          path: ["studentNumber"],
+        };
+      }
+      return {
+        message: "학번을 입력해주세요",
+        path: ["studentNumber"],
+      };
+    }
+  );
+
+export type FindAccountInput = z.infer<typeof findAccountSchema>;
+
 // 학년별 정보 스키마
 export const gradeInfoSchema = z.object({
   grade: z.string().min(1, "학년을 입력해주세요"),

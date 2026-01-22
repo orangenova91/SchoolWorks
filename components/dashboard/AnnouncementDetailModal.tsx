@@ -2,10 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { X, User, Calendar, Edit, Trash2 } from "lucide-react";
+import { X, User, Calendar, Edit, Trash2, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToastContext } from "@/components/providers/ToastProvider";
 import { useSession } from "next-auth/react";
+import { CommentSection } from "./CommentSection";
 
 interface SelectedClass {
   grade: string;
@@ -320,10 +321,56 @@ export function AnnouncementDetailModal({
         <div className="flex-1 overflow-y-auto p-6">
           {/* 메타데이터 */}
           <div className="flex items-center justify-between mb-6 pb-4 border-b border-gray-200">
-            <div className="flex items-center gap-4 text-sm text-gray-600">
+            <div className="flex items-center gap-4 text-sm text-gray-600 flex-wrap">
               <div className="flex items-center gap-1.5">
                 <User className="h-4 w-4" />
                 <span>작성자: {announcement.author}</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <Users className="h-4 w-4" />
+                <span className="text-gray-600">대상:</span>
+                {hasStudents && hasParents ? (
+                  <>
+                    {(() => {
+                      const studentText = isAllClassesSelected(announcement.selectedClasses)
+                        ? (courseId ? "수강생 전체" : "모든 재학생")
+                        : formatSelectedClasses(announcement.selectedClasses)
+                          ? `재학생 (${formatSelectedClasses(announcement.selectedClasses)})`
+                          : null;
+                      const parentText = isAllClassesSelected(announcement.parentSelectedClasses)
+                        ? "모든 학부모"
+                        : formatSelectedClasses(announcement.parentSelectedClasses)
+                          ? `학부모 (${formatSelectedClasses(announcement.parentSelectedClasses)})`
+                          : null;
+                      
+                      return (
+                        <>
+                          {studentText && (
+                            <span className="inline-block px-2 py-1 rounded text-sm font-medium bg-green-100 text-green-800">
+                              {studentText}
+                            </span>
+                          )}
+                          {parentText && (
+                            <span className="inline-block px-2 py-1 rounded text-sm font-medium bg-blue-100 text-blue-800">
+                              {parentText}
+                            </span>
+                          )}
+                        </>
+                      );
+                    })()}
+                  </>
+                ) : (
+                  <span
+                    className={cn(
+                      "inline-block px-2 py-1 rounded text-sm font-medium",
+                      hasStudents
+                        ? "bg-green-100 text-green-800"
+                        : "bg-blue-100 text-blue-800"
+                    )}
+                  >
+                    {displayText}
+                  </span>
+                )}
               </div>
               <div className="flex items-center gap-1.5">
                 <Calendar className="h-4 w-4" />
@@ -372,55 +419,6 @@ export function AnnouncementDetailModal({
                   <Trash2 className="h-4 w-4" />
                   삭제
                 </button>
-              )}
-            </div>
-          </div>
-
-          {/* 대상 정보 */}
-          <div className="mb-6 pb-4 border-b border-gray-200">
-            <div className="text-sm text-gray-600 mb-2">대상</div>
-            <div className="flex items-center gap-2 flex-wrap">
-              {hasStudents && hasParents ? (
-                <>
-                  {(() => {
-                    const studentText = isAllClassesSelected(announcement.selectedClasses)
-                      ? (courseId ? "수강생 전체" : "모든 재학생")
-                      : formatSelectedClasses(announcement.selectedClasses)
-                        ? `재학생 (${formatSelectedClasses(announcement.selectedClasses)})`
-                        : null;
-                    const parentText = isAllClassesSelected(announcement.parentSelectedClasses)
-                      ? "모든 학부모"
-                      : formatSelectedClasses(announcement.parentSelectedClasses)
-                        ? `학부모 (${formatSelectedClasses(announcement.parentSelectedClasses)})`
-                        : null;
-                    
-                    return (
-                      <>
-                        {studentText && (
-                          <span className="inline-block px-2 py-1 rounded text-sm font-medium bg-green-100 text-green-800">
-                            {studentText}
-                          </span>
-                        )}
-                        {parentText && (
-                          <span className="inline-block px-2 py-1 rounded text-sm font-medium bg-blue-100 text-blue-800">
-                            {parentText}
-                          </span>
-                        )}
-                      </>
-                    );
-                  })()}
-                </>
-              ) : (
-                <span
-                  className={cn(
-                    "inline-block px-2 py-1 rounded text-sm font-medium",
-                    hasStudents
-                      ? "bg-green-100 text-green-800"
-                      : "bg-blue-100 text-blue-800"
-                  )}
-                >
-                  {displayText}
-                </span>
               )}
             </div>
           </div>
@@ -691,6 +689,9 @@ export function AnnouncementDetailModal({
               return null;
             }
           })()}
+
+          {/* 댓글 섹션 */}
+          <CommentSection announcementId={announcement.id} />
         </div>
       </div>
 
