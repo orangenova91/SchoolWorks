@@ -66,7 +66,9 @@ const audienceLabels: Record<string, string> = {
   "grade-2": "2학년",
   "grade-3": "3학년",
   parents: "학부모",
+  teacher: "교직원",
   teachers: "교직원",
+  students: "학생",
 };
 
 // 선택된 학반 정보를 텍스트로 변환

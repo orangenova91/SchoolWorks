@@ -5,7 +5,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { put } from '@vercel/blob';
 
-const AUDIENCE_VALUES = ["all", "grade-1", "grade-2", "grade-3", "parents", "teacher"] as const;
+const AUDIENCE_VALUES = ["all", "grade-1", "grade-2", "grade-3", "parents", "teacher", "students"] as const;
 
 const selectedClassSchema = z.object({
   grade: z.string(),
@@ -262,6 +262,10 @@ export async function GET(request: NextRequest) {
 
     if (courseId) {
       where.courseId = courseId;
+    }
+    // 전역 게시판(강의실 아님)에서는 수업 공지를 제외
+    if (!courseId) {
+      where.courseId = null;
     }
 
     // 학교 필터 (같은 학교의 공지사항만)

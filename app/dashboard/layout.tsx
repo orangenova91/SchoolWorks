@@ -25,6 +25,9 @@ import {
   MessageCircle,
   UserCheck,
   Newspaper,
+  Clipboard,
+  ClipboardMinus,
+  ClipboardCopy,
 } from "lucide-react";
 
 export default async function DashboardLayout({
@@ -76,12 +79,6 @@ export default async function DashboardLayout({
             iconName: "Calendar"
           },
           {
-            href: "/dashboard/teacher/staff-announcements",
-            label: "교직원 게시판",
-            icon: <FileText className="w-5 h-5" />,
-            iconName: "FileText"
-          },
-          {
             href: "/dashboard/teacher/manage-classes",
             label: t.sidebar.teacher.manageClasses,
             icon: <BookOpen className="w-5 h-5" />,
@@ -100,16 +97,28 @@ export default async function DashboardLayout({
             iconName: "TrendingUp"
           },
           {
-            href: "/dashboard/teacher/announcements",
-            label: t.sidebar.teacher.announcements,
-            icon: <Newspaper className="w-5 h-5" />,
-            iconName: "Newspaper"
-          },
-          {
             href: "/dashboard/teacher/students",
             label: "구성원 조회",
             icon: <UserCheck className="w-5 h-5" />,
             iconName: "UserCheck"
+          },
+          {
+            href: "/dashboard/teacher/staff-announcements",
+            label: "교직원 게시판",
+            icon: <Clipboard className="w-5 h-5" />,
+            iconName: "Clipboard"
+          },
+          {
+            href: "/dashboard/teacher/student-announcements",
+            label: "학생 게시판",
+            icon: <ClipboardMinus className="w-5 h-5" />,
+            iconName: "ClipboardMinus"
+          },
+          {
+            href: "/dashboard/teacher/announcements",
+            label: t.sidebar.teacher.announcements,
+            icon: <ClipboardCopy className="w-5 h-5" />,
+            iconName: "ClipboardCopy"
           },
           {
             href: googleChatLink,
@@ -147,9 +156,15 @@ export default async function DashboardLayout({
           },
           {
             href: "/dashboard/student/announcements",
+            label: t.sidebar.student.studentBoard,
+            icon: <ClipboardMinus className="w-5 h-5" />,
+            iconName: "ClipboardMinus"
+          },
+          {
+            href: "/dashboard/student/family-notices",
             label: t.sidebar.student.announcements,
-            icon: <Bell className="w-5 h-5" />,
-            iconName: "Bell"
+            icon: <ClipboardCopy className="w-5 h-5" />,
+            iconName: "ClipboardCopy"
           },
           {
             href: "/dashboard/student/support",
@@ -250,8 +265,8 @@ export default async function DashboardLayout({
           {
             href: "/dashboard/parent/announcements",
             label: "가정 안내문",
-            icon: <Bell className="w-5 h-5" />,
-            iconName: "Bell",
+            icon: <ClipboardCopy className="w-5 h-5" />,
+            iconName: "ClipboardCopy",
           },
           {
             href: googleChatLink,

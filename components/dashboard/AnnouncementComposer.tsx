@@ -231,6 +231,9 @@ const convertAudienceToTargets = (audience: string): string[] => {
   if (audience === "all" || audience.startsWith("grade-")) {
     return ["students"];
   }
+  if (audience === "students") {
+    return ["students"];
+  }
   if (audience === "parents" || audience === "teacher") {
     return [audience];
   }
@@ -304,7 +307,7 @@ interface AnnouncementComposerProps {
   showButton?: boolean;
   editId?: string; // 수정 모드일 때 안내문 ID
   onEditComplete?: () => void; // 수정 완료 후 콜백
-  restrictedAudience?: string; // 제한된 알림 대상 (예: "teacher"일 경우 교직원만 선택 가능)
+  restrictedAudience?: string; // 제한된 알림 대상 (예: "teacher", "students")
 }
 
 export function AnnouncementComposer({ authorName, courseId, onPreview, isOpen: controlledIsOpen, onOpenChange, showButton = true, editId, onEditComplete, restrictedAudience }: AnnouncementComposerProps) {
@@ -705,7 +708,9 @@ function AnnouncementComposerForm({
   // restrictedAudience에 따라 필터링된 targetOptions 생성
   const availableTargetOptions = restrictedAudience === "teacher" 
     ? targetOptions.filter(opt => opt.value === "teacher")
-    : targetOptions.filter(opt => opt.value !== "teacher"); // 가정 안내문에서는 "전 교직원" 제외
+    : restrictedAudience === "students"
+    ? targetOptions.filter(opt => opt.value === "students")
+    : targetOptions.filter(opt => opt.value !== "teacher"); // 일반 안내문에서는 "전 교직원" 제외
 
   // category 변경 시 showSignaturePanel 초기화 (동의서가 아닌 경우)
   useEffect(() => {
@@ -720,6 +725,13 @@ function AnnouncementComposerForm({
   useEffect(() => {
     if (restrictedAudience === "teacher" && selectedTargets.length === 0 && !editId) {
       setSelectedTargets(["teacher"]);
+    }
+  }, [restrictedAudience, editId]);
+
+  // restrictedAudience가 "students"일 때 초기값 설정
+  useEffect(() => {
+    if (restrictedAudience === "students" && selectedTargets.length === 0 && !editId) {
+      setSelectedTargets(["students"]);
     }
   }, [restrictedAudience, editId]);
 
@@ -1500,6 +1512,8 @@ function AnnouncementComposerForm({
       ? (selectedTeacherIds.length > 0 
           ? `teacher:${selectedTeacherIds.join(',')}` 
           : "teacher") // 선택된 교직원이 없으면 전체 교직원
+      : restrictedAudience === "students"
+      ? "students"
       : calculateAudienceFromClasses(
           selectedTargets,
           selectedTargets.includes("students") ? selectedClasses : [],

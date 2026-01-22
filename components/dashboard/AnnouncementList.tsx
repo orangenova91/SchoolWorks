@@ -56,6 +56,7 @@ const audienceLabels: Record<string, string> = {
   "grade-3": "3학년",
   parents: "학부모",
   teacher: "교직원",
+  students: "학생",
 };
 
 const categoryLabels: Record<string, string> = {
