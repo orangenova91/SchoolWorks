@@ -25,9 +25,9 @@ export default async function ParentAnnouncementsPage() {
   return (
     <div className="border-4 border-dashed border-gray-200 rounded-lg p-8 bg-white space-y-6">
       <header>
-        <h1 className="text-2xl font-bold text-gray-900">공지사항</h1>
+        <h1 className="text-2xl font-bold text-gray-900">가정 안내문</h1>
         <p className="mt-2 text-sm text-gray-600">
-          학부모 대상 공지사항을 확인하세요.
+          학부모 대상 가정 안내문을 확인하세요.
         </p>
       </header>
 

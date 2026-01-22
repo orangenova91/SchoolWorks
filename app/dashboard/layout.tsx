@@ -242,16 +242,16 @@ export default async function DashboardLayout({
             iconName: "Home",
           },
           {
-            href: "/dashboard/parent/announcements",
-            label: "공지사항",
-            icon: <Bell className="w-5 h-5" />,
-            iconName: "Bell",
-          },
-          {
             href: "/dashboard/parent/schedule",
             label: "학사일정",
             icon: <Calendar className="w-5 h-5" />,
             iconName: "Calendar",
+          },
+          {
+            href: "/dashboard/parent/announcements",
+            label: "가정 안내문",
+            icon: <Bell className="w-5 h-5" />,
+            iconName: "Bell",
           },
           {
             href: googleChatLink,
