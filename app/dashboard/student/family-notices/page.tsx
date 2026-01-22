@@ -8,7 +8,7 @@ const AnnouncementList = dynamic(
   { ssr: false }
 );
 
-export default async function StudentAnnouncementsPage() {
+export default async function StudentFamilyNoticesPage() {
   const session = await getServerSession(authOptions);
 
   if (!session) {
@@ -22,16 +22,15 @@ export default async function StudentAnnouncementsPage() {
   return (
     <div className="border-4 border-dashed border-gray-200 rounded-lg p-8 bg-white space-y-6">
       <header>
-        <h1 className="text-2xl font-bold text-gray-900">학생 게시판</h1>
+        <h1 className="text-2xl font-bold text-gray-900">가정 안내문</h1>
         <p className="mt-2 text-sm text-gray-600">
-          학생 대상 공지사항을 확인하세요.
+          학교 공지사항을 확인하세요.
         </p>
       </header>
 
       <section className="rounded-lg border border-gray-200 bg-white p-6">
-        <AnnouncementList includeScheduled={false} audience="students" />
+        <AnnouncementList includeScheduled={false} />
       </section>
     </div>
   );
 }
-

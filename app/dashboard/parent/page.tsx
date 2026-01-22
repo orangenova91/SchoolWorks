@@ -230,7 +230,7 @@ export default async function ParentDashboardPage() {
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
               <Bell className="w-5 h-5" />
-              최근 공지사항
+              최근 가정 안내문
             </h3>
             <Link
               href="/dashboard/parent/announcements"
@@ -241,7 +241,7 @@ export default async function ParentDashboardPage() {
           </div>
           <ul className="mt-4 space-y-3">
             {parentAnnouncements.length === 0 ? (
-              <li className="text-sm text-gray-600">공지사항이 없습니다.</li>
+              <li className="text-sm text-gray-600">가정 안내문이 없습니다.</li>
             ) : (
               parentAnnouncements.map((announcement) => (
                 <li
@@ -291,9 +291,9 @@ export default async function ParentDashboardPage() {
         >
           <div className="flex items-center gap-3 mb-2">
             <Bell className="w-6 h-6 text-blue-600" />
-            <h3 className="text-lg font-semibold text-gray-900">공지사항</h3>
+            <h3 className="text-lg font-semibold text-gray-900">가정 안내문</h3>
           </div>
-          <p className="text-sm text-gray-600">학교 공지사항을 확인하세요</p>
+          <p className="text-sm text-gray-600">학교 가정 안내문을 확인하세요</p>
         </Link>
 
         <Link
