@@ -11,7 +11,9 @@ interface AnnouncementPageClientProps {
   authorName: string;
   includeScheduled?: boolean;
   audience?: string;
+  boardType?: string;
   courseId?: string;
+  showGradeTabs?: boolean;
 }
 
 export function AnnouncementPageClient({ 
@@ -20,7 +22,9 @@ export function AnnouncementPageClient({
   authorName, 
   includeScheduled = true,
   audience,
-  courseId
+  boardType,
+  courseId,
+  showGradeTabs = false
 }: AnnouncementPageClientProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [editId, setEditId] = useState<string | undefined>(undefined);
@@ -61,6 +65,7 @@ export function AnnouncementPageClient({
         <AnnouncementSection 
           authorName={authorName} 
           courseId={courseId}
+          boardType={boardType}
           isOpen={isOpen}
           onOpenChange={handleClose}
           onAnnouncementCreated={handleAnnouncementCreated}
@@ -75,7 +80,9 @@ export function AnnouncementPageClient({
           refreshKey={refreshKey} 
           includeScheduled={includeScheduled}
           audience={audience}
+          boardType={boardType}
           courseId={courseId}
+          showGradeTabs={showGradeTabs}
           onEdit={handleEdit}
           showEditButton={true}
           onDelete={handleDelete}

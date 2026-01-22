@@ -5,6 +5,7 @@ import { AnnouncementComposer } from "./AnnouncementComposer";
 interface AnnouncementSectionProps {
   authorName: string;
   courseId?: string;
+  boardType?: string;
   isOpen?: boolean;
   onOpenChange?: (open: boolean) => void;
   onAnnouncementCreated?: () => void;
@@ -15,6 +16,7 @@ interface AnnouncementSectionProps {
 export function AnnouncementSection({ 
   authorName,
   courseId,
+  boardType,
   isOpen,
   onOpenChange,
   onAnnouncementCreated,
@@ -30,6 +32,7 @@ export function AnnouncementSection({
     <AnnouncementComposer 
       authorName={authorName} 
       courseId={courseId}
+      boardType={boardType}
       onPreview={handleAnnouncementCreated}
       isOpen={isOpen}
       onOpenChange={onOpenChange}

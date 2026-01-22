@@ -42,6 +42,8 @@ interface AnnouncementListProps {
   includeScheduled?: boolean;
   audience?: string;
   courseId?: string;
+  boardType?: string;
+  showGradeTabs?: boolean;
   refreshKey?: number;
   onEdit?: (id: string) => void;
   showEditButton?: boolean;
@@ -210,7 +212,80 @@ const getAudienceDisplayText = (announcement: Announcement, isCourseContext: boo
   return baseLabel;
 };
 
-export function AnnouncementList({ includeScheduled = false, audience, courseId, refreshKey, onEdit, showEditButton = false, onDelete, showDeleteButton = false }: AnnouncementListProps) {
+const getStudentGradeBadgeClass = (grade: string): string => {
+  if (grade === "1") return "bg-green-100 text-green-800";
+  if (grade === "2") return "bg-blue-100 text-blue-800";
+  if (grade === "3") return "bg-purple-100 text-purple-800";
+  return "bg-gray-100 text-gray-700";
+};
+
+const getStudentGradeBadges = (announcement: Announcement): Array<{ label: string; className: string }> => {
+  const badges: Array<{ label: string; className: string }> = [];
+  const totalClassesPerGrade = 7;
+
+  if (announcement.audience?.startsWith("grade-")) {
+    const grade = announcement.audience.split("-")[1];
+    badges.push({ label: `${grade}학년`, className: getStudentGradeBadgeClass(grade) });
+    return badges;
+  }
+
+  if (!announcement.selectedClasses) {
+    return [{ label: "전체", className: "bg-gray-100 text-gray-700" }];
+  }
+
+  try {
+    const classes: SelectedClass[] = JSON.parse(announcement.selectedClasses);
+    if (classes.length === 0) {
+      return [{ label: "전체", className: "bg-gray-100 text-gray-700" }];
+    }
+    const grades = Array.from(new Set(classes.map((cls) => cls.grade?.trim()))).filter(Boolean);
+    if (grades.length === 0) {
+      return [{ label: "전체", className: "bg-gray-100 text-gray-700" }];
+    }
+    const gradesWithClasses = grades
+      .map((grade) => {
+        const classNumbers = classes
+          .filter((cls) => cls.grade?.trim() === grade)
+          .map((cls) => cls.classNumber?.trim())
+          .filter(Boolean)
+          .map((num) => num.replace(/^0+/, ""))
+          .sort((a, b) => Number(a) - Number(b));
+
+        const hasAllClasses = classNumbers.length >= totalClassesPerGrade;
+        const suffix = hasAllClasses
+          ? " 전체"
+          : ` (${classNumbers.map((num) => `${grade}-${num}`).join(", ")})`;
+        return {
+          label: `${grade}학년${suffix}`,
+          className: getStudentGradeBadgeClass(grade),
+          grade,
+          hasAllClasses,
+        };
+      })
+      .filter((badge) => badge.label);
+
+    const allGrades = ["1", "2", "3"];
+    const isAllGradesFullySelected = allGrades.every(
+      (grade) =>
+        gradesWithClasses.some(
+          (badge) => badge.grade === grade && badge.hasAllClasses
+        )
+    );
+    if (isAllGradesFullySelected) {
+      return [{ label: "1,2,3학년 전체", className: "bg-gray-100 text-gray-700" }];
+    }
+
+    if (gradesWithClasses.length === 0) {
+      return [{ label: "전체", className: "bg-gray-100 text-gray-700" }];
+    }
+
+    return gradesWithClasses.map(({ label, className }) => ({ label, className }));
+  } catch {
+    return [{ label: "전체", className: "bg-gray-100 text-gray-700" }];
+  }
+};
+
+export function AnnouncementList({ includeScheduled = false, audience, courseId, boardType, showGradeTabs = false, refreshKey, onEdit, showEditButton = false, onDelete, showDeleteButton = false }: AnnouncementListProps) {
   const { data: session } = useSession();
   const { showToast } = useToastContext();
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
@@ -218,6 +293,7 @@ export function AnnouncementList({ includeScheduled = false, audience, courseId,
   const [error, setError] = useState<string | null>(null);
   const [selectedAnnouncement, setSelectedAnnouncement] = useState<Announcement | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [gradeTab, setGradeTab] = useState<"all" | "1" | "2" | "3">("all");
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [showMyPostsOnly, setShowMyPostsOnly] = useState(false);
@@ -237,6 +313,9 @@ export function AnnouncementList({ includeScheduled = false, audience, courseId,
       }
       if (courseId) {
         params.append("courseId", courseId);
+      }
+      if (boardType) {
+        params.append("boardType", boardType);
       }
 
       const response = await fetch(`/api/announcements?${params.toString()}`);
@@ -261,7 +340,7 @@ export function AnnouncementList({ includeScheduled = false, audience, courseId,
   useEffect(() => {
     fetchAnnouncements();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [includeScheduled, audience, refreshKey]);
+  }, [includeScheduled, audience, boardType, refreshKey]);
 
   // 페이지당 항목 수 변경 시 첫 페이지로 이동
   useEffect(() => {
@@ -271,7 +350,28 @@ export function AnnouncementList({ includeScheduled = false, audience, courseId,
   // 클라이언트 측 검색 필터링 및 내가 쓴 글 필터
   const filteredAnnouncements = useMemo(() => {
     let filtered = announcements;
-    
+
+    if (showGradeTabs && gradeTab !== "all") {
+      filtered = filtered.filter((announcement) => {
+        const matchesAudienceGrade = announcement.audience === `grade-${gradeTab}`;
+        if (matchesAudienceGrade) return true;
+
+        const audienceAllStudents =
+          announcement.audience === "all" || announcement.audience === "students";
+        if (audienceAllStudents && (!announcement.selectedClasses || announcement.selectedClasses === "[]")) {
+          return true;
+        }
+
+        if (!announcement.selectedClasses) return false;
+        try {
+          const classes: SelectedClass[] = JSON.parse(announcement.selectedClasses);
+          return classes.some((cls) => cls.grade?.trim() === gradeTab);
+        } catch {
+          return false;
+        }
+      });
+    }
+
     // 구분 필터
     if (categoryFilter) {
       filtered = filtered.filter((announcement) => {
@@ -300,7 +400,7 @@ export function AnnouncementList({ includeScheduled = false, audience, courseId,
     }
     
     return filtered;
-  }, [announcements, searchQuery, showMyPostsOnly, categoryFilter, session]);
+  }, [announcements, searchQuery, showMyPostsOnly, categoryFilter, session, showGradeTabs, gradeTab]);
 
   // 페이지네이션 계산
   const totalPages = Math.ceil(filteredAnnouncements.length / itemsPerPage);
@@ -311,7 +411,42 @@ export function AnnouncementList({ includeScheduled = false, audience, courseId,
   // 검색어 또는 필터 변경 시 첫 페이지로 이동
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, showMyPostsOnly, categoryFilter]);
+  }, [searchQuery, showMyPostsOnly, categoryFilter, gradeTab]);
+
+  const renderGradeTabs = () => {
+    if (!showGradeTabs) return null;
+    const tabs: Array<{ value: "all" | "1" | "2" | "3"; label: string }> = [
+      { value: "all", label: "전체" },
+      { value: "1", label: "1학년" },
+      { value: "2", label: "2학년" },
+      { value: "3", label: "3학년" },
+    ];
+
+    return (
+      <div className="border-b border-gray-200 bg-white px-4 pt-3 pb-0">
+        <div className="flex items-center gap-2">
+          {tabs.map((tab) => {
+            const isActive = gradeTab === tab.value;
+            return (
+              <button
+                key={tab.value}
+                type="button"
+                onClick={() => setGradeTab(tab.value)}
+                className={cn(
+                  "group relative min-w-[64px] px-4 py-2 text-sm font-medium transition-colors rounded-t-md",
+                  isActive
+                    ? "bg-blue-600 text-white shadow-sm"
+                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                )}
+              >
+                {tab.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
 
   const formatDateShort = (dateString: string | null) => {
     if (!dateString) return "-";
@@ -396,6 +531,7 @@ export function AnnouncementList({ includeScheduled = false, audience, courseId,
   if (filteredAnnouncements.length === 0 && !isLoading) {
     return (
       <div className="rounded-lg border border-gray-200 bg-white overflow-hidden">
+      {renderGradeTabs()}
       {/* 검색 바 */}
       <div className="p-4 border-b border-gray-200 bg-gray-50">
         <div className="flex items-center gap-4">
@@ -467,6 +603,7 @@ export function AnnouncementList({ includeScheduled = false, audience, courseId,
 
   return (
     <div className="rounded-lg border border-gray-200 bg-white overflow-hidden">
+      {renderGradeTabs()}
       {/* 검색 바 */}
       <div className="p-4 border-b border-gray-200 bg-gray-50">
         <div className="flex items-center gap-4">
@@ -603,13 +740,28 @@ export function AnnouncementList({ includeScheduled = false, audience, courseId,
                       
                       return (
                         <>
-                          {studentText && (
-                            <span 
-                              className="inline-block px-1.5 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800 max-w-full truncate" 
-                              title={studentText}
-                            >
-                              {studentText}
-                            </span>
+                          {studentText && boardType === "board_students" ? (
+                            getStudentGradeBadges(announcement).map((badge) => (
+                              <span
+                                key={badge.label}
+                                className={cn(
+                                  "inline-block px-1.5 py-0.5 rounded text-xs font-medium max-w-full truncate",
+                                  badge.className
+                                )}
+                                title={studentText}
+                              >
+                                {badge.label}
+                              </span>
+                            ))
+                          ) : (
+                            studentText && (
+                              <span
+                                className="inline-block px-1.5 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800 max-w-full truncate"
+                                title={studentText}
+                              >
+                                {studentText}
+                              </span>
+                            )
                           )}
                           {parentText && (
                             <span 
@@ -624,13 +776,30 @@ export function AnnouncementList({ includeScheduled = false, audience, courseId,
                     }
                     
                     // 하나만 있는 경우 하나의 뱃지로 표시
+                    if (hasStudents && boardType === "board_students") {
+                      return (
+                        <>
+                          {getStudentGradeBadges(announcement).map((badge) => (
+                            <span
+                              key={badge.label}
+                              className={cn(
+                                "inline-block px-1.5 py-0.5 rounded text-xs font-medium max-w-full truncate",
+                                badge.className
+                              )}
+                              title={displayText}
+                            >
+                              {badge.label}
+                            </span>
+                          ))}
+                        </>
+                      );
+                    }
+
                     return (
                       <span 
                         className={cn(
                           "inline-block px-1.5 py-0.5 rounded text-xs font-medium max-w-full truncate",
-                          hasStudents
-                            ? "bg-green-100 text-green-800"
-                            : "bg-blue-100 text-blue-800"
+                          hasStudents ? "bg-green-100 text-green-800" : "bg-blue-100 text-blue-800"
                         )}
                         title={displayText}
                       >

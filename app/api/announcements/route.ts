@@ -6,6 +6,13 @@ import { prisma } from "@/lib/prisma";
 import { put } from '@vercel/blob';
 
 const AUDIENCE_VALUES = ["all", "grade-1", "grade-2", "grade-3", "parents", "teacher", "students"] as const;
+const BOARD_TYPES = [
+  "board_test",
+  "board_teachers",
+  "board_students",
+  "board_parents",
+  "board_class",
+] as const;
 
 const selectedClassSchema = z.object({
   grade: z.string(),
@@ -39,6 +46,7 @@ const createAnnouncementSchema = z.object({
   category: z.string().optional(),
   content: z.string().trim().min(1, "본문을 입력하세요"),
   courseId: z.string().trim().optional(),
+  boardType: z.enum(BOARD_TYPES).optional(),
   audience: z.enum(AUDIENCE_VALUES),
   author: z.string().trim().min(1, "작성자를 입력하세요"),
   isScheduled: z.boolean().default(false),
@@ -160,6 +168,7 @@ export async function POST(request: NextRequest) {
         category: validatedData.category || null,
         content: validatedData.content,
         courseId: validatedData.courseId || null,
+        boardType: validatedData.boardType || null,
         audience: validatedData.audience,
         author: validatedData.author,
         authorId: session.user.id,
@@ -223,6 +232,7 @@ export async function GET(request: NextRequest) {
     const audience = searchParams.get("audience");
     const courseId = searchParams.get("courseId");
     const includeScheduled = searchParams.get("includeScheduled") === "true";
+    const boardType = searchParams.get("boardType");
 
     // 예약된 공지사항 중 발행 시간이 지난 항목 자동 발행
     const now = new Date();
@@ -267,43 +277,66 @@ export async function GET(request: NextRequest) {
     if (!courseId) {
       where.courseId = null;
     }
+    if (boardType) {
+      where.boardType = boardType;
+    }
 
     // 학교 필터 (같은 학교의 공지사항만)
     if (session.user.school) {
       where.school = session.user.school;
     }
 
+    if (session.user.role === "student") {
+      const studentProfile = await prisma.studentProfile.findUnique({
+        where: { userId: session.user.id },
+        select: { grade: true, classLabel: true, section: true },
+      });
+      studentGrade = studentProfile?.grade?.trim() || null;
+
+      const sectionValue = studentProfile?.section?.trim() || null;
+      let classNumber = sectionValue || null;
+      if (!classNumber) {
+        const classLabel = studentProfile?.classLabel?.trim() || "";
+        const match = classLabel.match(/(\d+)\s*[-학년\s]*(\d+)\s*반?/);
+        if (match) {
+          if (!studentGrade) {
+            studentGrade = match[1];
+          }
+          classNumber = match[2];
+        }
+      }
+      studentClassNumber = classNumber ? classNumber.replace(/^0+/, "") : null;
+    }
+
     // 대상 필터
     if (audience) {
       // 특정 대상으로 필터링하는 경우
-      where.OR = [
+      const audienceFilters: Array<{ audience: string }> = [
         { audience: "all" }, // 전체 대상은 항상 포함
         { audience },
       ];
+      // 가정 안내문 보드에서는 학년 단위 공지도 포함
+      if (boardType === "board_parents" && audience === "parents") {
+        audienceFilters.push(
+          { audience: "grade-1" },
+          { audience: "grade-2" },
+          { audience: "grade-3" }
+        );
+      }
+      // 학생 게시판 보드에서는 학년 단위 공지도 포함
+      if (boardType === "board_students" && audience === "students") {
+        audienceFilters.push(
+          { audience: "grade-1" },
+          { audience: "grade-2" },
+          { audience: "grade-3" }
+        );
+      }
+      where.OR = audienceFilters;
     } else {
       // 사용자 역할에 따른 기본 필터
       if (session.user.role === "student") {
         // 학생은 자신의 학년과 전체 대상만 볼 수 있음
-        const studentProfile = await prisma.studentProfile.findUnique({
-          where: { userId: session.user.id },
-          select: { grade: true, classLabel: true, section: true },
-        });
-        studentGrade = studentProfile?.grade?.trim() || null;
         const gradeAudience = studentGrade ? `grade-${studentGrade}` : null;
-
-        const sectionValue = studentProfile?.section?.trim() || null;
-        let classNumber = sectionValue || null;
-        if (!classNumber) {
-          const classLabel = studentProfile?.classLabel?.trim() || "";
-          const match = classLabel.match(/(\d+)\s*[-학년\s]*(\d+)\s*반?/);
-          if (match) {
-            if (!studentGrade) {
-              studentGrade = match[1];
-            }
-            classNumber = match[2];
-          }
-        }
-        studentClassNumber = classNumber ? classNumber.replace(/^0+/, "") : null;
 
         where.OR = [
           { audience: "all" },
@@ -357,17 +390,18 @@ export async function GET(request: NextRequest) {
       take: totalCount > 0 ? totalCount : undefined, // 전체 개수만큼 가져오기
     });
 
-    // 학생의 학반 단위 필터링 (selectedClasses가 있는 경우에만 적용)
-    if (session.user.role === "student") {
+    // 학생 게시판에서만 학반 단위 필터링 (selectedClasses가 있는 경우에만 적용)
+    if (session.user.role === "student" && boardType === "board_students") {
       const normalizeNumber = (value: string) => value.trim().replace(/^0+/, "");
       announcements = announcements.filter((announcement: any) => {
-        if (!announcement.selectedClasses) return true;
+        if (!announcement.selectedClasses) return false;
         if (!studentGrade || !studentClassNumber) return false;
         try {
           const selected = JSON.parse(announcement.selectedClasses) as Array<{
             grade: string;
             classNumber: string;
           }>;
+          if (selected.length === 0) return false;
           return selected.some((cls) =>
             normalizeNumber(cls.grade) === normalizeNumber(studentGrade) &&
             normalizeNumber(cls.classNumber) === normalizeNumber(studentClassNumber)
@@ -389,6 +423,7 @@ export async function GET(request: NextRequest) {
     console.log(`Found ${announcements.length} announcements for user ${session.user.role}`, {
       includeScheduled,
       audience,
+      boardType,
       school: session.user.school,
       where,
     });
@@ -398,6 +433,7 @@ export async function GET(request: NextRequest) {
         id: a.id,
         title: a.title,
         content: a.content,
+        boardType: a.boardType || null,
         audience: a.audience,
         author: a.author,
         authorId: a.authorId,

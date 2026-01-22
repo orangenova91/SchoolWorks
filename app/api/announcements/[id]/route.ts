@@ -5,7 +5,14 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { put } from '@vercel/blob';
 
-const AUDIENCE_VALUES = ["all", "grade-1", "grade-2", "grade-3", "parents"] as const;
+const AUDIENCE_VALUES = ["all", "grade-1", "grade-2", "grade-3", "parents", "teacher", "students"] as const;
+const BOARD_TYPES = [
+  "board_test",
+  "board_teachers",
+  "board_students",
+  "board_parents",
+  "board_class",
+] as const;
 
 const selectedClassSchema = z.object({
   grade: z.string(),
@@ -38,6 +45,7 @@ const updateAnnouncementSchema = z.object({
   title: z.string().trim().min(1, "제목을 입력하세요").max(200, "제목은 200자 이하여야 합니다"),
   category: z.string().optional(),
   content: z.string().trim().min(1, "본문을 입력하세요"),
+  boardType: z.enum(BOARD_TYPES).optional(),
   audience: z.enum(AUDIENCE_VALUES),
   author: z.string().trim().min(1, "작성자를 입력하세요"),
   isScheduled: z.boolean().default(false),
@@ -85,6 +93,7 @@ export async function GET(
         title: announcement.title,
         category: announcement.category || null,
         content: announcement.content,
+        boardType: announcement.boardType || null,
         audience: announcement.audience,
         author: announcement.author,
         authorId: announcement.authorId,
@@ -394,6 +403,7 @@ export async function PUT(
       title: validatedData.title,
       category: validatedData.category || null,
       content: validatedData.content,
+      boardType: validatedData.boardType,
       audience: validatedData.audience,
       // author와 authorId는 원래 작성자 정보를 유지하므로 업데이트하지 않음
       // (수정 권한을 받은 사용자가 수정해도 원래 작성자는 변경되지 않음)
@@ -437,6 +447,7 @@ export async function PUT(
       announcement: {
         id: announcement.id,
         title: announcement.title,
+        boardType: announcement.boardType || null,
         audience: announcement.audience,
         author: announcement.author,
         isScheduled: announcement.isScheduled,

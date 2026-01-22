@@ -29,7 +29,7 @@ export default async function StudentFamilyNoticesPage() {
       </header>
 
       <section className="rounded-lg border border-gray-200 bg-white p-6">
-        <AnnouncementList includeScheduled={false} />
+        <AnnouncementList includeScheduled={false} boardType="board_parents" />
       </section>
     </div>
   );

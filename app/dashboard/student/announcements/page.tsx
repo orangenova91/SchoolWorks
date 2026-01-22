@@ -29,9 +29,8 @@ export default async function StudentAnnouncementsPage() {
       </header>
 
       <section className="rounded-lg border border-gray-200 bg-white p-6">
-        <AnnouncementList includeScheduled={false} audience="students" />
+        <AnnouncementList includeScheduled={false} audience="students" boardType="board_students" />
       </section>
     </div>
   );
 }
-
