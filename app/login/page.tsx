@@ -176,7 +176,7 @@ export default function LoginPage() {
               Google로 로그인
             </Button>
 
-            <div className="text-center">
+            <div className="text-center space-y-2">
               <p className="text-sm text-gray-600">
                 {t.auth.dontHaveAccount}{" "}
                 <Link
@@ -184,6 +184,15 @@ export default function LoginPage() {
                   className="font-semibold text-blue-600 hover:text-blue-700 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded px-1"
                 >
                   {t.auth.createAccount}
+                </Link>
+              </p>
+              <p className="text-sm text-gray-600">
+                {t.auth.forgotAccount}{" "}
+                <Link
+                  href="/find-account"
+                  className="font-semibold text-blue-600 hover:text-blue-700 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded px-1"
+                >
+                  {t.auth.findAccount}
                 </Link>
               </p>
             </div>
