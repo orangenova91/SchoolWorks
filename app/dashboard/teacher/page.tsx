@@ -841,7 +841,7 @@ export default async function TeacherDashboardPage() {
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-gray-900">교직원 게시판</h2>
             <Link
-              href="/dashboard/teacher/staff-announcements"
+              href="/dashboard/teacher/board_teachers"
               className="text-sm text-blue-600 hover:text-blue-700 font-medium"
             >
               더보기 →
@@ -858,7 +858,7 @@ export default async function TeacherDashboardPage() {
                 return (
                 <Link
                   key={announcement.id}
-                  href={`/dashboard/teacher/staff-announcements`}
+                  href={`/dashboard/teacher/board_teachers`}
                   className="block p-3 rounded-lg border border-gray-100 hover:bg-gray-50 hover:border-gray-200 transition-colors"
                 >
                   <div className="flex items-start gap-3">

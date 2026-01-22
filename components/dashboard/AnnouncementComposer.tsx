@@ -258,6 +258,16 @@ const CLASS_NUMBERS = Array.from({ length: 7 }, (_, i) =>
   String(i + 1).padStart(2, "0")
 );
 
+const getAllClasses = (): SelectedClass[] => {
+  const allClasses: SelectedClass[] = [];
+  GRADES.forEach((grade) => {
+    CLASS_NUMBERS.forEach((classNumber) => {
+      allClasses.push({ grade, classNumber });
+    });
+  });
+  return allClasses;
+};
+
 const getDefaultPublishAt = () => {
   const tomorrow = new Date();
   tomorrow.setDate(tomorrow.getDate() + 1);
@@ -283,6 +293,7 @@ interface AnnouncementComposerPayload {
   title: string;
   category?: string;
   courseId?: string;
+  boardType?: string;
   audience: string;
   author: string;
   content: string;
@@ -301,6 +312,7 @@ interface AnnouncementComposerPayload {
 interface AnnouncementComposerProps {
   authorName: string;
   courseId?: string;
+  boardType?: string;
   onPreview?: (payload: AnnouncementComposerPayload) => void;
   isOpen?: boolean;
   onOpenChange?: (open: boolean) => void;
@@ -310,7 +322,7 @@ interface AnnouncementComposerProps {
   restrictedAudience?: string; // 제한된 알림 대상 (예: "teacher", "students")
 }
 
-export function AnnouncementComposer({ authorName, courseId, onPreview, isOpen: controlledIsOpen, onOpenChange, showButton = true, editId, onEditComplete, restrictedAudience }: AnnouncementComposerProps) {
+export function AnnouncementComposer({ authorName, courseId, boardType, onPreview, isOpen: controlledIsOpen, onOpenChange, showButton = true, editId, onEditComplete, restrictedAudience }: AnnouncementComposerProps) {
   const [internalIsOpen, setInternalIsOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   
@@ -344,7 +356,7 @@ export function AnnouncementComposer({ authorName, courseId, onPreview, isOpen: 
   }
 
   const modalContent = (
-    <AnnouncementComposerForm authorName={authorName} courseId={courseId} onPreview={onPreview} onClose={handleClose} editId={editId} onEditComplete={onEditComplete} restrictedAudience={restrictedAudience} />
+    <AnnouncementComposerForm authorName={authorName} courseId={courseId} boardType={boardType} onPreview={onPreview} onClose={handleClose} editId={editId} onEditComplete={onEditComplete} restrictedAudience={restrictedAudience} />
   );
 
   return (
@@ -360,6 +372,7 @@ export function AnnouncementComposer({ authorName, courseId, onPreview, isOpen: 
 function AnnouncementComposerForm({
   authorName,
   courseId,
+  boardType,
   onPreview,
   onClose,
   editId,
@@ -730,8 +743,11 @@ function AnnouncementComposerForm({
 
   // restrictedAudience가 "students"일 때 초기값 설정
   useEffect(() => {
-    if (restrictedAudience === "students" && selectedTargets.length === 0 && !editId) {
-      setSelectedTargets(["students"]);
+    if (restrictedAudience === "students" && !editId) {
+      if (selectedTargets.length === 0) {
+        setSelectedTargets(["students"]);
+      }
+      setSelectedClasses(getAllClasses());
     }
   }, [restrictedAudience, editId]);
 
@@ -1092,17 +1108,6 @@ function AnnouncementComposerForm({
     ? selectedTeacherIds.length > 0 || selectedTargets.length > 0
     : selectedTargets.length > 0;
   const isDisabled = !hasTitle || !hasTargets || isSubmitting;
-
-  // 모든 학반 조합 생성
-  const getAllClasses = (): SelectedClass[] => {
-    const allClasses: SelectedClass[] = [];
-    GRADES.forEach((grade) => {
-      CLASS_NUMBERS.forEach((classNumber) => {
-        allClasses.push({ grade, classNumber });
-      });
-    });
-    return allClasses;
-  };
 
   // 모든 학반이 선택되었는지 확인
   const isAllClassesSelected = (classes: SelectedClass[]): boolean => {
@@ -1524,6 +1529,7 @@ function AnnouncementComposerForm({
       title: title.trim(),
       category: category || undefined,
       courseId: courseId || undefined,
+      boardType: boardType || undefined,
       audience,
       author: authorName.trim(),
       content,
@@ -1983,6 +1989,24 @@ function AnnouncementComposerForm({
     );
   }
 
+  const headerTitle = editId ? "안내문 수정" : "새 안내문 작성";
+  const headerHeading = editId ? "안내문 수정" : "안내문 입력";
+  const headerDescription = (() => {
+    if (isCourseAudienceLocked) {
+      return "수업 관련 공지 사항을 작성할 수 있습니다.";
+    }
+    if (boardType === "board_teachers") {
+      return "교직원에게 필요한 공지사항을 작성하세요.";
+    }
+    if (boardType === "board_students") {
+      return "학생 대상 공지사항을 작성하세요.";
+    }
+    if (boardType === "board_parents") {
+      return "학부모 대상 안내문을 작성하세요.";
+    }
+    return "제목과 대상을 지정한 뒤 본문을 자유롭게 작성할 수 있어요.";
+  })();
+
   return (
     <div
       className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 px-4 py-8 sm:py-8"
@@ -1996,13 +2020,11 @@ function AnnouncementComposerForm({
       <div className="flex items-start justify-between gap-4">
         <div className="space-y-1">
           <p className="text-xs font-semibold uppercase tracking-wider text-blue-600">
-            {editId ? "안내문 수정" : "새 안내문 작성"}
+            {headerTitle}
           </p>
-          <h2 className="text-xl font-bold text-gray-900">{editId ? "안내문 수정" : "안내문 입력"}</h2>
+          <h2 className="text-xl font-bold text-gray-900">{headerHeading}</h2>
         <p className="text-sm text-gray-500">
-          {isCourseAudienceLocked
-            ? "수업 관련 공지 사항을 작성할 수 있습니다."
-            : "제목과 대상을 지정한 뒤 본문을 자유롭게 작성할 수 있어요."}
+          {headerDescription}
         </p>
         </div>
         <Button 

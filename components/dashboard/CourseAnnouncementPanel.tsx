@@ -56,6 +56,7 @@ export default function CourseAnnouncementPanel({
       <AnnouncementSection
         authorName={authorName}
         courseId={courseId}
+        boardType="board_class"
         isOpen={isOpen}
         onOpenChange={handleClose}
         onAnnouncementCreated={handleAnnouncementCreated}
@@ -66,6 +67,7 @@ export default function CourseAnnouncementPanel({
         refreshKey={refreshKey}
         includeScheduled={true}
         courseId={courseId}
+        boardType="board_class"
         onEdit={handleEdit}
         showEditButton={true}
         onDelete={handleDelete}

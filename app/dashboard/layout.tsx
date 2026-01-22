@@ -28,6 +28,7 @@ import {
   Clipboard,
   ClipboardMinus,
   ClipboardCopy,
+  ClipboardList,
 } from "lucide-react";
 
 export default async function DashboardLayout({
@@ -103,20 +104,26 @@ export default async function DashboardLayout({
             iconName: "UserCheck"
           },
           {
-            href: "/dashboard/teacher/staff-announcements",
+            href: "/dashboard/teacher/test-board",
+            label: "TEST 게시판",
+            icon: <ClipboardList className="w-5 h-5" />,
+            iconName: "ClipboardList"
+          },
+          {
+            href: "/dashboard/teacher/board_teachers",
             label: "교직원 게시판",
             icon: <Clipboard className="w-5 h-5" />,
             iconName: "Clipboard"
           },
           {
-            href: "/dashboard/teacher/student-announcements",
+            href: "/dashboard/teacher/board_students",
             label: "학생 게시판",
             icon: <ClipboardMinus className="w-5 h-5" />,
             iconName: "ClipboardMinus"
           },
           {
-            href: "/dashboard/teacher/announcements",
-            label: t.sidebar.teacher.announcements,
+            href: "/dashboard/teacher/board_parents",
+            label: "가정 안내문",
             icon: <ClipboardCopy className="w-5 h-5" />,
             iconName: "ClipboardCopy"
           },
@@ -156,13 +163,13 @@ export default async function DashboardLayout({
           },
           {
             href: "/dashboard/student/announcements",
-            label: t.sidebar.student.studentBoard,
+            label: "학생 게시판",
             icon: <ClipboardMinus className="w-5 h-5" />,
             iconName: "ClipboardMinus"
           },
           {
             href: "/dashboard/student/family-notices",
-            label: t.sidebar.student.announcements,
+            label: "가정 안내문",
             icon: <ClipboardCopy className="w-5 h-5" />,
             iconName: "ClipboardCopy"
           },
@@ -261,12 +268,6 @@ export default async function DashboardLayout({
             label: "학사일정",
             icon: <Calendar className="w-5 h-5" />,
             iconName: "Calendar",
-          },
-          {
-            href: "/dashboard/parent/announcements",
-            label: "가정 안내문",
-            icon: <ClipboardCopy className="w-5 h-5" />,
-            iconName: "ClipboardCopy",
           },
           {
             href: googleChatLink,

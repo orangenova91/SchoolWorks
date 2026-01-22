@@ -8,7 +8,7 @@ const AnnouncementPageClient = dynamic(
   { ssr: false, loading: () => <div className="rounded-2xl border border-gray-200 bg-white p-6">로딩 중...</div> }
 );
 
-export default async function StudentAnnouncementsPage() {
+export default async function TeacherTest3NoticePage() {
   const session = await getServerSession(authOptions);
 
   if (!session) {
@@ -23,11 +23,12 @@ export default async function StudentAnnouncementsPage() {
 
   return (
     <AnnouncementPageClient 
-      title="학생 게시판"
-      description="학생 대상 공지사항을 작성하고 확인하세요."
+      title="가정 안내문"
+      description="가정 안내문을 작성하고 확인하세요."
       authorName={authorName}
       includeScheduled={true}
-      audience="students"
+      boardType="board_parents"
+      audience="parents"
     />
   );
 }
