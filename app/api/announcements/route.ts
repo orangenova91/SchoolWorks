@@ -33,6 +33,85 @@ const consentDataSchema = z.object({
   requiresSignature: z.boolean().optional(), // 서명이 필요한지 여부 (설문 조사에서 서명 포함 체크 시)
 });
 
+const normalizeNumber = (value: string) => value.trim().replace(/^0+/, "");
+const parseClassKey = (profile: { grade?: string | null; classLabel?: string | null; section?: string | null; }) => {
+  let grade = profile.grade?.trim() || null;
+  let classNumber = profile.section?.trim() || null;
+  if (!classNumber) {
+    const classLabel = profile.classLabel?.trim() || "";
+    const match = classLabel.match(/(\d+)\s*[-학년\s]*(\d+)\s*반?/);
+    if (match) {
+      if (!grade) {
+        grade = match[1];
+      }
+      classNumber = match[2];
+    }
+  }
+  if (grade && classNumber) {
+    return `${normalizeNumber(grade)}-${normalizeNumber(classNumber)}`;
+  }
+  return null;
+};
+
+const toClassKey = (item: { grade: string; classNumber: string }) => {
+  return `${normalizeNumber(item.grade)}-${normalizeNumber(item.classNumber)}`;
+};
+
+const computeConsentTotals = async (
+  school: string | null | undefined,
+  selectedClasses?: Array<{ grade: string; classNumber: string }>,
+  parentSelectedClasses?: Array<{ grade: string; classNumber: string }>
+) => {
+  const studentTargetKeys = new Set(
+    Array.isArray(selectedClasses) ? selectedClasses.map(toClassKey) : []
+  );
+  const parentTargetKeys = new Set(
+    Array.isArray(parentSelectedClasses) ? parentSelectedClasses.map(toClassKey) : []
+  );
+
+  const allStudentProfiles = await prisma.studentProfile.findMany({
+    where: school ? { school } : undefined,
+    select: { userId: true, grade: true, classLabel: true, section: true },
+  });
+
+  const studentTargetsSet = new Set(
+    allStudentProfiles
+      .filter((profile) => {
+        if (studentTargetKeys.size === 0) return false;
+        const key = parseClassKey(profile);
+        return key ? studentTargetKeys.has(key) : false;
+      })
+      .map((profile) => profile.userId)
+  );
+
+  const parentTargetsSet = new Set(
+    allStudentProfiles
+      .filter((profile) => {
+        if (parentTargetKeys.size === 0) return false;
+        const key = parseClassKey(profile);
+        return key ? parentTargetKeys.has(key) : false;
+      })
+      .map((profile) => profile.userId)
+  );
+
+  const totalStudents = studentTargetsSet.size;
+  const parentTargetStudentIds = Array.from(parentTargetsSet);
+  const totalParents =
+    parentTargetStudentIds.length === 0
+      ? 0
+      : await (prisma as any).user.count({
+          where: {
+            role: "parent",
+            ...(school ? { school } : {}),
+            parentProfile: {
+              studentIds: { hasSome: parentTargetStudentIds },
+            },
+          },
+        });
+
+  return { totalStudents, totalParents };
+};
+
 // 파일 업로드 허용 확장자
 const ALLOWED_EXTENSIONS = [
   ".ppt", ".pptx", ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".zip",
@@ -161,6 +240,12 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    const consentTotals = await computeConsentTotals(
+      session.user.school || null,
+      validatedData.selectedClasses || [],
+      validatedData.parentSelectedClasses || []
+    );
+
     // 공지사항 생성
     const announcement = await (prisma as any).announcement.create({
       data: {
@@ -182,6 +267,11 @@ export async function POST(request: NextRequest) {
         surveyStartDate: validatedData.surveyStartDate ? new Date(validatedData.surveyStartDate) : null,
         surveyEndDate: validatedData.surveyEndDate ? new Date(validatedData.surveyEndDate) : null,
         consentData: validatedData.consentData ? JSON.stringify(validatedData.consentData) : null,
+        consentStats: JSON.stringify({
+          totalStudents: consentTotals.totalStudents,
+          totalParents: consentTotals.totalParents,
+          updatedAt: new Date().toISOString(),
+        }),
         attachments: savedFiles.length > 0 ? JSON.stringify(savedFiles) : null,
       },
     });
@@ -264,6 +354,7 @@ export async function GET(request: NextRequest) {
     const where: any = {};
     let studentGrade: string | null = null;
     let studentClassNumber: string | null = null;
+    let parentClassKeys: Set<string> | null = null;
 
     // 발행된 공지사항만 조회 (예약 포함 여부에 따라)
     if (!includeScheduled) {
@@ -306,6 +397,41 @@ export async function GET(request: NextRequest) {
         }
       }
       studentClassNumber = classNumber ? classNumber.replace(/^0+/, "") : null;
+    }
+    
+    if (session.user.role === "parent" && boardType === "board_parents") {
+      const parentProfile = await prisma.parentProfile.findUnique({
+        where: { userId: session.user.id },
+        select: { studentIds: true },
+      });
+
+      if (parentProfile?.studentIds?.length) {
+        const studentProfiles = await prisma.studentProfile.findMany({
+          where: { userId: { in: parentProfile.studentIds } },
+          select: { grade: true, classLabel: true, section: true },
+        });
+
+        const normalizeNumber = (value: string) => value.trim().replace(/^0+/, "");
+        parentClassKeys = new Set<string>();
+
+        studentProfiles.forEach((profile) => {
+          let grade = profile.grade?.trim() || null;
+          let classNumber = profile.section?.trim() || null;
+          if (!classNumber) {
+            const classLabel = profile.classLabel?.trim() || "";
+            const match = classLabel.match(/(\d+)\s*[-학년\s]*(\d+)\s*반?/);
+            if (match) {
+              if (!grade) {
+                grade = match[1];
+              }
+              classNumber = match[2];
+            }
+          }
+          if (grade && classNumber) {
+            parentClassKeys!.add(`${normalizeNumber(grade)}-${normalizeNumber(classNumber)}`);
+          }
+        });
+      }
     }
 
     // 대상 필터
@@ -408,6 +534,28 @@ export async function GET(request: NextRequest) {
           );
         } catch (error) {
           console.error("Error parsing selectedClasses:", error);
+          return false;
+        }
+      });
+    }
+
+    if (session.user.role === "parent" && boardType === "board_parents" && parentClassKeys?.size) {
+      const normalizeNumber = (value: string) => value.trim().replace(/^0+/, "");
+      announcements = announcements.filter((announcement: any) => {
+        if (!announcement.parentSelectedClasses) return true;
+        try {
+          const selected = JSON.parse(announcement.parentSelectedClasses) as Array<{
+            grade: string;
+            classNumber: string;
+          }>;
+          if (!Array.isArray(selected) || selected.length === 0) return false;
+          return selected.some((cls) =>
+            parentClassKeys!.has(
+              `${normalizeNumber(cls.grade)}-${normalizeNumber(cls.classNumber)}`
+            )
+          );
+        } catch (error) {
+          console.error("Error parsing parentSelectedClasses:", error);
           return false;
         }
       });

@@ -570,33 +570,37 @@ function AnnouncementComposerForm({
           const announcement = data.announcement;
           setTitle(announcement.title);
           setCategory(announcement.category || "notice");
-          setSelectedTargets(convertAudienceToTargets(announcement.audience));
+          const audienceTargets = convertAudienceToTargets(announcement.audience);
           // 선택된 학급 정보 로드 (있는 경우)
+          let loadedSelectedClasses: SelectedClass[] = [];
           if (announcement.selectedClasses) {
             try {
               const classes = typeof announcement.selectedClasses === 'string' 
                 ? JSON.parse(announcement.selectedClasses) 
                 : announcement.selectedClasses;
-              setSelectedClasses(Array.isArray(classes) ? classes : []);
+              loadedSelectedClasses = Array.isArray(classes) ? classes : [];
             } catch (e) {
-              setSelectedClasses([]);
+              loadedSelectedClasses = [];
             }
-          } else {
-            setSelectedClasses([]);
           }
+          setSelectedClasses(loadedSelectedClasses);
           // 학부모용 선택된 학급 정보 로드 (있는 경우)
+          let loadedParentSelectedClasses: SelectedClass[] = [];
           if (announcement.parentSelectedClasses) {
             try {
               const classes = typeof announcement.parentSelectedClasses === 'string' 
                 ? JSON.parse(announcement.parentSelectedClasses) 
                 : announcement.parentSelectedClasses;
-              setParentSelectedClasses(Array.isArray(classes) ? classes : []);
+              loadedParentSelectedClasses = Array.isArray(classes) ? classes : [];
             } catch (e) {
-              setParentSelectedClasses([]);
+              loadedParentSelectedClasses = [];
             }
-          } else {
-            setParentSelectedClasses([]);
           }
+          setParentSelectedClasses(loadedParentSelectedClasses);
+          if (loadedParentSelectedClasses.length > 0 && !audienceTargets.includes("parents")) {
+            audienceTargets.push("parents");
+          }
+          setSelectedTargets(audienceTargets);
           setUseSchedule(announcement.isScheduled);
           setPublishAt(announcement.publishAt ? new Date(announcement.publishAt).toISOString().slice(0, 16) : "");
           editor.commands.setContent(announcement.content);

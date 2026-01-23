@@ -32,7 +32,7 @@ export default async function ParentAnnouncementsPage() {
       </header>
 
       <section className="rounded-lg border border-gray-200 bg-white p-6">
-        <AnnouncementList includeScheduled={false} audience="parents" />
+        <AnnouncementList includeScheduled={false} audience="parents" boardType="board_parents" />
       </section>
     </div>
   );
