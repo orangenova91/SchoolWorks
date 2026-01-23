@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { X, User, Calendar, Edit, Trash2, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -25,6 +25,57 @@ interface ConsentData {
   signatureImage?: string; // Base64 이미지 (선택사항)
   signedAt?: string; // 서명 일시 (선택사항)
   requiresSignature?: boolean; // 서명이 필요한지 여부 (설문 조사에서 서명 포함 체크 시)
+}
+
+interface ConsentRecord {
+  signatureImage?: string;
+  signatureUrl?: string;
+  signedAt?: string;
+  submittedAt?: string;
+  returnedAt?: string;
+  returnReason?: string | null;
+}
+
+interface ConsentListItem {
+  userId: string;
+  signatureUrl?: string | null;
+  signedAt?: string | null;
+  submittedAt?: string | null;
+  returnedAt?: string | null;
+  returnReason?: string | null;
+  studentId?: string | null;
+  user: {
+    id: string;
+    name: string | null;
+    email: string | null;
+    role: string | null;
+    studentProfile: {
+      grade?: string | null;
+      classLabel?: string | null;
+      section?: string | null;
+      studentId?: string | null;
+    } | null;
+    parentProfile: {
+      studentIds: string[];
+    } | null;
+    children: Array<{
+      id: string;
+      name: string | null;
+      studentProfile: {
+        grade?: string | null;
+        classLabel?: string | null;
+        section?: string | null;
+        studentId?: string | null;
+      } | null;
+    }>;
+  } | null;
+}
+
+interface PendingListItem {
+  userId: string;
+  name: string | null;
+  email: string | null;
+  studentId: string | null;
 }
 
 interface Announcement {
@@ -178,6 +229,16 @@ const getAudienceDisplayText = (announcement: Announcement, isCourseContext: boo
   return baseLabel;
 };
 
+const parseConsentData = (raw: unknown): ConsentData | null => {
+  if (!raw) return null;
+  try {
+    return typeof raw === "string" ? JSON.parse(raw) : (raw as ConsentData);
+  } catch (error) {
+    console.error("Error parsing consent data:", error);
+    return null;
+  }
+};
+
 export function AnnouncementDetailModal({
   isOpen,
   announcement,
@@ -194,6 +255,34 @@ export function AnnouncementDetailModal({
   const [mounted, setMounted] = useState(false);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const [signatureData, setSignatureData] = useState<string | null>(null);
+  const [existingSignature, setExistingSignature] = useState<ConsentRecord | null>(null);
+  const [isEditingSignature, setIsEditingSignature] = useState(false);
+  const [isSignatureLoading, setIsSignatureLoading] = useState(false);
+  const [isSignatureSaving, setIsSignatureSaving] = useState(false);
+  const [isDrawing, setIsDrawing] = useState(false);
+  const [consentList, setConsentList] = useState<ConsentListItem[]>([]);
+  const [isConsentListLoading, setIsConsentListLoading] = useState(false);
+  const [consentListError, setConsentListError] = useState<string | null>(null);
+  const [isConsentListVisible, setIsConsentListVisible] = useState(false);
+  const [returnReasons, setReturnReasons] = useState<Record<string, string>>({});
+  const [returningUserIds, setReturningUserIds] = useState<Set<string>>(new Set());
+  const [consentStats, setConsentStats] = useState<{
+    totalStudents: number;
+    totalParents: number;
+    submittedStudents: number;
+    submittedParents: number;
+    returnedStudents: number;
+    returnedParents: number;
+  } | null>(null);
+  const [pendingLists, setPendingLists] = useState<{
+    students: PendingListItem[];
+    parents: PendingListItem[];
+  } | null>(null);
+  const [isPendingLoading, setIsPendingLoading] = useState(false);
+  const [pendingError, setPendingError] = useState<string | null>(null);
+  const [isPendingVisible, setIsPendingVisible] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -224,6 +313,235 @@ export function AnnouncementDetailModal({
       minute: "2-digit",
     });
   };
+
+  const canSign =
+    session?.user?.role === "parent" || session?.user?.role === "student";
+
+  const clearSignature = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    setSignatureData(null);
+  };
+
+  const getCanvasCoordinates = (
+    event: React.PointerEvent<HTMLCanvasElement>
+  ) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return { x: 0, y: 0 };
+    const rect = canvas.getBoundingClientRect();
+    return {
+      x: event.clientX - rect.left,
+      y: event.clientY - rect.top,
+    };
+  };
+
+  const startDrawing = (event: React.PointerEvent<HTMLCanvasElement>) => {
+    if (!isEditingSignature) return;
+    event.preventDefault();
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    const { x, y } = getCanvasCoordinates(event);
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    setIsDrawing(true);
+  };
+
+  const draw = (event: React.PointerEvent<HTMLCanvasElement>) => {
+    if (!isDrawing || !isEditingSignature) return;
+    event.preventDefault();
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    const { x, y } = getCanvasCoordinates(event);
+    ctx.lineTo(x, y);
+    ctx.stroke();
+  };
+
+  const stopDrawing = () => {
+    if (!isDrawing) return;
+    setIsDrawing(false);
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const dataURL = canvas.toDataURL("image/png");
+    setSignatureData(dataURL);
+  };
+
+  const loadSignature = async (announcementId: string) => {
+    setIsSignatureLoading(true);
+    try {
+      const response = await fetch(`/api/announcements/${announcementId}/consent`);
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || "서명 정보를 불러오지 못했습니다.");
+      }
+      if (data?.consent) {
+        setExistingSignature({
+          signatureImage: data.consent.signatureImage || undefined,
+          signatureUrl: data.consent.signatureUrl || undefined,
+          signedAt: data.consent.signedAt || undefined,
+          submittedAt: data.consent.submittedAt || undefined,
+          returnedAt: data.consent.returnedAt || undefined,
+          returnReason: data.consent.returnReason ?? null,
+        });
+        const canEditSignature =
+          !data.consent.submittedAt || !!data.consent.returnedAt;
+        setIsEditingSignature(canEditSignature);
+      } else {
+        setExistingSignature(null);
+        setIsEditingSignature(true);
+      }
+    } catch (error: any) {
+      setExistingSignature(null);
+      setIsEditingSignature(true);
+      showToast(error.message || "서명 정보를 불러오지 못했습니다.", "error");
+    } finally {
+      setIsSignatureLoading(false);
+    }
+  };
+
+  const saveSignature = async (
+    announcementId: string,
+    mode: "submit" | "update"
+  ) => {
+    if (!signatureData) return;
+    setIsSignatureSaving(true);
+    try {
+      const endpoint = `/api/announcements/${announcementId}/consent`;
+      const method = mode === "update" ? "PATCH" : "POST";
+      const response = await fetch(endpoint, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ signatureImage: signatureData }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(
+          data.error ||
+            (mode === "update" ? "수정 저장에 실패했습니다." : "제출에 실패했습니다.")
+        );
+      }
+      setExistingSignature({
+        signatureImage: data.consent?.signatureImage || signatureData,
+        signatureUrl: data.consent?.signatureUrl || existingSignature?.signatureUrl,
+        signedAt: data.consent?.signedAt || new Date().toISOString(),
+        submittedAt: data.consent?.submittedAt || existingSignature?.submittedAt,
+        returnedAt: data.consent?.returnedAt ?? null,
+        returnReason: data.consent?.returnReason ?? null,
+      });
+      setIsEditingSignature(false);
+      setSignatureData(null);
+      showToast(
+        mode === "update" ? "수정이 저장되었습니다." : "동의서가 제출되었습니다.",
+        "success"
+      );
+    } catch (error: any) {
+      showToast(error.message || "처리 중 오류가 발생했습니다.", "error");
+    } finally {
+      setIsSignatureSaving(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!isOpen) {
+      setSignatureData(null);
+      setExistingSignature(null);
+      setIsEditingSignature(false);
+      setIsSignatureLoading(false);
+      setIsSignatureSaving(false);
+      setIsDrawing(false);
+      setConsentList([]);
+      setConsentListError(null);
+      setIsConsentListVisible(false);
+      setReturnReasons({});
+      setReturningUserIds(new Set());
+      setConsentStats(null);
+      setPendingLists(null);
+      setPendingError(null);
+      setIsPendingLoading(false);
+      setIsPendingVisible(false);
+    }
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (!announcement) return;
+    setSignatureData(null);
+    setExistingSignature(null);
+    setIsEditingSignature(false);
+    setConsentList([]);
+    setConsentListError(null);
+    setIsConsentListVisible(false);
+    setReturnReasons({});
+    setReturningUserIds(new Set());
+    setConsentStats(null);
+    setPendingLists(null);
+    setPendingError(null);
+    setIsPendingLoading(false);
+    setIsPendingVisible(false);
+  }, [announcement?.id]);
+
+  useEffect(() => {
+    if (!isOpen || !announcement || !canSign) return;
+    const consentMeta = parseConsentData(announcement.consentData);
+    const requiresSignature =
+      announcement.category === "consent" ||
+      (announcement.category === "survey" && consentMeta?.requiresSignature);
+    if (!requiresSignature) return;
+    loadSignature(announcement.id);
+  }, [isOpen, announcement, canSign]);
+
+  useEffect(() => {
+    const isTeacher = session?.user?.role === "teacher";
+    if (!isOpen || !announcement || !isTeacher) return;
+    const consentMeta = parseConsentData(announcement.consentData);
+    const requiresSignature =
+      announcement.category === "consent" ||
+      (announcement.category === "survey" && consentMeta?.requiresSignature);
+    if (!requiresSignature) return;
+
+    const fetchStats = async () => {
+      setIsConsentListLoading(true);
+      setConsentListError(null);
+      try {
+        const response = await fetch(`/api/announcements/${announcement.id}/consents/stats`);
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data.error || "통계를 불러오지 못했습니다.");
+        }
+        setConsentStats(data.stats || null);
+      } catch (error: any) {
+        setConsentStats(null);
+      } finally {
+        setIsConsentListLoading(false);
+      }
+    };
+
+    fetchStats();
+  }, [isOpen, announcement, session?.user?.role]);
+
+  useEffect(() => {
+    if (!isOpen || !isEditingSignature) return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = rect.width * dpr;
+    canvas.height = rect.height * dpr;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.strokeStyle = "#000000";
+    ctx.lineWidth = 2;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+  }, [isOpen, isEditingSignature]);
 
   const handleDeleteClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -260,6 +578,114 @@ export function AnnouncementDetailModal({
     }
   };
 
+  const handleReturnConsent = async (userId: string) => {
+    if (!announcement) return;
+    setReturningUserIds((prev) => new Set(prev).add(userId));
+    try {
+      const response = await fetch(`/api/announcements/${announcement.id}/consent/return`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId,
+          reason: returnReasons[userId] || "",
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || "동의서 반환에 실패했습니다.");
+      }
+      setConsentList((prev) =>
+        prev.map((item) =>
+          item.userId === userId
+            ? {
+                ...item,
+                returnedAt: data.consent?.returnedAt || new Date().toISOString(),
+                returnReason: data.consent?.returnReason ?? returnReasons[userId] ?? null,
+              }
+            : item
+        )
+      );
+      setConsentStats((prev) => {
+        if (!prev) return prev;
+        const target = consentList.find((item) => item.userId === userId);
+        if (!target || target.returnedAt) return prev;
+        const isStudent = target.user?.role === "student";
+        const isParent = target.user?.role === "parent";
+        return {
+          ...prev,
+          submittedStudents: isStudent ? Math.max(0, prev.submittedStudents - 1) : prev.submittedStudents,
+          submittedParents: isParent ? Math.max(0, prev.submittedParents - 1) : prev.submittedParents,
+          returnedStudents: isStudent ? prev.returnedStudents + 1 : prev.returnedStudents,
+          returnedParents: isParent ? prev.returnedParents + 1 : prev.returnedParents,
+        };
+      });
+      showToast("동의서가 반환되었습니다.", "success");
+    } catch (error: any) {
+      showToast(error.message || "동의서 반환에 실패했습니다.", "error");
+    } finally {
+      setReturningUserIds((prev) => {
+        const next = new Set(prev);
+        next.delete(userId);
+        return next;
+      });
+    }
+  };
+
+  const handleToggleConsents = async () => {
+    if (!announcement) return;
+    if (isConsentListVisible) {
+      setIsConsentListVisible(false);
+      return;
+    }
+    if (consentList.length > 0) {
+      setIsConsentListVisible(true);
+      return;
+    }
+    setIsConsentListLoading(true);
+    setConsentListError(null);
+    try {
+      const response = await fetch(`/api/announcements/${announcement.id}/consents`);
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || "제출자 목록을 불러오지 못했습니다.");
+      }
+      setConsentList(Array.isArray(data.consents) ? data.consents : []);
+      setIsConsentListVisible(true);
+    } catch (error: any) {
+      setConsentList([]);
+      setConsentListError(error.message || "제출자 목록을 불러오지 못했습니다.");
+    } finally {
+      setIsConsentListLoading(false);
+    }
+  };
+
+  const handleTogglePending = async () => {
+    if (!announcement) return;
+    if (isPendingVisible) {
+      setIsPendingVisible(false);
+      return;
+    }
+    if (pendingLists) {
+      setIsPendingVisible(true);
+      return;
+    }
+    setIsPendingLoading(true);
+    setPendingError(null);
+    try {
+      const response = await fetch(`/api/announcements/${announcement.id}/consents/pending`);
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || "미제출자 목록을 불러오지 못했습니다.");
+      }
+      setPendingLists(data.pending || { students: [], parents: [] });
+      setIsPendingVisible(true);
+    } catch (error: any) {
+      setPendingError(error.message || "미제출자 목록을 불러오지 못했습니다.");
+    } finally {
+      setIsPendingLoading(false);
+    }
+  };
+
   if (!isOpen || !announcement || !mounted) return null;
 
   // 작성자 확인
@@ -283,6 +709,16 @@ export function AnnouncementDetailModal({
     (isAllClassesSelected(announcement.parentSelectedClasses) || formatSelectedClasses(announcement.parentSelectedClasses));
   
   const displayText = getAudienceDisplayText(announcement, Boolean(courseId));
+  const consentMeta = parseConsentData(announcement.consentData);
+  const isConsentCategory = announcement.category === "consent";
+  const isSurveySignatureRequired =
+    announcement.category === "survey" &&
+    (consentMeta?.requiresSignature || !!consentMeta?.signatureImage);
+  const shouldShowSignature = isConsentCategory || isSurveySignatureRequired;
+  const hasSubmitted = Boolean(existingSignature?.submittedAt);
+  const isReturned = Boolean(existingSignature?.returnedAt);
+  const isTeacher = session?.user?.role === "teacher";
+  const canReviewConsents = isTeacher && isAuthor && shouldShowSignature;
 
   const modalContent = (
     <div
@@ -525,52 +961,174 @@ export function AnnouncementDetailModal({
             }
           })()}
 
-          {/* 동의서/설문조사 서명 패널 (category가 "consent"이거나 "survey"이고 consentData가 있는 경우) */}
-          {(() => {
-            const isConsent = announcement.category === "consent";
-            const isSurveyWithSignature = announcement.category === "survey" && announcement.consentData;
-            const shouldShowSignature = isConsent || isSurveyWithSignature;
-
-            if (!shouldShowSignature) {
-              return null;
-            }
-
-            try {
-              let consentData: ConsentData | null = null;
-              
-              if (announcement.consentData) {
-                consentData = typeof announcement.consentData === 'string'
-                  ? JSON.parse(announcement.consentData)
-                  : announcement.consentData;
-              }
-
-              return (
-                <div className="mt-6 pt-6 border-t border-gray-200">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">서명</h3>
-                  <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                    {consentData?.signatureImage ? (
+          {/* 동의서/설문조사 서명 패널 */}
+          {shouldShowSignature && !isTeacher && (
+            <div className="mt-6 pt-6 border-t border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">서명</h3>
+              <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                {canSign ? (
+                  <div className="space-y-4">
+                    {isSignatureLoading && (
+                      <p className="text-sm text-gray-500">서명 정보를 불러오는 중...</p>
+                    )}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <h4 className="text-sm font-semibold text-gray-700">서명 입력</h4>
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={clearSignature}
+                              disabled={!isEditingSignature || isSignatureSaving}
+                              className={cn(
+                                "px-3 py-1.5 text-xs font-medium rounded-md transition-colors",
+                                !isEditingSignature || isSignatureSaving
+                                  ? "text-gray-400 bg-gray-100 cursor-not-allowed"
+                                  : "text-gray-600 bg-gray-100 hover:bg-gray-200"
+                              )}
+                            >
+                              초기화
+                            </button>
+                          </div>
+                        </div>
+                        <div className="border border-dashed border-gray-300 rounded-lg bg-white overflow-hidden relative">
+                          <canvas
+                            ref={canvasRef}
+                            onPointerDown={startDrawing}
+                            onPointerMove={draw}
+                            onPointerUp={stopDrawing}
+                            onPointerLeave={stopDrawing}
+                            className={cn(
+                              "w-full h-[200px]",
+                              isEditingSignature
+                                ? "cursor-crosshair"
+                                : "cursor-not-allowed opacity-50"
+                            )}
+                            style={{
+                              pointerEvents: isEditingSignature ? "auto" : "none",
+                              touchAction: "none",
+                            }}
+                          />
+                          {!isEditingSignature && (
+                            <div className="absolute inset-0 flex items-center justify-center bg-white/80">
+                              <p className="text-xs text-gray-500 text-center px-4">
+                                {isSignatureLoading
+                                  ? "서명 정보를 불러오는 중입니다."
+                                  : isReturned
+                                  ? "반환된 서명은 수정할 수 있습니다."
+                                  : "제출이 완료되어 수정할 수 없습니다."}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                        <div className="mt-3 flex items-center justify-between gap-3">
+                          <p className="text-xs text-gray-500">
+                            {isReturned
+                              ? "반환된 상태입니다. 수정 후 저장하세요."
+                              : hasSubmitted
+                              ? "제출 완료 상태입니다. 수정할 수 없습니다."
+                              : "서명 후 제출 버튼을 눌러주세요."}
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              saveSignature(
+                                announcement.id,
+                                isReturned ? "update" : "submit"
+                              )
+                            }
+                            disabled={
+                              !signatureData ||
+                              isSignatureSaving ||
+                              !isEditingSignature ||
+                              (hasSubmitted && !isReturned)
+                            }
+                            className={cn(
+                              "px-4 py-2 text-sm font-medium rounded-md transition-colors",
+                              !signatureData ||
+                              isSignatureSaving ||
+                              !isEditingSignature ||
+                              (hasSubmitted && !isReturned)
+                                ? "text-gray-400 bg-gray-100 cursor-not-allowed"
+                                : "text-white bg-blue-600 hover:bg-blue-700"
+                            )}
+                          >
+                            {isSignatureSaving
+                              ? "처리 중..."
+                              : isReturned
+                              ? "수정 저장"
+                              : "동의서 제출"}
+                          </button>
+                        </div>
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-semibold text-gray-700 mb-2">서명 미리보기</h4>
+                        <div className="border border-gray-300 rounded-lg bg-white p-4 min-h-[200px] flex items-center justify-center">
+                          {signatureData ? (
+                            <img
+                              src={signatureData}
+                              alt="서명 미리보기"
+                              className="max-w-full h-auto max-h-[300px]"
+                            />
+                          ) : existingSignature?.signatureUrl || existingSignature?.signatureImage ? (
+                            <img
+                              src={existingSignature.signatureUrl || existingSignature.signatureImage}
+                              alt="서명"
+                              className="max-w-full h-auto max-h-[300px]"
+                            />
+                          ) : (
+                            <p className="text-xs text-gray-400 text-center">
+                              아직 서명이 없습니다.
+                            </p>
+                          )}
+                        </div>
+                        {existingSignature?.signedAt && !isEditingSignature && (
+                          <p className="text-xs text-gray-500 mt-2">
+                            서명 일시: {formatDate(existingSignature.signedAt)}
+                          </p>
+                        )}
+                        {existingSignature?.submittedAt && (
+                          <p className="text-xs text-gray-500 mt-2">
+                            제출 일시: {formatDate(existingSignature.submittedAt)}
+                          </p>
+                        )}
+                        {existingSignature?.returnedAt && (
+                          <div className="mt-2 space-y-1">
+                            <p className="text-xs text-amber-600">
+                              반환 일시: {formatDate(existingSignature.returnedAt)}
+                            </p>
+                            {existingSignature.returnReason && (
+                              <p className="text-xs text-gray-600">
+                                반환 사유: {existingSignature.returnReason}
+                              </p>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div>
+                    {consentMeta?.signatureImage ? (
                       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                        {/* 서명 이미지 표시 */}
                         <div>
                           <h4 className="text-sm font-semibold text-gray-700 mb-2">서명 이미지</h4>
                           <div className="border border-gray-300 rounded-lg bg-white p-4 min-h-[200px] flex items-center justify-center">
-                            <img 
-                              src={consentData.signatureImage} 
-                              alt="서명" 
+                            <img
+                              src={consentMeta.signatureImage}
+                              alt="서명"
                               className="max-w-full h-auto max-h-[300px]"
                             />
                           </div>
                         </div>
-                        
-                        {/* 서명 정보 */}
                         <div>
                           <h4 className="text-sm font-semibold text-gray-700 mb-2">서명 정보</h4>
                           <div className="space-y-3">
-                            {consentData.signedAt && (
+                            {consentMeta.signedAt && (
                               <div>
                                 <p className="text-xs text-gray-500 mb-1">서명 일시</p>
                                 <p className="text-sm text-gray-900">
-                                  {formatDate(consentData.signedAt)}
+                                  {formatDate(consentMeta.signedAt)}
                                 </p>
                               </div>
                             )}
@@ -594,28 +1152,289 @@ export function AnnouncementDetailModal({
                       </div>
                     )}
                   </div>
-                </div>
-              );
-            } catch (error) {
-              console.error("Error parsing consent data:", error);
-              console.error("consentData value:", announcement.consentData);
-              return (
-                <div className="mt-6 pt-6 border-t border-gray-200">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">서명</h3>
-                  <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                    <div className="text-center py-8">
-                      <p className="text-sm text-red-500">
-                        서명 데이터를 불러오는 중 오류가 발생했습니다.
-                      </p>
-                      <p className="text-xs text-gray-500 mt-2">
-                        콘솔을 확인하여 자세한 오류 정보를 확인하세요.
-                      </p>
+                )}
+              </div>
+            </div>
+          )}
+
+          {canReviewConsents && (
+            <div className="mt-6 pt-6 border-t border-gray-200">
+              <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+                <h3 className="text-lg font-semibold text-gray-900">제출된 현황</h3>
+                {consentStats && (() => {
+                  const studentPercent = consentStats.totalStudents
+                    ? Math.round((consentStats.submittedStudents / consentStats.totalStudents) * 100)
+                    : 0;
+                  const parentPercent = consentStats.totalParents
+                    ? Math.round((consentStats.submittedParents / consentStats.totalParents) * 100)
+                    : 0;
+                  return (
+                    <div className="flex flex-wrap items-center gap-3 text-xs">
+                      <div className="flex items-center gap-2">
+                        <span className="inline-flex items-center rounded bg-green-50 px-2 py-0.5 text-green-700">
+                          학생 {consentStats.submittedStudents}/{consentStats.totalStudents}
+                        </span>
+                        <div className="h-2 w-20 rounded-full bg-gray-200 overflow-hidden">
+                          <div
+                            className="h-full bg-green-500"
+                            style={{ width: `${studentPercent}%` }}
+                          />
+                        </div>
+                        <span className="text-[11px] text-gray-500">{studentPercent}%</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="inline-flex items-center rounded bg-blue-50 px-2 py-0.5 text-blue-700">
+                          학부모 {consentStats.submittedParents}/{consentStats.totalParents}
+                        </span>
+                        <div className="h-2 w-20 rounded-full bg-gray-200 overflow-hidden">
+                          <div
+                            className="h-full bg-blue-500"
+                            style={{ width: `${parentPercent}%` }}
+                          />
+                        </div>
+                        <span className="text-[11px] text-gray-500">{parentPercent}%</span>
+                      </div>
+                      <span className="inline-flex items-center rounded bg-amber-50 px-2 py-0.5 text-amber-700">
+                        반환 {consentStats.returnedStudents + consentStats.returnedParents}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={handleToggleConsents}
+                        disabled={isConsentListLoading}
+                        className={cn(
+                          "inline-flex items-center rounded px-2 py-0.5 text-gray-700 border border-gray-200",
+                          isConsentListLoading ? "opacity-60 cursor-not-allowed" : "hover:bg-gray-50"
+                        )}
+                      >
+                        {isConsentListLoading ? "로딩 중..." : isConsentListVisible ? "제출자 닫기" : "제출자 보기"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleTogglePending}
+                        disabled={isPendingLoading}
+                        className={cn(
+                          "inline-flex items-center rounded px-2 py-0.5 text-gray-700 border border-gray-200",
+                          isPendingLoading ? "opacity-60 cursor-not-allowed" : "hover:bg-gray-50"
+                        )}
+                      >
+                        {isPendingLoading ? "로딩 중..." : isPendingVisible ? "미제출자 닫기" : "미제출자 보기"}
+                      </button>
                     </div>
+                  );
+                })()}
+              </div>
+              <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                {isConsentListVisible && (
+                  <h4 className="text-sm font-semibold text-gray-900 mb-2">
+                    제출자 {consentList.length}명
+                  </h4>
+                )}
+                {isConsentListVisible && (
+                  isConsentListLoading ? (
+                    <p className="text-sm text-gray-500">제출자 목록을 불러오는 중...</p>
+                  ) : consentListError ? (
+                    <p className="text-sm text-red-500">{consentListError}</p>
+                  ) : consentList.length === 0 ? (
+                    <p className="text-sm text-gray-500">제출된 동의서가 없습니다.</p>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="min-w-[700px] w-full text-xs text-left border-separate border-spacing-y-2">
+                        <thead className="text-[11px] uppercase text-gray-500">
+                          <tr>
+                            <th className="px-3 py-2">번호</th>
+                            <th className="px-3 py-2">구분</th>
+                            <th className="px-3 py-2">학번</th>
+                            <th className="px-3 py-2">제출자</th>
+                            <th className="px-3 py-2">제출일(반환일)</th>
+                            <th className="px-3 py-2">서명</th>
+                            <th className="px-3 py-2">반환 사유</th>
+                            <th className="px-3 py-2">작업</th>
+                          </tr>
+                        </thead>
+                        <tbody className="text-gray-700">
+                          {consentList.map((item, index) => {
+                            const user = item.user;
+                            const isReturnedItem = Boolean(item.returnedAt);
+                            const isReturning = returningUserIds.has(item.userId);
+                            const roleLabel =
+                              user?.role === "student"
+                                ? "학생"
+                                : user?.role === "parent"
+                                ? "학부모"
+                                : user?.role || "-";
+                            const roleBadgeClass =
+                              user?.role === "student"
+                                ? "bg-green-100 text-green-700"
+                                : user?.role === "parent"
+                                ? "bg-blue-100 text-blue-700"
+                                : "bg-gray-100 text-gray-600";
+                            const studentId = item.studentId || "-";
+                            return (
+                              <tr
+                                key={item.userId}
+                                className="bg-white border border-gray-200 shadow-sm"
+                              >
+                                <td className="px-3 py-3 text-gray-500">
+                                  {index + 1}
+                                </td>
+                                <td className="px-3 py-3">
+                                  <span
+                                    className={`inline-flex items-center px-2 py-0.5 rounded ${roleBadgeClass}`}
+                                  >
+                                    {roleLabel}
+                                  </span>
+                                </td>
+                                <td className="px-3 py-3 text-gray-600">
+                                  {studentId}
+                                </td>
+                                <td className="px-3 py-3">
+                                  <div className="font-semibold text-gray-900">
+                                    {user?.name || "이름 없음"}
+                                  </div>
+                                </td>
+                                <td className="px-3 py-3">
+                                  <div className="space-y-1">
+                                    <div>{item.submittedAt ? formatDate(item.submittedAt) : "-"}</div>
+                                    {item.returnedAt && (
+                                      <div className="text-amber-600">
+                                        {formatDate(item.returnedAt)}
+                                      </div>
+                                    )}
+                                  </div>
+                                </td>
+                                <td className="px-3 py-3">
+                                  <div className="border border-gray-200 rounded-md bg-white w-[70px] h-[45px] flex items-center justify-center">
+                                    {item.signatureUrl ? (
+                                      <img
+                                        src={item.signatureUrl}
+                                        alt="제출 서명"
+                                        className="max-w-full max-h-full"
+                                      />
+                                    ) : (
+                                      <span className="text-[11px] text-gray-400">
+                                        서명 없음
+                                      </span>
+                                    )}
+                                  </div>
+                                </td>
+                                <td className="px-3 py-3">
+                                  <input
+                                    type="text"
+                                    value={returnReasons[item.userId] || ""}
+                                    onChange={(event) =>
+                                      setReturnReasons((prev) => ({
+                                        ...prev,
+                                        [item.userId]: event.target.value,
+                                      }))
+                                    }
+                                    placeholder="반환 사유 (선택)"
+                                    className="w-[100px] text-xs border border-gray-200 rounded-md px-2 py-1"
+                                  />
+                                  {item.returnReason && (
+                                    <div className="mt-1 text-[11px] text-gray-500">
+                                      기존: {item.returnReason}
+                                    </div>
+                                  )}
+                                </td>
+                                <td className="px-3 py-3">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleReturnConsent(item.userId)}
+                                    disabled={isReturnedItem || isReturning}
+                                    className={cn(
+                                      "px-3 py-2 text-xs font-medium rounded-md transition-colors",
+                                      isReturnedItem || isReturning
+                                        ? "text-gray-400 bg-gray-100 cursor-not-allowed"
+                                        : "text-amber-700 bg-amber-50 hover:bg-amber-100"
+                                    )}
+                                  >
+                                    {isReturning
+                                      ? "반환 중..."
+                                      : isReturnedItem
+                                      ? "반환 완료"
+                                      : "반환하기"}
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )
+                )}
+              </div>
+              {isPendingVisible && (
+                <div className="bg-gray-50 rounded-lg p-4 border border-gray-200 mt-6 space-y-4">
+                  {pendingError && (
+                    <p className="text-sm text-red-500">{pendingError}</p>
+                  )}
+                  <div>
+                    <h4 className="text-sm font-semibold text-gray-900 mb-2">
+                      미제출자 (학생) {pendingLists?.students.length || 0}명
+                    </h4>
+                    {pendingLists && pendingLists.students.length === 0 ? (
+                      <p className="text-sm text-gray-500">미제출 학생이 없습니다.</p>
+                    ) : (
+                      <div className="overflow-x-auto">
+                        <table className="min-w-[400px] w-full text-xs text-left border-separate border-spacing-y-2">
+                          <thead className="text-[11px] uppercase text-gray-500">
+                            <tr>
+                              <th className="px-3 py-2">번호</th>
+                              <th className="px-3 py-2">학번</th>
+                              <th className="px-3 py-2">이름</th>
+                              <th className="px-3 py-2">이메일</th>
+                            </tr>
+                          </thead>
+                          <tbody className="text-gray-700">
+                            {pendingLists?.students.map((item, index) => (
+                              <tr key={item.userId} className="bg-white border border-gray-200 shadow-sm">
+                                <td className="px-3 py-3 text-gray-500">{index + 1}</td>
+                                <td className="px-3 py-3 text-gray-600">{item.studentId || "-"}</td>
+                                <td className="px-3 py-3">{item.name || "이름 없음"}</td>
+                                <td className="px-3 py-3">{item.email || "-"}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-semibold text-gray-900 mb-2">
+                      미제출자 (학부모) {pendingLists?.parents.length || 0}명
+                    </h4>
+                    {pendingLists && pendingLists.parents.length === 0 ? (
+                      <p className="text-sm text-gray-500">미제출 학부모가 없습니다.</p>
+                    ) : (
+                      <div className="overflow-x-auto">
+                        <table className="min-w-[400px] w-full text-xs text-left border-separate border-spacing-y-2">
+                          <thead className="text-[11px] uppercase text-gray-500">
+                            <tr>
+                              <th className="px-3 py-2">번호</th>
+                              <th className="px-3 py-2">학번</th>
+                              <th className="px-3 py-2">이름</th>
+                              <th className="px-3 py-2">이메일</th>
+                            </tr>
+                          </thead>
+                          <tbody className="text-gray-700">
+                            {pendingLists?.parents.map((item, index) => (
+                              <tr key={item.userId} className="bg-white border border-gray-200 shadow-sm">
+                                <td className="px-3 py-3 text-gray-500">{index + 1}</td>
+                                <td className="px-3 py-3 text-gray-600">{item.studentId || "-"}</td>
+                                <td className="px-3 py-3">{item.name || "이름 없음"}</td>
+                                <td className="px-3 py-3">{item.email || "-"}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
                   </div>
                 </div>
-              );
-            }
-          })()}
+              )}
+            </div>
+          )}
 
           {/* 첨부 파일 표시 */}
           {(() => {

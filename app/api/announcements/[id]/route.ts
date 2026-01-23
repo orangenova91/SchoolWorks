@@ -33,6 +33,85 @@ const consentDataSchema = z.object({
   requiresSignature: z.boolean().optional(), // 서명이 필요한지 여부 (설문 조사에서 서명 포함 체크 시)
 });
 
+const normalizeNumber = (value: string) => value.trim().replace(/^0+/, "");
+const parseClassKey = (profile: { grade?: string | null; classLabel?: string | null; section?: string | null; }) => {
+  let grade = profile.grade?.trim() || null;
+  let classNumber = profile.section?.trim() || null;
+  if (!classNumber) {
+    const classLabel = profile.classLabel?.trim() || "";
+    const match = classLabel.match(/(\d+)\s*[-학년\s]*(\d+)\s*반?/);
+    if (match) {
+      if (!grade) {
+        grade = match[1];
+      }
+      classNumber = match[2];
+    }
+  }
+  if (grade && classNumber) {
+    return `${normalizeNumber(grade)}-${normalizeNumber(classNumber)}`;
+  }
+  return null;
+};
+
+const toClassKey = (item: { grade: string; classNumber: string }) => {
+  return `${normalizeNumber(item.grade)}-${normalizeNumber(item.classNumber)}`;
+};
+
+const computeConsentTotals = async (
+  school: string | null | undefined,
+  selectedClasses?: Array<{ grade: string; classNumber: string }>,
+  parentSelectedClasses?: Array<{ grade: string; classNumber: string }>
+) => {
+  const studentTargetKeys = new Set(
+    Array.isArray(selectedClasses) ? selectedClasses.map(toClassKey) : []
+  );
+  const parentTargetKeys = new Set(
+    Array.isArray(parentSelectedClasses) ? parentSelectedClasses.map(toClassKey) : []
+  );
+
+  const allStudentProfiles = await prisma.studentProfile.findMany({
+    where: school ? { school } : undefined,
+    select: { userId: true, grade: true, classLabel: true, section: true },
+  });
+
+  const studentTargetsSet = new Set(
+    allStudentProfiles
+      .filter((profile) => {
+        if (studentTargetKeys.size === 0) return false;
+        const key = parseClassKey(profile);
+        return key ? studentTargetKeys.has(key) : false;
+      })
+      .map((profile) => profile.userId)
+  );
+
+  const parentTargetsSet = new Set(
+    allStudentProfiles
+      .filter((profile) => {
+        if (parentTargetKeys.size === 0) return false;
+        const key = parseClassKey(profile);
+        return key ? parentTargetKeys.has(key) : false;
+      })
+      .map((profile) => profile.userId)
+  );
+
+  const totalStudents = studentTargetsSet.size;
+  const parentTargetStudentIds = Array.from(parentTargetsSet);
+  const totalParents =
+    parentTargetStudentIds.length === 0
+      ? 0
+      : await (prisma as any).user.count({
+          where: {
+            role: "parent",
+            ...(school ? { school } : {}),
+            parentProfile: {
+              studentIds: { hasSome: parentTargetStudentIds },
+            },
+          },
+        });
+
+  return { totalStudents, totalParents };
+};
+
 // 파일 업로드 허용 확장자
 const ALLOWED_EXTENSIONS = [
   ".ppt", ".pptx", ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".zip",
@@ -331,6 +410,12 @@ export async function PUT(
       }
     }
 
+    const consentTotals = await computeConsentTotals(
+      session.user.school || null,
+      validatedData.selectedClasses || [],
+      validatedData.parentSelectedClasses || []
+    );
+
     // 기존 첨부 파일 가져오기
     let existingAttachments: Array<{
       filePath: string;
@@ -415,6 +500,11 @@ export async function PUT(
       surveyStartDate: validatedData.surveyStartDate ? new Date(validatedData.surveyStartDate) : null,
       surveyEndDate: validatedData.surveyEndDate ? new Date(validatedData.surveyEndDate) : null,
       consentData: validatedData.consentData ? JSON.stringify(validatedData.consentData) : null,
+      consentStats: JSON.stringify({
+        totalStudents: consentTotals.totalStudents,
+        totalParents: consentTotals.totalParents,
+        updatedAt: new Date().toISOString(),
+      }),
       attachments: allAttachments.length > 0 ? JSON.stringify(allAttachments) : null,
       editableBy: validatedData.editableBy || [],
     };

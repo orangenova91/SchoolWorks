@@ -270,6 +270,12 @@ export default async function DashboardLayout({
             iconName: "Calendar",
           },
           {
+            href: "/dashboard/parent/announcements",
+            label: "가정 안내문",
+            icon: <ClipboardCopy className="w-5 h-5" />,
+            iconName: "ClipboardCopy",
+          },
+          {
             href: googleChatLink,
             label: isGoogleWorkspaceUser ? "Google Chat" : "메시지",
             icon: <MessageCircle className="w-5 h-5" />,
