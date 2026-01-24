@@ -17,23 +17,42 @@ export async function GET(
       );
     }
 
-    const course = await (prisma as unknown as {
-      course: {
-        findFirst: (args: {
-          where: { id: string; teacherId?: string };
-        }) => Promise<{
-          id: string;
-          subject: string;
-          grade: string;
-          teacherId: string;
-        } | null>;
-      };
-    }).course.findFirst({
-      where: {
-        id: params.courseId,
-        ...(session.user.role === "teacher" ? { teacherId: session.user.id } : {}),
-      },
-    });
+    let course: { id: string; subject: string; grade: string } | null = null;
+
+    if (session.user.role === "teacher") {
+      course = await (prisma as unknown as {
+        course: {
+          findFirst: (args: {
+            where: { id: string; teacherId?: string };
+            select: { id: true; subject: true; grade: true };
+          }) => Promise<{ id: string; subject: string; grade: string } | null>;
+        };
+      }).course.findFirst({
+        where: {
+          id: params.courseId,
+          teacherId: session.user.id,
+        },
+        select: { id: true, subject: true, grade: true },
+      });
+    } else if (session.user.role === "student") {
+      const classGroup = await (prisma as unknown as {
+        classGroup: {
+          findFirst: (args: {
+            where: { courseId: string; studentIds: { has: string } };
+            include: { course: { select: { id: true; subject: true; grade: true } } };
+          }) => Promise<{ course: { id: string; subject: string; grade: string } } | null>;
+        };
+      }).classGroup.findFirst({
+        where: { courseId: params.courseId, studentIds: { has: session.user.id } },
+        include: { course: { select: { id: true, subject: true, grade: true } } },
+      });
+      course = classGroup?.course ?? null;
+    } else {
+      return NextResponse.json(
+        { error: "접근 권한이 없습니다." },
+        { status: 403 }
+      );
+    }
 
     if (!course) {
       return NextResponse.json(

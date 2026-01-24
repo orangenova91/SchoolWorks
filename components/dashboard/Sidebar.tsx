@@ -11,6 +11,7 @@ type SidebarItem = {
   icon?: React.ReactNode;
   iconName?: string; // CurrentPageNav에서 사용
   external?: boolean; // 외부 링크인지 여부 (새 탭에서 열기)
+  dividerBefore?: boolean;
 };
 
 interface SidebarProps {
@@ -68,6 +69,9 @@ export function Sidebar({ items }: SidebarProps) {
 
             return (
               <li key={item.href}>
+                {item.dividerBefore && (
+                  <div className="my-2 border-t border-gray-200/70" />
+                )}
                 {item.external ? (
                   <a
                     href={item.href}

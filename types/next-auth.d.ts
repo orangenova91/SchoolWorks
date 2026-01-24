@@ -8,6 +8,8 @@ declare module "next-auth" {
       name?: string | null;
       school?: string | null;
       role?: string | null;
+      studentId?: string | null;
+      studentIds?: string[] | null;
     };
   }
 
@@ -17,6 +19,8 @@ declare module "next-auth" {
     name?: string | null;
     school?: string | null;
     role?: string | null;
+    studentId?: string | null;
+    studentIds?: string[] | null;
   }
 }
 
@@ -27,6 +31,8 @@ declare module "next-auth/jwt" {
     name?: string | null;
     school?: string | null;
     role?: string | null;
+    studentId?: string | null;
+    studentIds?: string[] | null;
   }
 }
 

@@ -245,6 +245,12 @@ interface SelectedClass {
   classNumber: string;
 }
 
+interface ClassGroupOption {
+  id: string;
+  name: string;
+  period?: string | null;
+}
+
 interface SurveyQuestion {
   id: string;
   type: "single" | "multiple" | "text" | "textarea";
@@ -299,6 +305,7 @@ interface AnnouncementComposerPayload {
   content: string;
   isScheduled: boolean;
   publishAt?: string;
+  selectedClassGroupIds?: string[];
   selectedClasses?: SelectedClass[];
   parentSelectedClasses?: SelectedClass[];
   selectedTeacherIds?: string[];
@@ -382,8 +389,11 @@ function AnnouncementComposerForm({
   const [title, setTitle] = useState("");
   const [category, setCategory] = useState<string>("notice");
   const [selectedTargets, setSelectedTargets] = useState<string[]>([]);
+  const [selectedClassGroupIds, setSelectedClassGroupIds] = useState<string[]>([]);
   const [selectedClasses, setSelectedClasses] = useState<SelectedClass[]>([]);
   const [parentSelectedClasses, setParentSelectedClasses] = useState<SelectedClass[]>([]);
+  const [classGroups, setClassGroups] = useState<ClassGroupOption[]>([]);
+  const [isLoadingClassGroups, setIsLoadingClassGroups] = useState(false);
   const [surveyQuestions, setSurveyQuestions] = useState<SurveyQuestion[]>([]);
   const [surveyStartDate, setSurveyStartDate] = useState("");
   const [surveyEndDate, setSurveyEndDate] = useState("");
@@ -600,6 +610,10 @@ function AnnouncementComposerForm({
           if (loadedParentSelectedClasses.length > 0 && !audienceTargets.includes("parents")) {
             audienceTargets.push("parents");
           }
+          const loadedClassGroupIds = Array.isArray(announcement.selectedClassGroupIds)
+            ? announcement.selectedClassGroupIds
+            : [];
+          setSelectedClassGroupIds(loadedClassGroupIds);
           setSelectedTargets(audienceTargets);
           setUseSchedule(announcement.isScheduled);
           setPublishAt(announcement.publishAt ? new Date(announcement.publishAt).toISOString().slice(0, 16) : "");
@@ -766,6 +780,26 @@ function AnnouncementComposerForm({
       setCategory("notice");
     }
   }, [isCourseAudienceLocked]);
+
+  // 수업 학반 목록 가져오기 (수업 공지 + 대상 모달 열림)
+  useEffect(() => {
+    if (!courseId || !isTargetModalOpen || !isCourseAudienceLocked) return;
+    const fetchClassGroups = async () => {
+      setIsLoadingClassGroups(true);
+      try {
+        const response = await fetch(`/api/courses/${courseId}/class-groups`);
+        const data = await response.json();
+        if (response.ok) {
+          setClassGroups(data.classGroups || []);
+        }
+      } catch (error) {
+        console.error("Failed to fetch class groups:", error);
+      } finally {
+        setIsLoadingClassGroups(false);
+      }
+    };
+    fetchClassGroups();
+  }, [courseId, isTargetModalOpen, isCourseAudienceLocked]);
 
   // 교직원 목록 가져오기 (모달이 열릴 때)
   useEffect(() => {
@@ -1084,9 +1118,6 @@ function AnnouncementComposerForm({
 
   // 알림 대상 모달 열기/닫기 핸들러
   const handleTargetModalToggle = () => {
-    if (isCourseAudienceLocked) {
-      return;
-    }
     setIsTargetModalOpen(prev => !prev);
   };
 
@@ -1252,6 +1283,26 @@ function AnnouncementComposerForm({
       setSelectedTargets(selectedTargets.filter(t => t !== "students"));
     }
   };
+
+  // 수업 학반 선택/해제
+  const handleClassGroupToggle = (classGroupId: string) => {
+    if (selectedClassGroupIds.includes(classGroupId)) {
+      setSelectedClassGroupIds(selectedClassGroupIds.filter(id => id !== classGroupId));
+    } else {
+      setSelectedClassGroupIds([...selectedClassGroupIds, classGroupId]);
+    }
+  };
+
+  const handleClassGroupSelectAll = () => {
+    setSelectedClassGroupIds(classGroups.map((group) => group.id));
+  };
+
+  const handleClassGroupClearAll = () => {
+    setSelectedClassGroupIds([]);
+  };
+
+  const isClassGroupSelected = (classGroupId: string) =>
+    selectedClassGroupIds.includes(classGroupId);
 
   // 특정 학급이 선택되었는지 확인
   const isClassSelected = (grade: string, classNumber: string) => {
@@ -1453,7 +1504,17 @@ function AnnouncementComposerForm({
   // 선택된 대상 표시 텍스트
   const getTargetDisplayText = () => {
     if (isCourseAudienceLocked) {
-      return "수강생 전체";
+      if (selectedClassGroupIds.length === 0) {
+        return "수강생 전체";
+      }
+      const selectedLabels = classGroups
+        .filter((group) => selectedClassGroupIds.includes(group.id))
+        .map((group) => group.name)
+        .sort((a, b) => a.localeCompare(b, "ko"));
+      if (selectedLabels.length > 0) {
+        return selectedLabels.join(", ");
+      }
+      return `수강생 (${selectedClassGroupIds.length}개 학반)`;
     }
     if (selectedTargets.length === 0) {
       return "알림 대상을 선택하세요";
@@ -1517,7 +1578,9 @@ function AnnouncementComposerForm({
     setIsSubmitting(true);
 
     // selectedClasses와 parentSelectedClasses를 기반으로 정확한 audience 값 계산
-    const audience = restrictedAudience === "teacher"
+    const audience = isCourseAudienceLocked
+      ? "students"
+      : restrictedAudience === "teacher"
       ? (selectedTeacherIds.length > 0 
           ? `teacher:${selectedTeacherIds.join(',')}` 
           : "teacher") // 선택된 교직원이 없으면 전체 교직원
@@ -1539,6 +1602,7 @@ function AnnouncementComposerForm({
       content,
       isScheduled: useSchedule,
       publishAt: useSchedule && publishAt.trim() ? publishAt : undefined,
+      selectedClassGroupIds: isCourseAudienceLocked ? selectedClassGroupIds : undefined,
       selectedClasses: selectedTargets.includes("students") ? selectedClasses : [],
       parentSelectedClasses: selectedTargets.includes("parents") ? parentSelectedClasses : [],
       selectedTeacherIds: restrictedAudience === "teacher" ? selectedTeacherIds : undefined,
@@ -2074,22 +2138,20 @@ function AnnouncementComposerForm({
             <label className="block text-sm font-medium text-gray-700 mb-1">
               알림 대상 <span className="ml-1 text-red-500">*</span>
             </label>
-            {isCourseAudienceLocked ? (
-              <Input value="수강생 전체" readOnly />
-            ) : (
-              <button
-                type="button"
-                onClick={handleTargetModalToggle}
-                className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-left text-gray-900 placeholder:text-gray-500 hover:border-gray-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
-              >
-                <span className={selectedTargets.length === 0 ? "text-gray-500" : "text-gray-900"}>
-                {selectedTargets.length === 0 ? "알림 대상을 선택하세요" : getTargetDisplayText()}
-                </span>
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={handleTargetModalToggle}
+              className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-left text-gray-900 placeholder:text-gray-500 hover:border-gray-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+            >
+              <span className={selectedTargets.length === 0 && !isCourseAudienceLocked ? "text-gray-500" : "text-gray-900"}>
+                {selectedTargets.length === 0 && !isCourseAudienceLocked
+                  ? "알림 대상을 선택하세요"
+                  : getTargetDisplayText()}
+              </span>
+            </button>
 
             {/* 알림 대상 선택 모달 */}
-            {!isCourseAudienceLocked && isTargetModalOpen && (
+            {isTargetModalOpen && (
               <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4">
                 {/* 배경 오버레이 */}
                 <div
@@ -2099,7 +2161,10 @@ function AnnouncementComposerForm({
                 {/* 모달 컨텐츠 */}
                 <div
                   ref={targetModalRef}
-                  className="relative w-full max-w-5xl max-h-[90vh] bg-white rounded-lg shadow-xl overflow-hidden flex flex-col"
+                  className={cn(
+                    "relative w-full max-h-[90vh] bg-white rounded-lg shadow-xl overflow-hidden flex flex-col",
+                    isCourseAudienceLocked ? "max-w-2xl" : "max-w-5xl"
+                  )}
                   onClick={(e) => e.stopPropagation()}
                 >
                   {/* 모달 헤더 */}
@@ -2117,7 +2182,74 @@ function AnnouncementComposerForm({
 
                   {/* 모달 본문 */}
                   <div className="flex-1 overflow-y-auto p-6">
-                    {restrictedAudience === "teacher" ? (
+                    {isCourseAudienceLocked ? (
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <h3 className="text-base font-semibold text-gray-900">수강생 학반 선택</h3>
+                            <p className="text-xs text-gray-500 mt-1">
+                              선택하지 않으면 수강생 전체에게 전달됩니다.
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={handleClassGroupClearAll}
+                              className="text-xs h-7 px-2"
+                            >
+                              <X className="h-3 w-3 mr-1" />
+                              모두 지움
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={handleClassGroupSelectAll}
+                              className="text-xs h-7 px-2"
+                              disabled={classGroups.length === 0}
+                            >
+                              전체 선택
+                            </Button>
+                          </div>
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {selectedClassGroupIds.length}개 학반 선택됨
+                        </div>
+                        <div className="max-h-[280px] overflow-y-auto rounded-lg border border-gray-200 bg-gray-50 p-3">
+                          {isLoadingClassGroups ? (
+                            <div className="text-sm text-gray-500">학반 목록을 불러오는 중...</div>
+                          ) : classGroups.length === 0 ? (
+                            <div className="text-sm text-gray-500">등록된 학반이 없습니다.</div>
+                          ) : (
+                            <div className="grid gap-2 sm:grid-cols-2">
+                              {[...classGroups]
+                                .sort((a, b) => a.name.localeCompare(b.name, "ko"))
+                                .map((group) => (
+                                <label
+                                  key={group.id}
+                                  className={cn(
+                                    "flex items-center gap-2 rounded-md border px-3 py-2 text-sm cursor-pointer",
+                                    isClassGroupSelected(group.id)
+                                      ? "border-blue-300 bg-blue-50 text-blue-700"
+                                      : "border-gray-200 bg-white text-gray-700"
+                                  )}
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={isClassGroupSelected(group.id)}
+                                    onChange={() => handleClassGroupToggle(group.id)}
+                                    className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-2 focus:ring-blue-500"
+                                  />
+                                  <span className="font-medium">{group.name}</span>
+                                </label>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ) : restrictedAudience === "teacher" ? (
                       // 교직원 게시판: 교직원 명단 표시
                       <div className="space-y-4">
                         <div className="flex items-center justify-between">

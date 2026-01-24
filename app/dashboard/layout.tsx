@@ -77,7 +77,8 @@ export default async function DashboardLayout({
             href: "/dashboard/teacher/schedule",
             label: t.sidebar.teacher.schedule,
             icon: <Calendar className="w-5 h-5" />,
-            iconName: "Calendar"
+            iconName: "Calendar",
+            dividerBefore: true
           },
           {
             href: "/dashboard/teacher/manage-classes",
@@ -104,16 +105,11 @@ export default async function DashboardLayout({
             iconName: "UserCheck"
           },
           {
-            href: "/dashboard/teacher/test-board",
-            label: "TEST 게시판",
-            icon: <ClipboardList className="w-5 h-5" />,
-            iconName: "ClipboardList"
-          },
-          {
             href: "/dashboard/teacher/board_teachers",
             label: "교직원 게시판",
             icon: <Clipboard className="w-5 h-5" />,
-            iconName: "Clipboard"
+            iconName: "Clipboard",
+            dividerBefore: true
           },
           {
             href: "/dashboard/teacher/board_students",
@@ -132,6 +128,7 @@ export default async function DashboardLayout({
             label: isGoogleWorkspaceUser ? "Google Chat" : "메시지",
             icon: <MessageCircle className="w-5 h-5" />,
             iconName: "MessageCircle",
+            dividerBefore: true,
             external: isGoogleWorkspaceUser,
           },
         ]
@@ -147,7 +144,8 @@ export default async function DashboardLayout({
             href: "/dashboard/student/schedule",
             label: t.sidebar.student.todaysSchedule,
             icon: <Calendar className="w-5 h-5" />,
-            iconName: "Calendar"
+            iconName: "Calendar",
+            dividerBefore: true
           },
           {
             href: "/dashboard/student/classroom",
@@ -177,7 +175,8 @@ export default async function DashboardLayout({
             href: "/dashboard/student/support",
             label: t.sidebar.student.support,
             icon: <HelpCircle className="w-5 h-5" />,
-            iconName: "HelpCircle"
+            iconName: "HelpCircle",
+            dividerBefore: true
           },
           {
             href: "/dashboard/student/profile",
@@ -268,6 +267,7 @@ export default async function DashboardLayout({
             label: "학사일정",
             icon: <Calendar className="w-5 h-5" />,
             iconName: "Calendar",
+            dividerBefore: true,
           },
           {
             href: "/dashboard/parent/announcements",
@@ -280,6 +280,7 @@ export default async function DashboardLayout({
             label: isGoogleWorkspaceUser ? "Google Chat" : "메시지",
             icon: <MessageCircle className="w-5 h-5" />,
             iconName: "MessageCircle",
+            dividerBefore: true,
             external: isGoogleWorkspaceUser,
           },
         ]
@@ -300,6 +301,8 @@ export default async function DashboardLayout({
                 userName={session.user?.name || ""}
                 userEmail={session.user?.email || ""}
                 userRole={session.user?.role || ""}
+                userStudentId={session.user?.studentId || null}
+                userStudentIds={session.user?.studentIds || null}
                 schoolName={session.user?.school || null}
               />
             </div>

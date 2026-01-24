@@ -279,6 +279,7 @@ model Announcement {
   category              String? // "notice", "survey", "consent" (단순 알림, 설문 조사, 동의서)
   content               String // HTML 형식의 본문
   courseId              String?            @db.ObjectId // 수업별 공지사항
+  selectedClassGroupIds String[]           @default([]) // 수업 학반 대상 (classGroup IDs)
   boardType             String? // 예: "board_test"
   audience              String // "all", "grade-1", "grade-2", "grade-3", "parents", "teacher", "students"
   author                String // 작성자 이름
