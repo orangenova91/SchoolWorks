@@ -22,6 +22,10 @@ import {
   ChevronDown,
   ChevronRight,
   Newspaper,
+  Clipboard,
+  ClipboardMinus,
+  ClipboardCopy,
+  ClipboardList,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -62,6 +66,10 @@ const iconMap: Record<string, React.ReactNode> = {
   UserCheck: <UserCheck className="w-5 h-5" />,
   MessageCircle: <MessageCircle className="w-5 h-5" />,
   Newspaper: <Newspaper className="w-5 h-5" />,
+  Clipboard: <Clipboard className="w-5 h-5" />,
+  ClipboardMinus: <ClipboardMinus className="w-5 h-5" />,
+  ClipboardCopy: <ClipboardCopy className="w-5 h-5" />,
+  ClipboardList: <ClipboardList className="w-5 h-5" />,
 };
 
 const formatGrade = (grade: string | null): string => {
@@ -212,6 +220,7 @@ export default function CurrentPageNav({ items }: CurrentPageNavProps) {
   const [dynamicLabel, setDynamicLabel] = useState<string | null>(null);
   const [currentCourseGrade, setCurrentCourseGrade] = useState<string | null>(null);
   const [currentCourseId, setCurrentCourseId] = useState<string | null>(null);
+  const [courseContext, setCourseContext] = useState<"teacher" | "student" | null>(null);
   const [courses, setCourses] = useState<Array<{ id: string; subject: string; grade: string }>>([]);
   const [isCourseDropdownOpen, setIsCourseDropdownOpen] = useState(false);
   const courseDropdownRef = useRef<HTMLDivElement>(null);
@@ -231,26 +240,39 @@ export default function CurrentPageNav({ items }: CurrentPageNavProps) {
       }
     };
 
-    fetchCourses();
-  }, []);
+    if (pathname.startsWith("/dashboard/teacher") || pathname.startsWith("/dashboard/student")) {
+      fetchCourses();
+    }
+  }, [pathname]);
 
   // 동적 경로의 라벨 가져오기 (예: courseId에서 수업명 가져오기)
   useEffect(() => {
     const fetchDynamicLabel = async () => {
       const pathSegments = pathname.split("/").filter(Boolean);
       
-      // /dashboard/teacher/manage-classes/[courseId] 패턴 확인
-      // MongoDB ObjectId (24자리 hex) 또는 UUID (36자리 하이픈 포함) 형식 체크
-      if (
+      const isTeacherCoursePath =
         pathSegments.length >= 4 &&
         pathSegments[0] === "dashboard" &&
         pathSegments[1] === "teacher" &&
         pathSegments[2] === "manage-classes" &&
-        (pathSegments[3].match(/^[a-f0-9]{24}$/i) || pathSegments[3].match(/^[a-f0-9-]{36}$/i))
+        (pathSegments[3].match(/^[a-f0-9]{24}$/i) || pathSegments[3].match(/^[a-f0-9-]{36}$/i));
+
+      const isStudentCoursePath =
+        pathSegments.length >= 4 &&
+        pathSegments[0] === "dashboard" &&
+        pathSegments[1] === "student" &&
+        pathSegments[2] === "classroom" &&
+        (pathSegments[3].match(/^[a-f0-9]{24}$/i) || pathSegments[3].match(/^[a-f0-9-]{36}$/i));
+
+      // /dashboard/teacher/manage-classes/[courseId] 또는 /dashboard/student/classroom/[courseId] 패턴 확인
+      if (
+        pathSegments.length >= 4 &&
+        (isTeacherCoursePath || isStudentCoursePath)
       ) {
         try {
           const courseId = pathSegments[3];
           setCurrentCourseId(courseId);
+          setCourseContext(isStudentCoursePath ? "student" : "teacher");
           const response = await fetch(`/api/courses/${courseId}`);
           if (response.ok) {
             const data = await response.json();
@@ -264,6 +286,7 @@ export default function CurrentPageNav({ items }: CurrentPageNavProps) {
         setDynamicLabel(null);
         setCurrentCourseId(null);
         setCurrentCourseGrade(null);
+        setCourseContext(null);
       }
     };
 
@@ -443,10 +466,14 @@ export default function CurrentPageNav({ items }: CurrentPageNavProps) {
                   <ul className="space-y-1">
                     {courses.map((course) => {
                       const isActive = course.id === currentCourseId;
+                      const courseLink =
+                        courseContext === "student"
+                          ? `/dashboard/student/classroom/${course.id}`
+                          : `/dashboard/teacher/manage-classes/${course.id}`;
                       return (
                         <li key={course.id}>
                           <Link
-                            href={`/dashboard/teacher/manage-classes/${course.id}`}
+                            href={courseLink}
                             className={cn(
                               "flex items-center gap-2 px-4 py-2 text-sm font-medium transition-colors",
                               isActive

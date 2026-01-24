@@ -3,6 +3,9 @@ import { notFound, redirect } from "next/navigation";
 
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import CourseTabs from "@/components/dashboard/CourseTabs";
+import { AnnouncementList } from "@/components/dashboard/AnnouncementList";
+import AssignmentList from "@/components/dashboard/AssignmentList";
 
 interface StudentCoursePageProps {
   params: {
@@ -138,9 +141,97 @@ export default async function StudentCoursePage({
           </div>
         </div>
       </header>
-
-      <section className="rounded-2xl border border-dashed border-gray-200 bg-white p-10 text-center text-sm text-gray-500">
-        수업 상세 페이지 준비 중입니다.
+      <section>
+        <CourseTabs
+          tabs={[
+            { id: "overview", label: "수업 소개" },
+            { id: "announcements", label: "공지사항" },
+            { id: "assignments", label: "수업 자료" },
+            { id: "notes", label: "학생 평가" },
+            { id: "record", label: "생기부" },
+          ]}
+        >
+          {[
+            <article
+              key="overview"
+              className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm space-y-6"
+            >
+              <header>
+                <h2 className="text-lg font-semibold text-gray-900">수업 소개</h2>
+              </header>
+              <div className="grid gap-4 sm:grid-cols-2 text-sm text-gray-700">
+                <div>
+                  <p className="text-xs text-gray-500">학년도</p>
+                  <p className="font-medium">{course.academicYear?.trim() || "정보 없음"}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500">학기</p>
+                  <p className="font-medium">{course.semester?.trim() || "정보 없음"}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500">대상 학년</p>
+                  <p className="font-medium">{formatGradeLabel(course.grade)}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500">교과명</p>
+                  <p className="font-medium">{course.subject}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500">강사명</p>
+                  <p className="font-medium">{course.instructor}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500">강의실</p>
+                  <p className="font-medium">{course.classroom}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500">수업 코드</p>
+                  <p className="font-mono text-sm text-gray-800">
+                    {course.joinCode ?? "미발급"}
+                  </p>
+                </div>
+              </div>
+            </article>,
+            <article
+              key="announcements"
+              className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm space-y-4"
+            >
+              <header>
+                <h2 className="text-lg font-semibold text-gray-900">공지사항</h2>
+              </header>
+              <AnnouncementList
+                includeScheduled={false}
+                courseId={course.id}
+                boardType="board_class"
+              />
+            </article>,
+            <article
+              key="assignments"
+              className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm space-y-4"
+            >
+              <header>
+                <h2 className="text-lg font-semibold text-gray-900">수업 자료</h2>
+              </header>
+              <AssignmentList
+                courseId={course.id}
+                showActions={false}
+                emptyMessage="등록된 수업 자료가 없습니다."
+              />
+            </article>,
+            <article
+              key="notes"
+              className="rounded-2xl border border-dashed border-gray-200 bg-white p-10 text-center text-sm text-gray-500"
+            >
+              학생 평가는 준비 중입니다.
+            </article>,
+            <article
+              key="record"
+              className="rounded-2xl border border-dashed border-gray-200 bg-white p-10 text-center text-sm text-gray-500"
+            >
+              생기부는 준비 중입니다.
+            </article>,
+          ]}
+        </CourseTabs>
       </section>
     </div>
   );

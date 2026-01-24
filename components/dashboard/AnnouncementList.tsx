@@ -28,6 +28,8 @@ interface Announcement {
   updatedAt: string;
   selectedClasses: string | null;
   parentSelectedClasses: string | null;
+  selectedClassGroupIds?: string[] | null;
+  selectedClassGroups?: Array<{ id: string; name: string; period?: string | null }> | null;
   category?: string | null;
   surveyData?: string | null;
   consentData?: string | null;
@@ -158,8 +160,42 @@ const isAllClassesSelected = (selectedClassesStr: string | null): boolean => {
   }
 };
 
+const parseSelectedClassGroupIds = (value: unknown): string[] => {
+  if (!value) return [];
+  if (Array.isArray(value)) return value.filter((id) => typeof id === "string");
+  if (typeof value === "string") {
+    try {
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed) ? parsed.filter((id) => typeof id === "string") : [];
+    } catch {
+      return [];
+    }
+  }
+  return [];
+};
+
+const formatClassGroupLabels = (
+  groups: Array<{ id: string; name: string; period?: string | null }> | null | undefined
+): string => {
+  if (!groups || groups.length === 0) return "수강생 전체";
+  return [...groups]
+    .sort((a, b) => a.name.localeCompare(b.name, "ko"))
+    .map((group) => group.name)
+    .join(", ");
+};
+
 // 대상 필드 텍스트 생성
 const getAudienceDisplayText = (announcement: Announcement, isCourseContext: boolean): string => {
+  if (isCourseContext) {
+    if (announcement.selectedClassGroups && announcement.selectedClassGroups.length > 0) {
+      return formatClassGroupLabels(announcement.selectedClassGroups);
+    }
+    const classGroupIds = parseSelectedClassGroupIds(announcement.selectedClassGroupIds);
+    if (classGroupIds.length > 0) {
+      return `수강생 (${classGroupIds.length}개 학반)`;
+    }
+    return "수강생 전체";
+  }
   const baseLabel =
     isCourseContext && announcement.audience === "all"
       ? "수강생 전체"
@@ -716,12 +752,25 @@ export function AnnouncementList({ includeScheduled = false, audience, courseId,
                 </div>
                 <div className="col-span-2 text-center min-w-0 flex items-center justify-center gap-1 flex-wrap">
                   {(() => {
-                    const hasStudents = announcement.selectedClasses && 
-                      (isAllClassesSelected(announcement.selectedClasses) || formatSelectedClasses(announcement.selectedClasses));
+                    const isCourseContext = Boolean(courseId);
+                    const hasCourseStudents = isCourseContext;
+                    const hasStudents = hasCourseStudents || (announcement.selectedClasses && 
+                      (isAllClassesSelected(announcement.selectedClasses) || formatSelectedClasses(announcement.selectedClasses)));
                     const hasParents = announcement.parentSelectedClasses && 
                       (isAllClassesSelected(announcement.parentSelectedClasses) || formatSelectedClasses(announcement.parentSelectedClasses));
                     
-                    const displayText = getAudienceDisplayText(announcement, Boolean(courseId));
+                    const displayText = getAudienceDisplayText(announcement, isCourseContext);
+
+                    if (isCourseContext) {
+                      return (
+                        <span
+                          className="inline-block px-1.5 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800 max-w-full truncate"
+                          title={displayText}
+                        >
+                          {displayText}
+                        </span>
+                      );
+                    }
                     
                     // 재학생과 학부모가 모두 있는 경우 두 개의 뱃지로 표시
                     if (hasStudents && hasParents) {

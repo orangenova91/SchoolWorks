@@ -4,6 +4,44 @@ import GoogleProvider from "next-auth/providers/google";
 import { prisma } from "./prisma";
 import { verifyPassword } from "./utils";
 
+const hydrateStudentIdentifiers = async (token: {
+  id?: string;
+  role?: string | null;
+  studentId?: string | null;
+  studentIds?: string[] | null;
+}) => {
+  if (!token.id || !token.role) return token;
+
+  if (token.role === "student" && token.studentId === undefined) {
+    const profile = await prisma.studentProfile.findUnique({
+      where: { userId: token.id },
+      select: { studentId: true },
+    });
+    token.studentId = profile?.studentId ?? null;
+  }
+
+  if (token.role === "parent" && token.studentIds === undefined) {
+    const parentProfile = await prisma.parentProfile.findUnique({
+      where: { userId: token.id },
+      select: { studentIds: true },
+    });
+
+    if (parentProfile?.studentIds?.length) {
+      const students = await prisma.studentProfile.findMany({
+        where: { userId: { in: parentProfile.studentIds } },
+        select: { studentId: true },
+      });
+      token.studentIds = students
+        .map((student) => student.studentId)
+        .filter((studentId): studentId is string => Boolean(studentId));
+    } else {
+      token.studentIds = [];
+    }
+  }
+
+  return token;
+};
+
 export const authOptions: NextAuthOptions = {
   providers: [
     CredentialsProvider({
@@ -243,6 +281,8 @@ export const authOptions: NextAuthOptions = {
         }
       }
 
+      await hydrateStudentIdentifiers(token);
+
       return token;
     },
     async session({ session, token }) {
@@ -252,6 +292,8 @@ export const authOptions: NextAuthOptions = {
         session.user.name = token.name as string;
         session.user.school = token.school as string | null;
         session.user.role = token.role as string | null;
+        session.user.studentId = token.studentId as string | null;
+        session.user.studentIds = (token.studentIds as string[] | null) ?? null;
       }
       return session;
     },

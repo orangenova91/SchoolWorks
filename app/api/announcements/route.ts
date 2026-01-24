@@ -130,6 +130,7 @@ const createAnnouncementSchema = z.object({
   author: z.string().trim().min(1, "작성자를 입력하세요"),
   isScheduled: z.boolean().default(false),
   publishAt: z.string().datetime().optional(),
+  selectedClassGroupIds: z.array(z.string()).optional(),
   selectedClasses: z.array(selectedClassSchema).optional(),
   parentSelectedClasses: z.array(selectedClassSchema).optional(),
   surveyData: z.array(surveyQuestionSchema).optional(),
@@ -253,6 +254,7 @@ export async function POST(request: NextRequest) {
         category: validatedData.category || null,
         content: validatedData.content,
         courseId: validatedData.courseId || null,
+        selectedClassGroupIds: validatedData.selectedClassGroupIds || [],
         boardType: validatedData.boardType || null,
         audience: validatedData.audience,
         author: validatedData.author,
@@ -355,6 +357,7 @@ export async function GET(request: NextRequest) {
     let studentGrade: string | null = null;
     let studentClassNumber: string | null = null;
     let parentClassKeys: Set<string> | null = null;
+    let studentClassGroupIds: Set<string> | null = null;
 
     // 발행된 공지사항만 조회 (예약 포함 여부에 따라)
     if (!includeScheduled) {
@@ -397,6 +400,17 @@ export async function GET(request: NextRequest) {
         }
       }
       studentClassNumber = classNumber ? classNumber.replace(/^0+/, "") : null;
+    }
+
+    if (session.user.role === "student" && boardType === "board_class" && courseId) {
+      const classGroups = await prisma.classGroup.findMany({
+        where: {
+          courseId,
+          studentIds: { has: session.user.id },
+        },
+        select: { id: true },
+      });
+      studentClassGroupIds = new Set(classGroups.map((group) => group.id));
     }
     
     if (session.user.role === "parent" && boardType === "board_parents") {
@@ -459,13 +473,16 @@ export async function GET(request: NextRequest) {
       }
       where.OR = audienceFilters;
     } else {
-      // 사용자 역할에 따른 기본 필터
-      if (session.user.role === "student") {
+      // 수업 공지(board_class)는 수강생 대상으로 제한
+      if (boardType === "board_class" && courseId) {
+        where.OR = [{ audience: "students" }];
+      } else if (session.user.role === "student") {
         // 학생은 자신의 학년과 전체 대상만 볼 수 있음
         const gradeAudience = studentGrade ? `grade-${studentGrade}` : null;
 
         where.OR = [
           { audience: "all" },
+          { audience: "students" },
           ...(gradeAudience ? [{ audience: gradeAudience }] : []),
         ];
       } else if (session.user.role === "teacher") {
@@ -475,6 +492,7 @@ export async function GET(request: NextRequest) {
           {
             OR: [
               { audience: "all" },
+              { audience: "students" },
               { audience: "parents" },
               { audience: "grade-1" },
               { audience: "grade-2" },
@@ -516,6 +534,15 @@ export async function GET(request: NextRequest) {
       take: totalCount > 0 ? totalCount : undefined, // 전체 개수만큼 가져오기
     });
 
+    let classGroupMap: Map<string, { id: string; name: string; period?: string | null }> | null = null;
+    if (courseId && boardType === "board_class") {
+      const classGroups = await prisma.classGroup.findMany({
+        where: { courseId },
+        select: { id: true, name: true, period: true },
+      });
+      classGroupMap = new Map(classGroups.map((group) => [group.id, group]));
+    }
+
     // 학생 게시판에서만 학반 단위 필터링 (selectedClasses가 있는 경우에만 적용)
     if (session.user.role === "student" && boardType === "board_students") {
       const normalizeNumber = (value: string) => value.trim().replace(/^0+/, "");
@@ -536,6 +563,17 @@ export async function GET(request: NextRequest) {
           console.error("Error parsing selectedClasses:", error);
           return false;
         }
+      });
+    }
+
+    if (session.user.role === "student" && boardType === "board_class" && courseId) {
+      announcements = announcements.filter((announcement: any) => {
+        const selectedIds = Array.isArray(announcement.selectedClassGroupIds)
+          ? announcement.selectedClassGroupIds
+          : [];
+        if (selectedIds.length === 0) return true;
+        if (!studentClassGroupIds || studentClassGroupIds.size === 0) return false;
+        return selectedIds.some((id: string) => studentClassGroupIds!.has(id));
       });
     }
 
@@ -592,6 +630,12 @@ export async function GET(request: NextRequest) {
         updatedAt: a.updatedAt.toISOString(),
         selectedClasses: a.selectedClasses || null,
         parentSelectedClasses: a.parentSelectedClasses || null,
+        selectedClassGroupIds: a.selectedClassGroupIds || [],
+        selectedClassGroups: classGroupMap
+          ? (a.selectedClassGroupIds || [])
+              .map((id: string) => classGroupMap!.get(id))
+              .filter(Boolean)
+          : [],
         category: a.category || null,
         surveyData: a.surveyData || null,
         surveyStartDate: a.surveyStartDate?.toISOString() || null,

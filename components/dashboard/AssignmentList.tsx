@@ -23,9 +23,17 @@ interface AssignmentListProps {
   courseId: string;
   onEdit?: (assignment: Assignment) => void;
   onDelete?: () => void;
+  showActions?: boolean;
+  emptyMessage?: string;
 }
 
-export default function AssignmentList({ courseId, onEdit, onDelete }: AssignmentListProps) {
+export default function AssignmentList({
+  courseId,
+  onEdit,
+  onDelete,
+  showActions = true,
+  emptyMessage = "등록된 자료가 없습니다. 위의 폼을 사용하여 첫 번째 자료를 생성해보세요.",
+}: AssignmentListProps) {
   const { showToast } = useToastContext();
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -154,7 +162,7 @@ export default function AssignmentList({ courseId, onEdit, onDelete }: Assignmen
   if (assignments.length === 0) {
     return (
       <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 p-8 text-center text-sm text-gray-500">
-        등록된 자료가 없습니다. 위의 폼을 사용하여 첫 번째 자료를 생성해보세요.
+        {emptyMessage}
       </div>
     );
   }
@@ -187,7 +195,7 @@ export default function AssignmentList({ courseId, onEdit, onDelete }: Assignmen
           className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
         />
       </div>
-      {confirmDeleteId && assignmentToDelete && (
+      {showActions && confirmDeleteId && assignmentToDelete && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6"
           role="dialog"
@@ -312,28 +320,30 @@ export default function AssignmentList({ courseId, onEdit, onDelete }: Assignmen
               )}
             </div>
 
-            <div className="mt-6 flex justify-end gap-3">
-              <button
-                type="button"
-                onClick={() => {
-                  onEdit?.(selectedAssignment);
-                  setSelectedAssignment(null);
-                }}
-                className="rounded-md border border-blue-200 px-3 py-1.5 text-sm font-medium text-blue-700 hover:bg-blue-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
-              >
-                수정
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setSelectedAssignment(null);
-                  setConfirmDeleteId(selectedAssignment.id);
-                }}
-                className="rounded-md border border-red-200 px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2"
-              >
-                삭제
-              </button>
-            </div>
+            {showActions && (
+              <div className="mt-6 flex justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    onEdit?.(selectedAssignment);
+                    setSelectedAssignment(null);
+                  }}
+                  className="rounded-md border border-blue-200 px-3 py-1.5 text-sm font-medium text-blue-700 hover:bg-blue-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+                >
+                  수정
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedAssignment(null);
+                    setConfirmDeleteId(selectedAssignment.id);
+                  }}
+                  className="rounded-md border border-red-200 px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2"
+                >
+                  삭제
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
