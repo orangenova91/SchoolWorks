@@ -22,6 +22,11 @@ const singleQuestionSchema = z
       .trim()
       .min(1, "문제 지문을 입력하세요")
       .max(2000, "문제 지문은 2000자 이하여야 합니다"),
+    imageUrl: z.preprocess(
+      (value) =>
+        typeof value === "string" && value.trim().length === 0 ? undefined : value,
+      z.string().url("이미지 URL 형식이 올바르지 않습니다.").optional()
+    ),
     points: z
       .number()
       .min(1, "배점은 1점 이상이어야 합니다")
@@ -73,8 +78,9 @@ const questionsSchema = z.object({
   questionNumber: z
     .string()
     .trim()
-    .min(1, "문제 주문번호를 입력하세요")
-    .max(50, "문제 주문번호는 50자 이하여야 합니다"),
+    .max(50, "문제 주문번호는 50자 이하여야 합니다")
+    .optional()
+    .default(""),
   questions: z.array(singleQuestionSchema).min(1, "최소 1개의 문항이 필요합니다"),
 });
 
@@ -86,6 +92,7 @@ interface EvaluationQuestionInitialData {
   questions: Array<{
     questionType: "객관식" | "서술형";
     questionText: string;
+    imageUrl?: string;
     points: number;
     options?: Array<{ text: string }>;
     correctAnswer?: number;
@@ -108,6 +115,7 @@ const getEmptyFormValues = (): QuestionsFormValues => ({
     {
       questionType: "객관식",
       questionText: "",
+      imageUrl: undefined,
       points: 1,
       options: [{ text: "" }, { text: "" }],
       correctAnswer: -1,
@@ -129,6 +137,7 @@ const mapInitialDataToFormValues = (
       return {
         questionType: "객관식" as const,
         questionText: question.questionText,
+        imageUrl: question.imageUrl,
         points: question.points,
         options: safeOptions,
         correctAnswer:
@@ -139,6 +148,7 @@ const mapInitialDataToFormValues = (
     return {
       questionType: "서술형" as const,
       questionText: question.questionText,
+      imageUrl: question.imageUrl,
       points: question.points,
       modelAnswer: question.modelAnswer ?? "",
     };
@@ -154,6 +164,7 @@ export default function EvaluationQuestionForm({
 }: EvaluationQuestionFormProps) {
   const { showToast } = useToastContext();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [uploadingQuestionIndex, setUploadingQuestionIndex] = useState<number | null>(null);
   const isEditMode = mode === "edit" && !!evaluationQuestionId;
 
   const {
@@ -193,6 +204,7 @@ export default function EvaluationQuestionForm({
     appendQuestion({
       questionType: "객관식" as const,
       questionText: "",
+      imageUrl: undefined,
       points: 1,
       options: [{ text: "" }, { text: "" }],
       correctAnswer: -1,
@@ -205,6 +217,54 @@ export default function EvaluationQuestionForm({
     } else {
       showToast("최소 1개의 문항이 필요합니다.", "error");
     }
+  };
+
+  const uploadQuestionImage = async (questionIndex: number, file: File) => {
+    if (!file.type.startsWith("image/")) {
+      showToast("이미지 파일만 업로드할 수 있습니다.", "error");
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      showToast("이미지 크기는 5MB 이하여야 합니다.", "error");
+      return;
+    }
+
+    try {
+      setUploadingQuestionIndex(questionIndex);
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const response = await fetch("/api/announcements/images", {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data?.error || "이미지 업로드 중 오류가 발생했습니다.");
+      }
+
+      setValue(`questions.${questionIndex}.imageUrl`, data.url, {
+        shouldDirty: true,
+        shouldValidate: true,
+      });
+      showToast("이미지가 업로드되었습니다.", "success");
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "이미지 업로드 중 오류가 발생했습니다.";
+      showToast(message, "error");
+    } finally {
+      setUploadingQuestionIndex(null);
+    }
+  };
+
+  const removeQuestionImage = (questionIndex: number) => {
+    setValue(`questions.${questionIndex}.imageUrl`, undefined, {
+      shouldDirty: true,
+      shouldValidate: true,
+    });
   };
 
   const onSubmit = async (values: QuestionsFormValues) => {
@@ -331,13 +391,18 @@ export default function EvaluationQuestionForm({
           error={errors.unit?.message}
           aria-required="true"
         />
-        <Input
-          {...register("questionNumber")}
-          label="문제 주문번호"
-          placeholder="예: 1234"
-          error={errors.questionNumber?.message}
-          aria-required="true"
-        />
+        <div className="space-y-1">
+          <Input
+            {...register("questionNumber")}
+            label="문제 주문번호"
+            placeholder="예: 1234"
+            error={errors.questionNumber?.message}
+            aria-required="false"
+          />
+          <p className="text-xs text-gray-500">
+            입력시 학생들은 주문번호를 입력해야 평가에 임할수 있습니다.
+          </p>
+        </div>
       </div>
 
       <div className="border-t border-gray-200"></div>
@@ -347,6 +412,7 @@ export default function EvaluationQuestionForm({
         const questionType = watchedQuestions[questionIndex]?.questionType || "객관식";
         const questionOptions = watchedQuestions[questionIndex]?.options || [];
         const questionCorrectAnswer = watchedQuestions[questionIndex]?.correctAnswer ?? -1;
+        const questionImageUrl = watchedQuestions[questionIndex]?.imageUrl;
 
         const addOption = () => {
           const currentOptions = getValues(`questions.${questionIndex}.options`) || [];
@@ -487,6 +553,66 @@ export default function EvaluationQuestionForm({
               )}
             </div>
 
+            <div className="space-y-3">
+              <input type="hidden" {...register(`questions.${questionIndex}.imageUrl`)} />
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="text-sm font-medium text-gray-700">
+                  문항 이미지 <span className="text-xs text-gray-400">(선택)</span>
+                </span>
+                {questionImageUrl && (
+                  <button
+                    type="button"
+                    onClick={() => removeQuestionImage(questionIndex)}
+                    className="inline-flex items-center gap-1 rounded-md border border-red-200 bg-red-50 px-3 py-1.5 text-xs text-red-600 hover:bg-red-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2"
+                  >
+                    이미지 삭제
+                  </button>
+                )}
+              </div>
+              <div
+                className="rounded-lg border border-dashed border-gray-300 bg-white px-4 py-6 text-center text-sm text-gray-500 transition-colors hover:border-blue-400 hover:text-gray-600"
+                onDragOver={(event) => {
+                  event.preventDefault();
+                }}
+                onDrop={(event) => {
+                  event.preventDefault();
+                  const file = event.dataTransfer.files?.[0];
+                  if (file) {
+                    uploadQuestionImage(questionIndex, file);
+                  }
+                }}
+              >
+                <label className="mb-1 inline-flex cursor-pointer items-center gap-2 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50 focus-within:outline-none focus-within:ring-2 focus-within:ring-blue-500 focus-within:ring-offset-2">
+                  <span>
+                    {uploadingQuestionIndex === questionIndex ? "업로드 중..." : "이미지 업로드"}
+                  </span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    disabled={uploadingQuestionIndex === questionIndex}
+                    onChange={(event) => {
+                      const file = event.target.files?.[0];
+                      if (file) {
+                        uploadQuestionImage(questionIndex, file);
+                      }
+                      event.currentTarget.value = "";
+                    }}
+                  />
+                </label>
+                <p>이미지를 여기로 드래그 앤 드롭하세요.</p>
+              </div>
+              {questionImageUrl && (
+                <div className="rounded-lg border border-gray-200 bg-white p-3">
+                  <img
+                    src={questionImageUrl}
+                    alt="문항 이미지 미리보기"
+                    className="max-h-64 w-full rounded-md object-contain"
+                  />
+                </div>
+              )}
+            </div>
+
             {questionType === "객관식" && (
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
@@ -623,7 +749,7 @@ export default function EvaluationQuestionForm({
           variant="outline"
           onClick={addQuestion}
         >
-          + 문제 추가하기
+          + 문항 추가하기
         </Button>
         <div className="flex gap-3">
           <Button
@@ -640,7 +766,7 @@ export default function EvaluationQuestionForm({
             초기화
           </Button>
           <Button type="submit" isLoading={isSubmitting}>
-            {isEditMode ? "문항 수정하기" : "문항 생성하기"}
+            {isEditMode ? "평가 수정하기" : "평가 생성하기"}
           </Button>
         </div>
       </div>

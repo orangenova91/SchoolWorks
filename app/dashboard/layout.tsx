@@ -224,7 +224,8 @@ export default async function DashboardLayout({
             href: "/dashboard/student/announcements",
             label: "학생 게시판",
             icon: <ClipboardMinus className="w-5 h-5" />,
-            iconName: "ClipboardMinus"
+            iconName: "ClipboardMinus",
+            dividerBefore: true
           },
           {
             href: "/dashboard/student/family-notices",

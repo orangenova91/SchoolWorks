@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/Button";
 import { useToastContext } from "@/components/providers/ToastProvider";
 import EvaluationQuestionForm from "./EvaluationQuestionForm";
@@ -16,6 +17,7 @@ interface EvaluationQuestion {
   questions: Array<{
     questionType: "객관식" | "서술형";
     questionText: string;
+    imageUrl?: string;
     points: number;
     options?: Array<{ text: string }>;
     correctAnswer?: number;
@@ -34,6 +36,7 @@ export default function StudentEvaluation({ courseId }: StudentEvaluationProps) 
   const [panelMode, setPanelMode] = useState<"create" | "edit">("create");
   const [selectedEvaluationQuestion, setSelectedEvaluationQuestion] = useState<EvaluationQuestion | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [isMounted, setIsMounted] = useState(false);
   const { showToast } = useToastContext();
 
   const fetchEvaluationQuestions = async () => {
@@ -80,6 +83,23 @@ export default function StudentEvaluation({ courseId }: StudentEvaluationProps) 
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, [openMenuId]);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!isPanelOpen) {
+      return;
+    }
+
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      document.body.style.overflow = originalOverflow;
+    };
+  }, [isPanelOpen]);
 
   const handleSuccess = () => {
     setIsPanelOpen(false);
@@ -315,6 +335,15 @@ export default function StudentEvaluation({ courseId }: StudentEvaluationProps) 
                     <p className="text-sm text-gray-700 mb-2 whitespace-pre-wrap">
                       {question.questionText}
                     </p>
+                    {question.imageUrl && (
+                      <div className="mb-3 rounded-lg border border-gray-200 bg-white p-3">
+                        <img
+                          src={question.imageUrl}
+                          alt="문항 이미지"
+                          className="max-h-64 w-full rounded-md object-contain"
+                        />
+                      </div>
+                    )}
                     {question.questionType === "객관식" && question.options && (
                       <div className="mt-2 space-y-1">
                         {question.options.map((option, optIndex) => (
@@ -350,33 +379,23 @@ export default function StudentEvaluation({ courseId }: StudentEvaluationProps) 
         </div>
       )}
 
-      {/* 슬라이드 패널 */}
-      <div
-        className={`fixed inset-0 z-40 transition-opacity duration-300 ${
-          isPanelOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
-        }`}
-      >
-        {/* 배경 오버레이 */}
+      {isMounted && isPanelOpen && createPortal(
         <div
-          className="absolute inset-0 bg-black/40"
-          onClick={closePanel}
-        />
-
-        {/* 슬라이드 패널 */}
-        <div
-          className={`absolute top-10 bottom-10 right-0 w-full max-w-2xl bg-white shadow-2xl rounded-l-3xl transform transition-transform duration-300 ease-in-out ${
-            isPanelOpen ? "translate-x-0" : "translate-x-full"
-          }`}
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 px-4 py-4"
+          role="dialog"
+          aria-modal="true"
         >
-          <div className="flex flex-col h-full rounded-l-3xl overflow-hidden">
-            {/* 헤더 */}
+          <div
+          className="relative w-full max-w-2xl max-h-[92vh] rounded-xl bg-white shadow-xl flex flex-col"
+            onClick={(event) => event.stopPropagation()}
+          >
             <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
               <h3 className="text-lg font-semibold text-gray-900">{panelTitle}</h3>
               <button
                 type="button"
                 onClick={closePanel}
                 className="text-gray-400 hover:text-gray-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 rounded-md p-1"
-                aria-label="패널 닫기"
+                aria-label="모달 닫기"
               >
                 <svg
                   className="h-6 w-6"
@@ -394,7 +413,6 @@ export default function StudentEvaluation({ courseId }: StudentEvaluationProps) 
               </button>
             </div>
 
-            {/* 콘텐츠 영역 */}
             <div className="flex-1 overflow-y-auto px-6 py-6">
               <EvaluationQuestionForm
                 courseId={courseId}
@@ -405,8 +423,9 @@ export default function StudentEvaluation({ courseId }: StudentEvaluationProps) 
               />
             </div>
           </div>
-        </div>
-      </div>
+        </div>,
+        document.body
+      )}
     </>
   );
 }
