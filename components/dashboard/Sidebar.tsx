@@ -16,12 +16,14 @@ type SidebarItem = {
 
 interface SidebarProps {
   items: SidebarItem[];
+  schoolName?: string | null;
+  schoolLogoUrl?: string | null;
 }
 
 const COLLAPSED_WIDTH = "w-16 xl:w-20";
 const EXPANDED_WIDTH = "w-[220px] xl:w-[260px]";
 
-export function Sidebar({ items }: SidebarProps) {
+export function Sidebar({ items, schoolName, schoolLogoUrl }: SidebarProps) {
   const pathname = usePathname();
   const [isExpanded, setIsExpanded] = useState(false);
   const rootPaths = ["/dashboard", "/dashboard/teacher", "/dashboard/student", "/dashboard/admin"];
@@ -40,7 +42,31 @@ export function Sidebar({ items }: SidebarProps) {
       onMouseLeave={() => setIsExpanded(false)}
     >
       <nav aria-label="Dashboard navigation" className="h-full p-4">
-        <ul className="space-y-3">
+        {schoolLogoUrl && (
+          <div
+            className={cn(
+              "flex items-center gap-3 px-2 py-2 rounded-xl bg-white/70 border border-white/60 shadow-sm transition-all duration-200",
+              isExpanded ? "justify-start" : "justify-center"
+            )}
+          >
+            <span className="inline-flex items-center justify-center w-9 h-9 rounded-full bg-white border border-blue-100 overflow-hidden">
+              <img
+                src={schoolLogoUrl}
+                alt={schoolName ? `${schoolName} 로고` : "학교 로고"}
+                className="w-full h-full object-cover"
+              />
+            </span>
+            <span
+              className={cn(
+                "text-sm font-semibold text-gray-800 whitespace-nowrap transition-all duration-200",
+                isExpanded ? "opacity-100 max-w-[140px]" : "opacity-0 max-w-0"
+              )}
+            >
+              {schoolName || "학교"}
+            </span>
+          </div>
+        )}
+        <ul className={cn("space-y-3", schoolLogoUrl ? "mt-4" : "")}>
           {items.map((item) => {
             const targetPath = item.href.split("#")[0];
             const isBasePath = rootPaths.includes(targetPath);
