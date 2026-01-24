@@ -357,6 +357,8 @@ model School {
   creator       User?          @relation("SchoolCreator", fields: [createdBy], references: [id], onDelete: SetNull)
   adminProfiles AdminProfile[] // AdminProfile과의 관계
 
+  logoUrl String? // 학교 대표 로고 이미지 URL
+
   // 학교 구분
   schoolType String @default("기타") // "초등학교", "중학교", "고등학교", "대학교", "기타"
 

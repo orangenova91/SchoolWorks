@@ -1,7 +1,9 @@
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 import { Server, CalendarDays, Mail, MessageSquare } from "lucide-react";
+import { SchoolLogoManager } from "@/components/dashboard/admin/SchoolLogoManager";
 
 const systemHealth = [
   { label: "API 응답 시간", value: "312ms", trend: "+18%", status: "주의" },
@@ -61,6 +63,56 @@ export default async function AdminSystemPage() {
   if (session.user.role !== "admin") {
     redirect("/dashboard");
   }
+
+  const currentUser = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: {
+      school: true,
+      adminProfile: {
+        select: {
+          schoolId: true,
+          school: { select: { name: true } },
+        },
+      },
+    },
+  });
+
+  const normalizedSchoolName =
+    currentUser?.adminProfile?.school?.name?.trim() ||
+    currentUser?.school?.trim() ||
+    null;
+
+  const primarySchool = currentUser?.adminProfile?.schoolId
+    ? await prisma.school.findUnique({
+        where: { id: currentUser.adminProfile.schoolId },
+        select: { id: true, name: true, logoUrl: true, updatedAt: true },
+      })
+    : null;
+
+  const nameSchools = normalizedSchoolName
+    ? await prisma.school.findMany({
+        where: { name: normalizedSchoolName },
+        select: { id: true, name: true, logoUrl: true, updatedAt: true },
+        orderBy: { updatedAt: "desc" },
+      })
+    : [];
+
+  const adminSchools = !normalizedSchoolName
+    ? await prisma.school.findMany({
+        where: { adminUserId: session.user.id },
+        select: { id: true, name: true, logoUrl: true, updatedAt: true },
+        orderBy: { updatedAt: "desc" },
+      })
+    : [];
+
+  const schoolCandidates = [
+    ...(primarySchool ? [primarySchool] : []),
+    ...nameSchools,
+    ...adminSchools,
+  ];
+
+  const schoolWithLogo = schoolCandidates.find((item) => item.logoUrl);
+  const school = schoolWithLogo ?? schoolCandidates[0] ?? null;
 
   return (
     <div className="space-y-10">
@@ -144,6 +196,11 @@ export default async function AdminSystemPage() {
           </button>
         </div>
       </section>
+
+      <SchoolLogoManager
+        schoolName={school?.name ?? null}
+        initialLogoUrl={school?.logoUrl ?? null}
+      />
     </div>
   );
 }

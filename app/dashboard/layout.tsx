@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
 import { getTranslations } from "@/lib/i18n";
+import { prisma } from "@/lib/prisma";
 import UserMenu from "@/components/dashboard/UserMenu";
 import { Sidebar } from "@/components/dashboard/Sidebar";
 import { Footer } from "@/components/dashboard/Footer";
@@ -44,6 +45,7 @@ export default async function DashboardLayout({
 
   const t = getTranslations("ko");
   const role = session.user.role;
+  const prismaAny = prisma as any;
 
   // Google Workspace 도메인 확인 (여러 도메인 지원: 쉼표로 구분)
   const googleWorkspaceDomains = (process.env.GOOGLE_WORKSPACE_DOMAIN || "")
@@ -63,6 +65,65 @@ export default async function DashboardLayout({
   const googleChatLink = isGoogleWorkspaceUser 
     ? "https://chat.google.com"
     : "/dashboard/chat"; // 일반 사용자는 나중에 다른 채팅 솔루션으로 대체 가능
+
+  const currentUser = await prismaAny.user.findUnique({
+    where: { id: session.user.id },
+    select: {
+      school: true,
+      studentProfile: { select: { school: true } },
+      teacherProfile: { select: { school: true } },
+      parentProfile: { select: { studentIds: true } },
+    },
+  });
+
+  let schoolName: string | null =
+    currentUser?.school ??
+    currentUser?.studentProfile?.school ??
+    currentUser?.teacherProfile?.school ??
+    session.user.school ??
+    null;
+
+  if (!schoolName && role === "parent") {
+    const studentId = currentUser?.parentProfile?.studentIds?.[0];
+    if (studentId) {
+      const student = await prismaAny.user.findUnique({
+        where: { id: studentId },
+        select: {
+          school: true,
+          studentProfile: { select: { school: true } },
+        },
+      });
+      schoolName = student?.school ?? student?.studentProfile?.school ?? null;
+    }
+  }
+
+  let schoolLogoUrl: string | null = null;
+  const normalizedSchoolName = schoolName?.trim() || null;
+  if (normalizedSchoolName) {
+    const schools =
+      role === "admin"
+        ? await prismaAny.school.findMany({
+            where: {
+              OR: [
+                { adminUserId: session.user.id },
+                { name: normalizedSchoolName },
+              ],
+            },
+            select: { logoUrl: true, updatedAt: true },
+            orderBy: { updatedAt: "desc" },
+          })
+        : await prismaAny.school.findMany({
+            where: { name: normalizedSchoolName },
+            select: { logoUrl: true, updatedAt: true },
+            orderBy: { updatedAt: "desc" },
+          });
+
+    const withLogo = schools.find(
+      (item: { logoUrl?: string | null }) => Boolean(item?.logoUrl)
+    );
+
+    schoolLogoUrl = withLogo?.logoUrl ?? schools[0]?.logoUrl ?? null;
+  }
 
   const navItems =
     role === "teacher"
@@ -292,8 +353,20 @@ export default async function DashboardLayout({
       <nav className="bg-white/80 backdrop-blur-lg shadow-sm fixed top-0 left-0 right-0 z-50 border-b border-white/20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
-            <div className="flex items-center">
-              <h1 className="text-xl font-bold text-gray-900">SchoolHub<span className="text-sm font-normal"> {t.app.version}</span></h1>
+            <div className="flex items-center gap-3">
+              {schoolLogoUrl && (
+                <span className="inline-flex items-center justify-center w-9 h-9 rounded-full bg-white border border-blue-100 overflow-hidden">
+                  <img
+                    src={schoolLogoUrl}
+                    alt={normalizedSchoolName ? `${normalizedSchoolName} 로고` : "학교 로고"}
+                    className="w-full h-full object-cover"
+                  />
+                </span>
+              )}
+              <h1 className="text-xl font-bold text-gray-900">
+                SchoolHub
+                <span className="text-sm font-normal"> {t.app.version}</span>
+              </h1>
               <CurrentPageNav items={navItems} />
             </div>
             <div className="flex items-center space-x-4">
@@ -303,14 +376,18 @@ export default async function DashboardLayout({
                 userRole={session.user?.role || ""}
                 userStudentId={session.user?.studentId || null}
                 userStudentIds={session.user?.studentIds || null}
-                schoolName={session.user?.school || null}
+                schoolName={normalizedSchoolName}
               />
             </div>
           </div>
         </div>
       </nav>
 
-      <Sidebar items={navItems} />
+      <Sidebar
+        items={navItems}
+        schoolName={normalizedSchoolName}
+        schoolLogoUrl={schoolLogoUrl}
+      />
       <main className="ml-16 xl:ml-20 pt-20 pb-10 px-4 sm:px-8 lg:px-10 flex-1 transition-all duration-300 relative z-10">
         <div className="max-w-7xl mx-auto">
           <section className="w-full">{children}</section>
