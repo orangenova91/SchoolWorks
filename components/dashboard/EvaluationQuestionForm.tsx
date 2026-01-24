@@ -623,7 +623,7 @@ export default function EvaluationQuestionForm({
           variant="outline"
           onClick={addQuestion}
         >
-          + 문제 추가하기
+          + 문항 추가하기
         </Button>
         <div className="flex gap-3">
           <Button
@@ -640,7 +640,7 @@ export default function EvaluationQuestionForm({
             초기화
           </Button>
           <Button type="submit" isLoading={isSubmitting}>
-            {isEditMode ? "문항 수정하기" : "문항 생성하기"}
+            {isEditMode ? "평가 수정하기" : "평가 생성하기"}
           </Button>
         </div>
       </div>
