@@ -17,6 +17,7 @@ interface EvaluationQuestion {
   questions: Array<{
     questionType: "객관식" | "서술형";
     questionText: string;
+    imageUrl?: string;
     points: number;
     options?: Array<{ text: string }>;
     correctAnswer?: number;
@@ -334,6 +335,15 @@ export default function StudentEvaluation({ courseId }: StudentEvaluationProps) 
                     <p className="text-sm text-gray-700 mb-2 whitespace-pre-wrap">
                       {question.questionText}
                     </p>
+                    {question.imageUrl && (
+                      <div className="mb-3 rounded-lg border border-gray-200 bg-white p-3">
+                        <img
+                          src={question.imageUrl}
+                          alt="문항 이미지"
+                          className="max-h-64 w-full rounded-md object-contain"
+                        />
+                      </div>
+                    )}
                     {question.questionType === "객관식" && question.options && (
                       <div className="mt-2 space-y-1">
                         {question.options.map((option, optIndex) => (
@@ -376,7 +386,7 @@ export default function StudentEvaluation({ courseId }: StudentEvaluationProps) 
           aria-modal="true"
         >
           <div
-          className="relative w-full max-w-2xl min-h-[93vh] rounded-xl bg-white shadow-xl flex flex-col"
+          className="relative w-full max-w-2xl max-h-[92vh] rounded-xl bg-white shadow-xl flex flex-col"
             onClick={(event) => event.stopPropagation()}
           >
             <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">

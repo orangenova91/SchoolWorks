@@ -9,8 +9,9 @@ export const evaluationQuestionPayloadSchema = z.object({
   questionNumber: z
     .string()
     .trim()
-    .min(1, "문제 주문번호를 입력하세요")
-    .max(50, "문제 주문번호는 50자 이하여야 합니다"),
+    .max(50, "문제 주문번호는 50자 이하여야 합니다")
+    .optional()
+    .default(""),
   questions: z
     .array(
       z.object({
@@ -20,6 +21,13 @@ export const evaluationQuestionPayloadSchema = z.object({
           .trim()
           .min(1, "문제 지문을 입력하세요")
           .max(2000, "문제 지문은 2000자 이하여야 합니다"),
+        imageUrl: z.preprocess(
+          (value) =>
+            typeof value === "string" && value.trim().length === 0
+              ? undefined
+              : value,
+          z.string().url().optional()
+        ),
         points: z
           .number()
           .min(1, "배점은 1점 이상이어야 합니다")
