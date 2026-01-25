@@ -75,10 +75,19 @@ const questionsSchema = z.object({
     .trim()
     .min(1, "평가 단원을 입력하세요")
     .max(100, "평가 단원은 100자 이하여야 합니다"),
+  evaluationContent: z.preprocess(
+    (value) =>
+      typeof value === "string" && value.trim().length === 0 ? undefined : value,
+    z
+      .string()
+      .trim()
+      .max(2000, "평가 내용은 2000자 이하여야 합니다")
+      .optional()
+  ),
   questionNumber: z
     .string()
     .trim()
-    .max(50, "문제 주문번호는 50자 이하여야 합니다")
+    .max(50, "문제 비밀번호는 50자 이하여야 합니다")
     .optional()
     .default(""),
   questions: z.array(singleQuestionSchema).min(1, "최소 1개의 문항이 필요합니다"),
@@ -88,6 +97,7 @@ type QuestionsFormValues = z.infer<typeof questionsSchema>;
 
 interface EvaluationQuestionInitialData {
   unit: string;
+  evaluationContent?: string;
   questionNumber: string;
   questions: Array<{
     questionType: "객관식" | "서술형";
@@ -110,6 +120,7 @@ interface EvaluationQuestionFormProps {
 
 const getEmptyFormValues = (): QuestionsFormValues => ({
   unit: "",
+  evaluationContent: "",
   questionNumber: "",
   questions: [
     {
@@ -127,6 +138,7 @@ const mapInitialDataToFormValues = (
   initialData: EvaluationQuestionInitialData
 ): QuestionsFormValues => ({
   unit: initialData.unit,
+  evaluationContent: initialData.evaluationContent ?? "",
   questionNumber: initialData.questionNumber,
   questions: initialData.questions.map((question) => {
     if (question.questionType === "객관식") {
@@ -166,6 +178,7 @@ export default function EvaluationQuestionForm({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadingQuestionIndex, setUploadingQuestionIndex] = useState<number | null>(null);
   const isEditMode = mode === "edit" && !!evaluationQuestionId;
+  const [requirePassword, setRequirePassword] = useState<boolean>(false);
 
   const {
     register,
@@ -197,6 +210,12 @@ export default function EvaluationQuestionForm({
       reset(mapInitialDataToFormValues(initialData));
     } else if (!isEditMode) {
       reset(getEmptyFormValues());
+    }
+    // show/hide password input based on initialData
+    if (initialData && initialData.questionNumber && initialData.questionNumber.trim()) {
+      setRequirePassword(true);
+    } else {
+      setRequirePassword(false);
     }
   }, [isEditMode, initialData, reset]);
 
@@ -381,29 +400,85 @@ export default function EvaluationQuestionForm({
   };
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6" noValidate>
-      {/* 평가 단원과 문제 주문번호 - 상단에 한 번만 */}
-      <div className="grid gap-6 sm:grid-cols-2">
-        <Input
-          {...register("unit")}
-          label="평가 단원"
-          placeholder="예: 1단원 - 수와 연산"
-          error={errors.unit?.message}
-          aria-required="true"
-        />
-        <div className="space-y-1">
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-2" noValidate>
+      {/* 평가 단원과 문제 비밀번호 - 상단에 한 번만 */}
+      <div className="grid gap-y-4 gap-x-6 sm:grid-cols-2">
+        <div className="space-y-4">
+          
           <Input
-            {...register("questionNumber")}
-            label="문제 주문번호"
-            placeholder="예: 1234"
-            error={errors.questionNumber?.message}
-            aria-required="false"
+            {...register("unit")}
+            label="평가 단원"
+            placeholder="예: 1단원 - 수와 연산"
+            error={errors.unit?.message}
+            aria-required="true"
           />
-          <p className="text-xs text-gray-500">
-            입력시 학생들은 주문번호를 입력해야 평가에 임할수 있습니다.
-          </p>
+        </div>
+        <div className="space-y-1">
+          <div className="flex items-center justify-between">
+            <label
+              htmlFor="questionPasswordToggle"
+              className="block text-sm font-medium text-gray-700"
+            >
+              문제 비밀번호 <span className="text-xs text-gray-400">(선택)</span>
+            </label>
+            <div className="flex items-center gap-2">
+              <input
+                id="questionPasswordToggle"
+                type="checkbox"
+                checked={requirePassword}
+                onChange={(e) => {
+                  const checked = e.target.checked;
+                  setRequirePassword(checked);
+                  if (!checked) {
+                    setValue("questionNumber", "");
+                  }
+                }}
+                className="h-4 w-4 text-blue-600"
+              />
+              <label htmlFor="questionPasswordToggle" className="text-sm text-gray-600">
+                사용
+              </label>
+            </div>
+          </div>
+
+          {requirePassword ? (
+            <Input
+              {...register("questionNumber")}
+              placeholder="예: 1234"
+              error={errors.questionNumber?.message}
+              aria-required="false"
+            />
+          ) : (
+            <p className="text-xs text-gray-500">
+              입력시 학생들은 비밀번호를 입력해야 평가에 임할수 있습니다.
+            </p>
+          )}
         </div>
       </div>
+
+      {/* 평가 내용: 전체 가로 영역 차지 */}
+      <div className="space-y-2">
+        <label
+          htmlFor="evaluationContent"
+          className="block text-sm font-medium text-gray-700"
+        >
+          평가 내용 <span className="text-xs text-gray-400">(선택)</span>
+        </label>
+        <textarea
+          {...register("evaluationContent")}
+          id="evaluationContent"
+          rows={2}
+          className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+          placeholder="예: 이번 평가는 1단원 핵심 개념과 계산력을 점검합니다."
+        />
+        {errors.evaluationContent?.message && (
+          <p className="mt-1 text-sm text-red-600" role="alert">
+            {errors.evaluationContent.message}
+          </p>
+        )}
+      </div>
+
+      
 
       <div className="border-t border-gray-200"></div>
 
@@ -570,7 +645,7 @@ export default function EvaluationQuestionForm({
                 )}
               </div>
               <div
-                className="rounded-lg border border-dashed border-gray-300 bg-white px-4 py-6 text-center text-sm text-gray-500 transition-colors hover:border-blue-400 hover:text-gray-600"
+                className="rounded-lg border border-dashed border-gray-300 bg-white px-4 py-6 text-center text-sm text-gray-400 transition-colors hover:border-blue-400 hover:text-gray-600"
                 onDragOver={(event) => {
                   event.preventDefault();
                 }}

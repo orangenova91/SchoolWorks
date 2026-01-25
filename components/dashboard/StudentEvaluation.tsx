@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/Button";
+import TeacherSubmissionsModal from "./TeacherSubmissionsModal";
 import { useToastContext } from "@/components/providers/ToastProvider";
 import EvaluationQuestionForm from "./EvaluationQuestionForm";
 
@@ -13,6 +14,7 @@ interface StudentEvaluationProps {
 interface EvaluationQuestion {
   id: string;
   unit: string;
+  evaluationContent?: string;
   questionNumber: string;
   questions: Array<{
     questionType: "객관식" | "서술형";
@@ -37,6 +39,8 @@ export default function StudentEvaluation({ courseId }: StudentEvaluationProps) 
   const [selectedEvaluationQuestion, setSelectedEvaluationQuestion] = useState<EvaluationQuestion | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [isMounted, setIsMounted] = useState(false);
+  const [submissionsModalOpen, setSubmissionsModalOpen] = useState(false);
+  const [submissionsEvaluation, setSubmissionsEvaluation] = useState<EvaluationQuestion | null>(null);
   const { showToast } = useToastContext();
 
   const fetchEvaluationQuestions = async () => {
@@ -182,6 +186,7 @@ export default function StudentEvaluation({ courseId }: StudentEvaluationProps) 
     }
     return {
       unit: selectedEvaluationQuestion.unit,
+      evaluationContent: selectedEvaluationQuestion.evaluationContent,
       questionNumber: selectedEvaluationQuestion.questionNumber,
       questions: selectedEvaluationQuestion.questions,
     };
@@ -194,6 +199,7 @@ export default function StudentEvaluation({ courseId }: StudentEvaluationProps) 
     const keyword = searchTerm.trim().toLowerCase();
     return evaluationQuestions.filter((eq) => {
       const unitMatch = eq.unit.toLowerCase().includes(keyword);
+      const contentMatch = eq.evaluationContent?.toLowerCase().includes(keyword) ?? false;
       const numberMatch = eq.questionNumber.toLowerCase().includes(keyword);
       const questionMatch = eq.questions.some(
         (question) =>
@@ -202,7 +208,7 @@ export default function StudentEvaluation({ courseId }: StudentEvaluationProps) 
           (question.questionType === "객관식" &&
             question.options?.some((option) => option.text.toLowerCase().includes(keyword)))
       );
-      return unitMatch || numberMatch || questionMatch;
+      return unitMatch || contentMatch || numberMatch || questionMatch;
     });
   }, [evaluationQuestions, searchTerm]);
 
@@ -251,13 +257,29 @@ export default function StudentEvaluation({ courseId }: StudentEvaluationProps) 
               <div className="flex items-center justify-between gap-4 bg-gray-50 border-b border-gray-200 px-6 py-4">
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900">평가 단원: {eq.unit}</h3>
-                  <p className="text-sm text-gray-500 mt-1">문제 주문번호: {eq.questionNumber}</p>
+                  {eq.evaluationContent?.trim() && (
+                    <p className="text-sm text-gray-600 mt-1 whitespace-pre-wrap">
+                      {eq.evaluationContent}
+                    </p>
+                  )}
+                  <p className="text-sm text-gray-500 mt-1">문제 비밀번호: {eq.questionNumber}</p>
                 </div>
                 <div
                   className="flex items-center gap-2 text-xs text-gray-400 relative"
                   data-eval-menu-id={eq.id}
                 >
                   <span>생성일: {new Date(eq.createdAt).toLocaleString("ko-KR")}</span>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSubmissionsEvaluation(eq);
+                      setSubmissionsModalOpen(true);
+                    }}
+                    className="ml-3 inline-flex items-center rounded-md bg-indigo-50 px-2 py-1 text-xs font-medium text-indigo-700 hover:bg-indigo-100"
+                  >
+                    응시자 보기
+                  </button>
                   <button
                     type="button"
                     onClick={(e) => {
@@ -425,6 +447,17 @@ export default function StudentEvaluation({ courseId }: StudentEvaluationProps) 
           </div>
         </div>,
         document.body
+      )}
+      {submissionsModalOpen && submissionsEvaluation && (
+        <TeacherSubmissionsModal
+          courseId={courseId}
+          evaluationId={submissionsEvaluation.id}
+          unit={submissionsEvaluation.unit}
+          onClose={() => {
+            setSubmissionsModalOpen(false);
+            setSubmissionsEvaluation(null);
+          }}
+        />
       )}
     </>
   );

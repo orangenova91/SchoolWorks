@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import CourseTabs from "@/components/dashboard/CourseTabs";
 import { AnnouncementList } from "@/components/dashboard/AnnouncementList";
 import AssignmentList from "@/components/dashboard/AssignmentList";
+import StudentEvaluationStudentView from "@/components/dashboard/StudentEvaluationStudentView";
 
 interface StudentCoursePageProps {
   params: {
@@ -220,9 +221,12 @@ export default async function StudentCoursePage({
             </article>,
             <article
               key="notes"
-              className="rounded-2xl border border-dashed border-gray-200 bg-white p-10 text-center text-sm text-gray-500"
+              className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm space-y-4"
             >
-              학생 평가는 준비 중입니다.
+              <header>
+                <h2 className="text-lg font-semibold text-gray-900">학생 평가</h2>
+              </header>
+              <StudentEvaluationStudentView courseId={course.id} />
             </article>,
             <article
               key="record"
