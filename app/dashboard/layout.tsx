@@ -30,6 +30,7 @@ import {
   ClipboardMinus,
   ClipboardCopy,
   ClipboardList,
+  MessageSquare
 } from "lucide-react";
 
 export default async function DashboardLayout({
@@ -191,6 +192,12 @@ export default async function DashboardLayout({
             iconName: "MessageCircle",
             dividerBefore: true,
             external: isGoogleWorkspaceUser,
+          },
+          {
+            href: "/dashboard/teacher/developer-contact",
+            label: "개발자 연락하기",
+            icon: <MessageSquare className="w-5 h-5" />,
+            iconName: "MessageSquare",
           },
         ]
       : role === "student"
