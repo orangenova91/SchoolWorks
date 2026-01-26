@@ -66,39 +66,106 @@ export default function TeacherSubmissionGrader({ courseId, evaluationId }: Prop
               </div>
               <div className="text-sm font-semibold">총점: {sub.totalScore ?? "—"}</div>
             </div>
-            <div className="mt-3 space-y-2">
-              {answers.map((a: any) => (
-                <div key={a.index} className="p-2 border rounded">
-                  <div className="text-sm font-medium">{a.type} 문항 {a.index + 1}</div>
-                  <div className="text-sm text-gray-700">응답: {String(a.answer)}</div>
-                  {a.type === "서술형" && (
-                    <div className="mt-2">
-                      <label className="text-xs text-gray-500">채점 입력</label>
-                      <input
-                        type="number"
-                        defaultValue={a.score ?? ""}
-                        className="ml-2 w-20 rounded border px-2 py-1"
-                        onChange={(e) => {
-                          (a as any)._pendingScore = Number(e.target.value);
-                        }}
-                      />
+            <div className="mt-3 space-y-3">
+              {answers.map((a: any) => {
+                const isMC = a.type === "객관식";
+                const pointsTotal = Number(a.points ?? 0);
+                const earned = isMC ? (a.isCorrect ? pointsTotal : 0) : (a.score ?? null);
+                return (
+                  <div
+                    key={a.index}
+                    className="p-3 border rounded flex flex-col md:flex-row md:items-start md:justify-between gap-3"
+                  >
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3">
+                        <div className="text-sm font-medium">{a.type} 문항 {a.index + 1}</div>
+                        
+                      </div>
+                      <div className="text-sm text-gray-700 mt-1">
+                          응답
+                          {isMC && typeof a.correctAnswer !== "undefined" && (
+                            <span className="text-xs text-gray-500">
+                              (정답: {String(a.correctAnswer)})
+                            </span>
+                          )}
+                          : {String(a.answer)}
+
+                          {isMC && typeof a.correctAnswer !== "undefined" && (
+                            <span className="ml-2 font-semibold">
+                              {String(a.correctAnswer) === String(a.answer) ? (
+                                <span className="text-green-600">(O)</span>
+                              ) : (
+                                <span className="text-red-500">(X)</span>
+                              )}
+                            </span>
+                          )}
+                        </div>
                     </div>
-                  )}
-                </div>
-              ))}
+
+                    
+
+                    <div className="flex-shrink-0 mt-1 md:mt-0 md:ml-4 flex flex-col items-end gap-2">
+                      {isMC ? (
+                        <div className="text-sm font-semibold text-gray-800">
+                          점수: {earned}/{pointsTotal}
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <label className="text-xs text-gray-500">채점 입력</label>
+                          <input
+                            type="number"
+                            defaultValue={a.score ?? ""}
+                            className="w-20 rounded border px-2 py-1"
+                            onChange={(e) => {
+                              (a as any)._pendingScore = Number(e.target.value);
+                            }}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
             <div className="mt-3 flex justify-end">
-              <button
-                onClick={() => {
-                  const scores = answers
-                    .filter((a: any) => a.type === "서술형" && typeof a._pendingScore === "number")
-                    .map((a: any) => ({ index: a.index, score: a._pendingScore }));
-                  handleGrade(sub.id, scores);
-                }}
-                className="rounded bg-indigo-600 text-white px-3 py-1"
-              >
-                저장
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={async () => {
+                    try {
+                      const res = await fetch(
+                        `/api/courses/${courseId}/evaluation-questions/${evaluationId}/release-scores`,
+                        {
+                          method: "PATCH",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ released: true }),
+                        }
+                      );
+                      if (!res.ok) {
+                        const err = await res.json().catch(() => ({}));
+                        throw new Error(err?.error || "점수 공개 실패");
+                      }
+                      alert("점수 공개 완료");
+                    } catch (e) {
+                      console.error(e);
+                      alert("점수 공개 중 오류");
+                    }
+                  }}
+                  className="rounded border border-gray-300 px-3 py-1 text-sm"
+                >
+                  점수 공개
+                </button>
+                <button
+                  onClick={() => {
+                    const scores = answers
+                      .filter((a: any) => a.type === "서술형" && typeof a._pendingScore === "number")
+                      .map((a: any) => ({ index: a.index, score: a._pendingScore }));
+                    handleGrade(sub.id, scores);
+                  }}
+                  className="rounded bg-indigo-600 text-white px-3 py-1"
+                >
+                  저장
+                </button>
+              </div>
             </div>
           </div>
         );

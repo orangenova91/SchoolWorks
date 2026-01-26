@@ -397,6 +397,8 @@ function AnnouncementComposerForm({
   const [surveyQuestions, setSurveyQuestions] = useState<SurveyQuestion[]>([]);
   const [surveyStartDate, setSurveyStartDate] = useState("");
   const [surveyEndDate, setSurveyEndDate] = useState("");
+  const [showSurveyPeriod, setShowSurveyPeriod] = useState(false);
+  const surveyListRef = useRef<HTMLDivElement | null>(null);
   const [signatureData, setSignatureData] = useState<string | null>(null);
   const [showSignaturePanel, setShowSignaturePanel] = useState(false);
   const [isDrawing, setIsDrawing] = useState(false);
@@ -1723,10 +1725,19 @@ function AnnouncementComposerForm({
       id: Date.now().toString() + Math.random().toString(36).substring(7),
       type: "single",
       question: "",
-      options: ["옵션 1", "옵션 2"],
+      options: ["", ""],
       required: false,
     };
-    setSurveyQuestions([...surveyQuestions, newQuestion]);
+    setSurveyQuestions((prev) => {
+      const next = [...prev, newQuestion];
+      // scroll to bottom after DOM updates
+      setTimeout(() => {
+        if (surveyListRef?.current) {
+          surveyListRef.current.scrollTo({ top: surveyListRef.current.scrollHeight, behavior: "smooth" });
+        }
+      }, 50);
+      return next;
+    });
   };
 
   const handleUpdateSurveyQuestion = (id: string, field: keyof SurveyQuestion, value: any) => {
@@ -1745,7 +1756,7 @@ function AnnouncementComposerForm({
     setSurveyQuestions(
       surveyQuestions.map((q) =>
         q.id === questionId
-          ? { ...q, options: [...(q.options || []), `옵션 ${(q.options?.length || 0) + 1}`] }
+          ? { ...q, options: [...(q.options || []),""] }
           : q
       )
     );
@@ -2821,30 +2832,44 @@ function AnnouncementComposerForm({
           <div className="border border-gray-200 rounded-lg p-4 bg-gray-50 h-full flex flex-col">
             {/* 설문 조사 기간 설정 */}
             <div className="mb-4 pb-4 border-b border-gray-200">
-              <h4 className="text-xs font-semibold text-gray-700 mb-2">설문 조사 기간</h4>
-              <div className="grid grid-cols-2 gap-2">
-                <Input
-                  type="datetime-local"
-                  label="시작일시"
-                  value={surveyStartDate}
-                  onChange={(e) => setSurveyStartDate(e.target.value)}
-                  className="text-xs"
-                />
-                <Input
-                  type="datetime-local"
-                  label="종료일시"
-                  value={surveyEndDate}
-                  onChange={(e) => setSurveyEndDate(e.target.value)}
-                  min={surveyStartDate || undefined}
-                  className="text-xs"
-                />
+              <div className="flex items-center gap-2 mb-1">
+                <h3 className="text-sm font-semibold text-gray-700">설문 조사 기간</h3>
+                <label className="flex items-center gap-1.5 text-sm text-gray-700 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    checked={showSurveyPeriod}
+                    onChange={(e) => setShowSurveyPeriod(e.target.checked)}
+                  />
+                  <span>사용</span>
+                </label>
               </div>
+
+              {showSurveyPeriod && (
+                <div className="grid grid-cols-2 gap-2 mt-2">
+                  <Input
+                    type="datetime-local"
+                    label="시작일시"
+                    value={surveyStartDate}
+                    onChange={(e) => setSurveyStartDate(e.target.value)}
+                    className="text-xs"
+                  />
+                  <Input
+                    type="datetime-local"
+                    label="종료일시"
+                    value={surveyEndDate}
+                    onChange={(e) => setSurveyEndDate(e.target.value)}
+                    min={surveyStartDate || undefined}
+                    className="text-xs"
+                  />
+                </div>
+              )}
             </div>
             
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-3">
                 <h3 className="text-sm font-semibold text-gray-700">설문 조사 항목</h3>
-                <label className="flex items-center gap-2 text-xs text-gray-700 cursor-pointer">
+                <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
                   <input
                     type="checkbox"
                     checked={showSignaturePanel}
@@ -2854,120 +2879,142 @@ function AnnouncementComposerForm({
                   서명 포함
                 </label>
               </div>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                onClick={handleAddSurveyQuestion}
-                className="h-8 px-3 text-xs"
-              >
-                <Plus className="h-3 w-3 mr-1" />
-                질문 추가
-              </Button>
+
             </div>
             
-            {/* 질문 목록 */}
-            <div className="space-y-3 flex-1 overflow-y-auto max-h-[600px]">
-              {surveyQuestions.length === 0 ? (
-                <div className="text-sm text-gray-500 text-center py-8">
-                  설문 항목을 추가하려면 "질문 추가" 버튼을 클릭하세요.
-                </div>
-              ) : (
-                surveyQuestions.map((question, index) => (
-                  <div key={question.id} className="border border-gray-300 rounded-lg p-3 bg-white">
-                    <div className="flex items-start justify-between mb-2">
-                      <span className="text-xs font-medium text-gray-500">
-                        질문 {index + 1}
-                      </span>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => handleDeleteSurveyQuestion(question.id)}
-                        className="h-6 w-6 p-0 text-gray-400 hover:text-red-600"
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
-                    </div>
-                    
-                    {/* 질문 타입 선택 */}
-                    <div className="mb-2">
-                      <Select
-                        value={question.type}
-                        onChange={(e) => handleUpdateSurveyQuestion(question.id, "type", e.target.value)}
-                        options={[
-                          { value: "single", label: "객관식 단일 선택" },
-                          { value: "multiple", label: "객관식 다중 선택" },
-                          { value: "text", label: "주관식 단답" },
-                          { value: "textarea", label: "주관식 장문" },
-                        ]}
-                        className="text-xs h-8"
-                      />
-                    </div>
-                    
-                    {/* 질문 내용 입력 */}
-                    <div className="mb-2">
-                      <Input
-                        placeholder="질문을 입력하세요"
-                        value={question.question}
-                        onChange={(e) => handleUpdateSurveyQuestion(question.id, "question", e.target.value)}
-                        className="text-sm"
-                      />
-                    </div>
-                    
-                    {/* 객관식 선택지 */}
-                    {(question.type === "single" || question.type === "multiple") && (
-                      <div className="space-y-2 mb-2">
-                        {question.options?.map((option, optIndex) => (
-                          <div key={optIndex} className="flex items-center gap-2">
-                            <Input
-                              placeholder={`옵션 ${optIndex + 1}`}
-                              value={option}
-                              onChange={(e) => handleUpdateSurveyOption(question.id, optIndex, e.target.value)}
-                              className="text-sm flex-1"
+              {/* 질문 목록 */}
+              <div ref={surveyListRef} className="space-y-3 flex-1 overflow-y-auto max-h-[600px]">
+                {surveyQuestions.length === 0 ? (
+                  <div className="text-sm text-gray-500 text-center py-8">
+                    설문 항목을 추가하려면 "질문 추가" 버튼을 클릭하세요.
+                  </div>
+                ) : (
+                  surveyQuestions.map((question, index) => (
+                    <div key={question.id} className="border border-gray-300 rounded-lg p-3 bg-gray-100">
+                      <div className="flex items-center justify-between mb-2">
+                        {/* 왼쪽: 질문 배지 + 질문 타입 */}
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-semibold px-2 py-0.5 rounded bg-gray-300 text-gray-700 whitespace-nowrap">
+                            질문 {index + 1}
+                          </span>
+
+                          <Select
+                            value={question.type}
+                            onChange={(e) =>
+                              handleUpdateSurveyQuestion(question.id, "type", e.target.value)
+                            }
+                            options={[
+                              { value: "single", label: "객관식 단일 선택" },
+                              { value: "multiple", label: "객관식 다중 선택" },
+                              { value: "text", label: "주관식 단답" },
+                              { value: "textarea", label: "주관식 장문" },
+                            ]}
+                            className="text-xs h-8 min-w-[140px]"
+                          />
+                        </div>
+
+                        {/* 오른쪽: 필수 항목 + 삭제 버튼 */}
+                        <div className="flex items-center gap-3">
+                          <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={question.required}
+                              onChange={(e) =>
+                                handleUpdateSurveyQuestion(question.id, "required", e.target.checked)
+                              }
+                              className="h-3 w-3 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                             />
+                            필수
+                          </label>
+
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => handleDeleteSurveyQuestion(question.id)}
+                            className="h-6 w-6 p-0 text-gray-400 hover:text-red-600"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+
+                      
+                      {/* 질문 내용 입력 */}
+                      <div className="mb-2">
+                        <Input
+                          placeholder="질문을 입력하세요"
+                          value={question.question}
+                          onChange={(e) => handleUpdateSurveyQuestion(question.id, "question", e.target.value)}
+                          className="text-sm border-gray-400 focus:border-gray-500"
+                        />
+                      </div>
+                      
+                      {/* 객관식 선택지 */}
+                      {(question.type === "single" || question.type === "multiple") && (
+                        <div className="space-y-2 mb-2">
+                          {question.options?.map((option, optIndex) => (
+                            <div key={optIndex} className="flex items-center gap-2">
+                              <input
+                                type={question.type === "single" ? "radio" : "checkbox"}
+                                disabled
+                                className="h-4 w-4 text-blue-600 border-gray-300"
+                              />
+                              <Input
+                                placeholder={`옵션 ${optIndex + 1}`}
+                                value={option}
+                                onChange={(e) => handleUpdateSurveyOption(question.id, optIndex, e.target.value)}
+                                className="text-sm flex-1"
+                              />
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => handleDeleteSurveyOption(question.id, optIndex)}
+                                className="h-8 w-8 p-0 text-gray-400 hover:text-red-600"
+                                disabled={question.options && question.options.length <= 2}
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          ))}
+                          
+                          <div className="flex justify-end pt-1">
                             <Button
                               type="button"
                               size="sm"
-                              variant="ghost"
-                              onClick={() => handleDeleteSurveyOption(question.id, optIndex)}
-                              className="h-8 w-8 p-0 text-gray-400 hover:text-red-600"
-                              disabled={question.options && question.options.length <= 2}
+                              variant="outline"
+                              onClick={() => handleAddSurveyOption(question.id)}
+                              className="h-8 text-xs w-28"
                             >
-                              <X className="h-4 w-4" />
+                              <Plus className="h-3 w-3 mr-1" />
+                              옵션 추가
                             </Button>
                           </div>
-                        ))}
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleAddSurveyOption(question.id)}
-                          className="w-full h-7 text-xs"
-                        >
-                          <Plus className="h-3 w-3 mr-1" />
-                          옵션 추가
-                        </Button>
-                      </div>
-                    )}
-                    
-                    {/* 필수 여부 체크박스 */}
-                    <div className="flex items-center gap-2">
-                      <label className="flex items-center gap-2 text-xs text-gray-700 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={question.required}
-                          onChange={(e) => handleUpdateSurveyQuestion(question.id, "required", e.target.checked)}
-                          className="h-3 w-3 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                        />
-                        필수 항목
-                      </label>
+                          
+                        </div>
+                      )}
+                      
+                      
+
                     </div>
-                  </div>
-                ))
-              )}
+                    
+                  ))
+                )}
+              </div>
+              <div className="pt-3 flex justify-end">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={handleAddSurveyQuestion}
+                  className="h-8 text-xs w-32"
+                >
+                  <Plus className="h-3 w-3 mr-1" />
+                  질문 추가
+                </Button>
+              </div>
             </div>
-          </div>
         )}
       </div>
 

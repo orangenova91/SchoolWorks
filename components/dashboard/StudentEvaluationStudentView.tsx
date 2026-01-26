@@ -29,11 +29,15 @@ export default function StudentEvaluationStudentView({
 }: StudentEvaluationStudentViewProps) {
   const [evaluationQuestions, setEvaluationQuestions] = useState<EvaluationQuestion[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [submittedMap, setSubmittedMap] = useState<Record<string, boolean>>({});
+  const [releasedMap, setReleasedMap] = useState<Record<string, boolean>>({});
+  const [scoresMap, setScoresMap] = useState<Record<string, number | null>>({});
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedEvaluation, setSelectedEvaluation] = useState<typeof evaluationQuestions[0] | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
   const [pendingEvaluation, setPendingEvaluation] = useState<typeof evaluationQuestions[0] | null>(null);
+  const [viewOnly, setViewOnly] = useState(false);
 
   useEffect(() => {
     const fetchEvaluationQuestions = async () => {
@@ -58,6 +62,52 @@ export default function StudentEvaluationStudentView({
       fetchEvaluationQuestions();
     }
   }, [courseId]);
+
+  // after evaluationQuestions loaded, check per-evaluation submission status
+  useEffect(() => {
+    if (!evaluationQuestions || evaluationQuestions.length === 0) return;
+    let mounted = true;
+    const checks = async () => {
+      const entries = await Promise.all(
+        evaluationQuestions.map(async (eq) => {
+          try {
+            const [resSub, resRel] = await Promise.all([
+              fetch(`/api/courses/${courseId}/evaluation-questions/${eq.id}/submissions/me`),
+              fetch(`/api/courses/${courseId}/evaluation-questions/${eq.id}/release-scores`),
+            ]);
+            const submitted = resSub.ok;
+            let totalScore: number | null = null;
+            if (resSub.ok) {
+              const data = await resSub.json().catch(() => ({}));
+              const submission = data?.submission;
+              totalScore = submission?.totalScore ?? null;
+            }
+            const released =
+              resRel.ok && (await resRel.json().catch(() => ({})))?.released === true;
+            return [eq.id, submitted, released, totalScore] as const;
+          } catch {
+            return [eq.id, false, false, null] as const;
+          }
+        })
+      );
+      if (!mounted) return;
+      const sMap: Record<string, boolean> = {};
+      const rMap: Record<string, boolean> = {};
+      const scMap: Record<string, number | null> = {};
+      for (const [id, submitted, released, totalScore] of entries) {
+        sMap[id] = submitted;
+        rMap[id] = released;
+        scMap[id] = released ? totalScore ?? null : null;
+      }
+      setSubmittedMap(sMap);
+      setReleasedMap(rMap);
+      setScoresMap(scMap);
+    };
+    checks();
+    return () => {
+      mounted = false;
+    };
+  }, [evaluationQuestions, courseId]);
 
   const filteredEvaluationQuestions = useMemo(() => {
     if (!searchTerm.trim()) {
@@ -130,7 +180,18 @@ export default function StudentEvaluationStudentView({
 
                 <div className="w-full md:w-44 bg-gray-50 border-t md:border-t-0 md:border-l border-gray-100 p-4 flex flex-col items-center justify-center gap-2">
                   <div className="text-xs text-gray-500">점수</div>
-                  <div className="text-2xl font-semibold text-gray-900">—</div>
+                  <div className="text-2xl font-semibold text-gray-900">
+                    {releasedMap[eq.id] && typeof scoresMap[eq.id] === "number" ? (
+                      <>
+                        {String(scoresMap[eq.id])}/
+                        {String(
+                          eq.questions.reduce((s, q) => s + (Number((q as any).points) || 0), 0)
+                        )}
+                      </>
+                    ) : (
+                      "—"
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -138,7 +199,29 @@ export default function StudentEvaluationStudentView({
                 <div className="text-xs text-gray-400">
                   생성일 · {new Date(eq.createdAt).toLocaleString("ko-KR")}
                 </div>
-                <div>
+                <div className="flex items-center gap-2">
+                  {submittedMap[eq.id] ? (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedEvaluation(eq);
+                          setViewOnly(true);
+                          setIsModalOpen(true);
+                        }}
+                        className="inline-flex items-center gap-2 rounded-md bg-white border border-gray-200 px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                      >
+                        문제보기
+                      </button>
+                      <button
+                        type="button"
+                        className="inline-flex items-center gap-2 rounded-md bg-gray-200 px-3 py-2 text-sm font-semibold text-gray-700 cursor-default"
+                        disabled
+                      >
+                        응시완료
+                      </button>
+                    </>
+                  ) : (
                     <button
                       type="button"
                       onClick={() => {
@@ -154,6 +237,7 @@ export default function StudentEvaluationStudentView({
                     >
                       응시하기
                     </button>
+                  )}
                 </div>
               </div>
             </div>
@@ -163,12 +247,15 @@ export default function StudentEvaluationStudentView({
               <StudentTakeEvaluationModal
                 courseId={courseId}
                 evaluation={selectedEvaluation}
+                readOnly={viewOnly}
                 onClose={() => {
                   setIsModalOpen(false);
                   setSelectedEvaluation(null);
+                  setViewOnly(false);
                 }}
                 onSubmitted={() => {
-                  // optional: refresh list or mark as taken
+                  // mark as submitted locally
+                  setSubmittedMap((prev) => ({ ...prev, [selectedEvaluation.id]: true }));
                 }}
               />
             )}

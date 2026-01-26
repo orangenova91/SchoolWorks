@@ -1,4 +1,4 @@
-"use client";
+ "use client";
 
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
@@ -28,6 +28,9 @@ interface Props {
   evaluation: EvaluationQuestion;
   onClose: () => void;
   onSubmitted?: () => void;
+  readOnly?: boolean;
+  onEdit?: () => void;
+  onDelete?: () => void;
 }
 
 export default function StudentTakeEvaluationModal({
@@ -35,16 +38,73 @@ export default function StudentTakeEvaluationModal({
   evaluation,
   onClose,
   onSubmitted,
+  readOnly = false,
+  onEdit,
+  onDelete,
 }: Props) {
   const [answers, setAnswers] = useState<Record<number, number | string>>({});
   const [isMounted, setIsMounted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [alreadySubmitted, setAlreadySubmitted] = useState(false);
   const { showToast } = useToastContext();
 
   useEffect(() => {
     setIsMounted(true);
     return () => setIsMounted(false);
   }, []);
+
+  useEffect(() => {
+    // check if the current student already submitted for this evaluation
+    const checkSubmitted = async () => {
+      try {
+        const res = await fetch(
+          `/api/courses/${courseId}/evaluation-questions/${evaluation.id}/submissions/me`
+        );
+        if (res.ok) {
+          setAlreadySubmitted(true);
+        } else {
+          setAlreadySubmitted(false);
+        }
+      } catch (e) {
+        // ignore network errors here
+        setAlreadySubmitted(false);
+      }
+    };
+    checkSubmitted();
+  }, [courseId, evaluation.id]);
+
+  // when readOnly, load the student's submission answers for display
+  useEffect(() => {
+    if (!readOnly) return;
+    let mounted = true;
+    const fetchSubmission = async () => {
+      try {
+        const res = await fetch(
+          `/api/courses/${courseId}/evaluation-questions/${evaluation.id}/submissions/me`
+        );
+        if (!res.ok) return;
+        const data = await res.json();
+        const submission = data.submission;
+        const ansArr = Array.isArray(submission?.answers) ? submission.answers : JSON.parse(submission?.answers || "[]");
+        const map: Record<number, number | string> = {};
+        for (const a of ansArr) {
+          const idx = Number(a.index);
+          if (a.type === "객관식") {
+            map[idx] = typeof a.answer === "number" ? a.answer : Number(a.answer);
+          } else {
+            map[idx] = String(a.answer ?? "");
+          }
+        }
+        if (mounted) setAnswers(map);
+      } catch (e) {
+        // ignore
+      }
+    };
+    fetchSubmission();
+    return () => {
+      mounted = false;
+    };
+  }, [readOnly, courseId, evaluation.id]);
 
   const handleSelectOption = (qIndex: number, optIndex: number) => {
     setAnswers((prev) => ({ ...prev, [qIndex]: optIndex }));
@@ -55,6 +115,10 @@ export default function StudentTakeEvaluationModal({
   };
 
   const handleSubmit = async () => {
+    if (alreadySubmitted) {
+      showToast("이미 제출하셨습니다.", "error");
+      return;
+    }
     try {
       setIsSubmitting(true);
       // build answers array
@@ -78,6 +142,12 @@ export default function StudentTakeEvaluationModal({
 
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
+        // handle already-submitted race condition
+        if (res.status === 409) {
+          showToast(err?.error || "이미 제출했습니다.", "error");
+          onClose();
+          return;
+        }
         throw new Error(err?.error || "제출에 실패했습니다.");
       }
 
@@ -108,14 +178,16 @@ export default function StudentTakeEvaluationModal({
       >
         <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
           <h3 className="text-lg font-semibold text-gray-900">평가 응시: {evaluation.unit}</h3>
-          <button
-            type="button"
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 rounded-md p-1"
-            aria-label="모달 닫기"
-          >
-            ✕
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-600 rounded-md p-1"
+              aria-label="모달 닫기"
+            >
+              ✕
+            </button>
+          </div>
         </div>
         <div className="flex-1 overflow-y-auto px-6 py-6 space-y-4">
           {evaluation.evaluationContent?.trim() && (
@@ -151,7 +223,11 @@ export default function StudentTakeEvaluationModal({
                         type="radio"
                         name={`q-${qi}`}
                         checked={answers[qi] === oi}
-                        onChange={() => handleSelectOption(qi, oi)}
+                        onChange={() => {
+                          if (readOnly) return;
+                          handleSelectOption(qi, oi);
+                        }}
+                        disabled={readOnly}
                         className="h-4 w-4 text-blue-600"
                       />
                       <span>{opt.text}</span>
@@ -163,20 +239,90 @@ export default function StudentTakeEvaluationModal({
                 <textarea
                   rows={4}
                   value={typeof answers[qi] === "string" ? (answers[qi] as string) : ""}
-                  onChange={(e) => handleWriteAnswer(qi, e.target.value)}
+                  onChange={(e) => {
+                    if (readOnly) return;
+                    handleWriteAnswer(qi, e.target.value);
+                  }}
+                  readOnly={readOnly}
+                  disabled={readOnly}
                   className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
                 />
               )}
             </div>
           ))}
         </div>
-        <div className="flex items-center justify-end gap-3 border-t border-gray-200 p-4">
-          <Button type="button" variant="outline" onClick={onClose}>
-            취소
-          </Button>
-          <Button type="button" isLoading={isSubmitting} onClick={handleSubmit}>
-            제출하기
-          </Button>
+        <div className="flex items-center justify-between gap-3 border-t border-gray-200 p-4">
+         
+        <div>
+    {readOnly && (
+      <Button
+        type="button"
+        variant="outline"
+        onClick={async () => {
+          const ok = window.confirm(
+            "정말로 이 평가 문항을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다."
+          );
+          if (!ok) return;
+
+          try {
+            const res = await fetch(
+              `/api/courses/${courseId}/evaluation-questions/${evaluation.id}`,
+              { method: "DELETE" }
+            );
+
+            if (!res.ok) {
+              const err = await res.json().catch(() => ({}));
+              throw new Error(err?.error || "삭제 실패");
+            }
+
+            showToast("평가 문항이 삭제되었습니다.", "success");
+            onDelete?.();
+            onClose();
+          } catch (e) {
+            console.error(e);
+            const message =
+              e instanceof Error ? e.message : "삭제 중 오류가 발생했습니다.";
+            showToast(message, "error");
+          }
+        }}
+        className="border-red-300 text-red-600 hover:bg-red-50"
+      >
+        삭제
+      </Button>
+    )}
+  </div>
+
+  {/* 오른쪽: 수정 / 닫기 / 제출 */}
+  <div className="flex items-center gap-3">
+    {readOnly && onEdit && (
+      <Button
+        type="button"
+        variant="outline"
+        onClick={onEdit}
+        className="border-amber-300 text-amber-600 hover:bg-amber-50"
+      >
+        수정
+      </Button>
+    )}
+
+    <Button type="button" variant="outline" onClick={onClose}>
+      닫기
+    </Button>
+
+    {!readOnly && (
+      <Button
+        type="button"
+        isLoading={isSubmitting}
+        onClick={handleSubmit}
+        disabled={alreadySubmitted || isSubmitting}
+      >
+        {alreadySubmitted ? "이미 제출됨" : "제출하기"}
+      </Button>
+    )}
+  </div>
+
+
+
         </div>
       </div>
     </div>,

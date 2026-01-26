@@ -59,6 +59,14 @@ export async function POST(
       return NextResponse.json({ error: "평가 문항을 찾을 수 없습니다." }, { status: 404 });
     }
 
+    // Prevent multiple submissions by the same student for the same evaluation
+    const existingSubmission = await prisma.evaluationSubmission.findFirst({
+      where: { evaluationQuestionId: params.evaluationQuestionId, studentId: session.user.id },
+    });
+    if (existingSubmission) {
+      return NextResponse.json({ error: "이미 제출했습니다." }, { status: 409 });
+    }
+
     const parsed = parseStoredQuestions(evalQ.questions);
     const questions = parsed.questions;
 
