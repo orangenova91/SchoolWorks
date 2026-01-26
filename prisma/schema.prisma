@@ -330,6 +330,7 @@ model Announcement {
   lastEditedByName      String? // 마지막으로 수정한 사용자 이름
   views                 AnnouncementView[] // 조회 이력
   consents              AnnouncementConsent[] // 동의서 서명 이력
+  surveyResponses       AnnouncementSurveyResponse[] // 설문 응답 이력
   comments              Comment[]          // 댓글
   createdAt             DateTime           @default(now())
   updatedAt             DateTime           @updatedAt
@@ -361,6 +362,21 @@ model AnnouncementConsent {
   @@index([announcementId])
   @@index([userId])
   @@map("announcement_consents")
+}
+
+model AnnouncementSurveyResponse {
+  id             String       @id @default(auto()) @map("_id") @db.ObjectId
+  announcementId String       @db.ObjectId
+  announcement   Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+  userId         String       @db.ObjectId
+  answers        String       // JSON: [{ id: string, answer: string | string[] }]
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([announcementId, userId])
+  @@index([announcementId])
+  @@index([userId])
+  @@map("announcement_survey_responses")
 }
 
 model AnnouncementView {
