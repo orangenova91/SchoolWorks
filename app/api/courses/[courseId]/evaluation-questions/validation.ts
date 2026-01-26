@@ -6,10 +6,19 @@ export const evaluationQuestionPayloadSchema = z.object({
     .trim()
     .min(1, "평가 단원을 입력하세요")
     .max(100, "평가 단원은 100자 이하여야 합니다"),
+  evaluationContent: z.preprocess(
+    (value) =>
+      typeof value === "string" && value.trim().length === 0 ? undefined : value,
+    z
+      .string()
+      .trim()
+      .max(2000, "평가 내용은 2000자 이하여야 합니다")
+      .optional()
+  ),
   questionNumber: z
     .string()
     .trim()
-    .max(50, "문제 주문번호는 50자 이하여야 합니다")
+    .max(50, "문제 비밀번호는 50자 이하여야 합니다")
     .optional()
     .default(""),
   questions: z

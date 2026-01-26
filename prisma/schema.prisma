@@ -146,7 +146,7 @@ model AssignmentAttachment {
 model EvaluationQuestion {
   id             String   @id @default(auto()) @map("_id") @db.ObjectId
   unit           String // 평가 단원
-  questionNumber String // 문제 주문번호
+  questionNumber String // 문제 비밀번호
   questions      String // JSON 배열로 저장된 문항들
   courseId       String   @db.ObjectId
   course         Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
@@ -155,6 +155,34 @@ model EvaluationQuestion {
   updatedAt      DateTime @updatedAt
 
   @@map("evaluation_questions")
+}
+
+model ScoreRelease {
+  id                    String   @id @default(auto()) @map("_id") @db.ObjectId
+  evaluationQuestionId  String   @db.ObjectId
+  courseId              String   @db.ObjectId
+  released              Boolean  @default(false)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  @@index([evaluationQuestionId])
+  @@map("score_releases")
+}
+
+model EvaluationSubmission {
+  id                    String   @id @default(auto()) @map("_id") @db.ObjectId
+  evaluationQuestionId  String   @db.ObjectId
+  courseId              String   @db.ObjectId
+  studentId             String   @db.ObjectId
+  answers               String   // JSON: [{ index, type, answer, correctAnswer?, score? }]
+  totalScore            Int?
+  graded                Boolean  @default(false)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  @@index([evaluationQuestionId])
+  @@index([studentId])
+  @@map("evaluation_submissions")
 }
 
 model ClassGroup {

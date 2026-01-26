@@ -3,6 +3,8 @@
 import { useState, useEffect, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/Button";
+import TeacherSubmissionsModal from "./TeacherSubmissionsModal";
+import StudentTakeEvaluationModal from "./StudentTakeEvaluationModal";
 import { useToastContext } from "@/components/providers/ToastProvider";
 import EvaluationQuestionForm from "./EvaluationQuestionForm";
 
@@ -13,6 +15,7 @@ interface StudentEvaluationProps {
 interface EvaluationQuestion {
   id: string;
   unit: string;
+  evaluationContent?: string;
   questionNumber: string;
   questions: Array<{
     questionType: "객관식" | "서술형";
@@ -37,7 +40,11 @@ export default function StudentEvaluation({ courseId }: StudentEvaluationProps) 
   const [selectedEvaluationQuestion, setSelectedEvaluationQuestion] = useState<EvaluationQuestion | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [isMounted, setIsMounted] = useState(false);
+  const [submissionsModalOpen, setSubmissionsModalOpen] = useState(false);
+  const [submissionsEvaluation, setSubmissionsEvaluation] = useState<EvaluationQuestion | null>(null);
   const { showToast } = useToastContext();
+  const [previewEvaluation, setPreviewEvaluation] = useState<EvaluationQuestion | null>(null);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
 
   const fetchEvaluationQuestions = async () => {
     try {
@@ -182,6 +189,7 @@ export default function StudentEvaluation({ courseId }: StudentEvaluationProps) 
     }
     return {
       unit: selectedEvaluationQuestion.unit,
+      evaluationContent: selectedEvaluationQuestion.evaluationContent,
       questionNumber: selectedEvaluationQuestion.questionNumber,
       questions: selectedEvaluationQuestion.questions,
     };
@@ -194,6 +202,7 @@ export default function StudentEvaluation({ courseId }: StudentEvaluationProps) 
     const keyword = searchTerm.trim().toLowerCase();
     return evaluationQuestions.filter((eq) => {
       const unitMatch = eq.unit.toLowerCase().includes(keyword);
+      const contentMatch = eq.evaluationContent?.toLowerCase().includes(keyword) ?? false;
       const numberMatch = eq.questionNumber.toLowerCase().includes(keyword);
       const questionMatch = eq.questions.some(
         (question) =>
@@ -202,12 +211,13 @@ export default function StudentEvaluation({ courseId }: StudentEvaluationProps) 
           (question.questionType === "객관식" &&
             question.options?.some((option) => option.text.toLowerCase().includes(keyword)))
       );
-      return unitMatch || numberMatch || questionMatch;
+      return unitMatch || contentMatch || numberMatch || questionMatch;
     });
   }, [evaluationQuestions, searchTerm]);
 
   return (
     <>
+      {/* 검색 + 생성 버튼 */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
         <div className="flex-1">
           <label htmlFor="evaluation-search" className="sr-only">
@@ -223,16 +233,13 @@ export default function StudentEvaluation({ courseId }: StudentEvaluationProps) 
           />
         </div>
         <div className="flex justify-end">
-          <Button
-            type="button"
-            variant="primary"
-            onClick={openCreatePanel}
-          >
+          <Button type="button" variant="primary" onClick={openCreatePanel}>
             평가 문항 만들기
           </Button>
         </div>
       </div>
-
+  
+      {/* 상태 분기 */}
       {isLoading ? (
         <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 p-8 text-center text-sm text-gray-500">
           평가 문항을 불러오는 중...
@@ -248,16 +255,38 @@ export default function StudentEvaluation({ courseId }: StudentEvaluationProps) 
               key={eq.id}
               className="rounded-xl border border-gray-200 bg-white shadow-sm h-full flex flex-col overflow-hidden"
             >
-              <div className="flex items-center justify-between gap-4 bg-gray-50 border-b border-gray-200 px-6 py-4">
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900">평가 단원: {eq.unit}</h3>
-                  <p className="text-sm text-gray-500 mt-1">문제 주문번호: {eq.questionNumber}</p>
-                </div>
+              {/* ===== 카드 헤더 ===== */}
+              <div className="relative bg-gray-50 border-b border-gray-200 px-6 py-4">
+                {/* 오른쪽 상단 버튼 영역 */}
                 <div
-                  className="flex items-center gap-2 text-xs text-gray-400 relative"
+                  className="absolute top-4 right-4 flex items-center gap-2"
                   data-eval-menu-id={eq.id}
                 >
-                  <span>생성일: {new Date(eq.createdAt).toLocaleString("ko-KR")}</span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setPreviewEvaluation(eq);
+                        setIsPreviewOpen(true);
+                      }}
+                      className="inline-flex items-center gap-2 rounded-md bg-white border border-gray-200 px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                    >
+                      문제 보기
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSubmissionsEvaluation(eq);
+                        setSubmissionsModalOpen(true);
+                      }}
+                      className="inline-flex items-center rounded-md bg-indigo-50 px-2 py-1 text-xs font-medium text-indigo-700 hover:bg-indigo-100"
+                    >
+                      응시자 보기
+                    </button>
+                  </div>
+  
                   <button
                     type="button"
                     onClick={(e) => {
@@ -281,8 +310,9 @@ export default function StudentEvaluation({ courseId }: StudentEvaluationProps) 
                       />
                     </svg>
                   </button>
+  
                   {openMenuId === eq.id && (
-                    <div className="absolute right-0 top-full mt-2 w-32 rounded-md border border-gray-200 bg-white shadow-lg z-10">
+                    <div className="absolute right-0 top-full mt-2 w-40 rounded-md border border-gray-200 bg-white shadow-lg z-10">
                       <div className="py-1">
                         <button
                           type="button"
@@ -291,7 +321,7 @@ export default function StudentEvaluation({ courseId }: StudentEvaluationProps) 
                             setOpenMenuId(null);
                             openEditPanel(eq);
                           }}
-                          className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 focus:outline-none focus:bg-gray-100"
+                          className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                         >
                           수정
                         </button>
@@ -303,7 +333,7 @@ export default function StudentEvaluation({ courseId }: StudentEvaluationProps) 
                             handleDelete(eq.id);
                           }}
                           disabled={deletingId === eq.id}
-                          className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 focus:outline-none focus:bg-red-50"
+                          className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50"
                         >
                           {deletingId === eq.id ? "삭제 중..." : "삭제"}
                         </button>
@@ -311,121 +341,173 @@ export default function StudentEvaluation({ courseId }: StudentEvaluationProps) 
                     </div>
                   )}
                 </div>
-              </div>
+  
+                {/* 왼쪽 텍스트 영역 (버튼 영역과 겹치지 않게 padding) */}
+                <div className="pr-24">
+                <h3 className="flex items-center gap-2 text-lg font-semibold text-gray-900">
+                  <span className="inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-sm font-semibold text-blue-700">
+                    평가 단원
+                  </span>
+                  <span>{eq.unit}</span>
+                </h3>
 
-              <div className="space-y-4 flex-1 px-6 py-6">
-                {eq.questions.map((question, index) => (
-                  <div
-                    key={index}
-                    className="border-t border-gray-100 pt-4 first:border-t-0 first:pt-0"
-                  >
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium text-gray-700">
-                          문항 {index + 1}
-                        </span>
-                        <span className="text-xs px-2 py-0.5 rounded-full bg-blue-50 text-blue-700">
-                          {question.questionType}
-                        </span>
-                        <span className="text-xs text-gray-500">
-                          {question.points}점
-                        </span>
-                      </div>
-                    </div>
-                    <p className="text-sm text-gray-700 mb-2 whitespace-pre-wrap">
-                      {question.questionText}
+  
+                  {eq.evaluationContent?.trim() && (
+                    <p className="text-sm text-gray-400 mt-1 whitespace-pre-wrap">
+                      {eq.evaluationContent}
                     </p>
-                    {question.imageUrl && (
-                      <div className="mb-3 rounded-lg border border-gray-200 bg-white p-3">
-                        <img
-                          src={question.imageUrl}
-                          alt="문항 이미지"
-                          className="max-h-64 w-full rounded-md object-contain"
-                        />
-                      </div>
-                    )}
-                    {question.questionType === "객관식" && question.options && (
-                      <div className="mt-2 space-y-1">
-                        {question.options.map((option, optIndex) => (
-                          <div
-                            key={optIndex}
-                            className={`text-sm pl-4 ${
-                              question.correctAnswer === optIndex
-                                ? "text-blue-700 font-medium"
-                                : "text-gray-600"
-                            }`}
-                          >
-                            {optIndex + 1}. {option.text}
-                            {question.correctAnswer === optIndex && (
-                              <span className="ml-2 text-xs text-blue-600">(정답)</span>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    {question.questionType === "서술형" && question.modelAnswer && (
-                      <div className="mt-2 p-3 bg-gray-50 rounded-md">
-                        <p className="text-xs font-medium text-gray-500 mb-1">모범답안:</p>
-                        <p className="text-sm text-gray-700 whitespace-pre-wrap">
-                          {question.modelAnswer}
-                        </p>
-                      </div>
-                    )}
+                  )}
+  
+                  <div className="mt-1 flex items-center gap-2 text-sm text-gray-500">
+                    <span className="inline-flex items-center rounded-full bg-gray-200 px-2 py-0.5 text-xs font-medium text-gray-500">
+                      문제 비밀번호
+                    </span>
+                      <span className={eq.questionNumber?.trim() ? "text-gray-500" : "text-gray-400 italic"}>
+                        {eq.questionNumber?.trim() ? eq.questionNumber : "<비번 없음>"}
+                      </span>
                   </div>
-                ))}
+
+                </div>
+  
+                <div className="absolute right-4 bottom-2 text-xs text-gray-500">
+                  생성일: {new Date(eq.createdAt).toLocaleString("ko-KR")}
+                </div>
+              </div>
+  
+              {/* ===== 카드 본문 요약 ===== */}
+              <div className="flex-1 px-6 py-6">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                  <div>
+                    <div className="text-sm text-gray-600">문항 수</div>
+                    <div className="text-lg font-semibold text-gray-900">
+                      {eq.questions.length}개
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-sm text-gray-600">총 배점</div>
+                    <div className="text-lg font-semibold text-gray-900">
+                      {eq.questions.reduce(
+                        (s, q) => s + (Number(q.points) || 0),
+                        0
+                      )}
+                      점
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-sm text-gray-600">유형 분포</div>
+                    <div className="text-sm text-gray-700">
+                      객관식{" "}
+                      {
+                        eq.questions.filter(
+                          (q) => q.questionType === "객관식"
+                        ).length
+                      }
+                      개 · 서술형{" "}
+                      {
+                        eq.questions.filter(
+                          (q) => q.questionType === "서술형"
+                        ).length
+                      }
+                      개
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           ))}
         </div>
       )}
-
-      {isMounted && isPanelOpen && createPortal(
-        <div
-          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 px-4 py-4"
-          role="dialog"
-          aria-modal="true"
-        >
+  
+      {/* 생성/수정 패널 */}
+      {isMounted &&
+        isPanelOpen &&
+        createPortal(
           <div
-          className="relative w-full max-w-2xl max-h-[92vh] rounded-xl bg-white shadow-xl flex flex-col"
-            onClick={(event) => event.stopPropagation()}
+            className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 px-4 py-4"
+            role="dialog"
+            aria-modal="true"
           >
-            <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
-              <h3 className="text-lg font-semibold text-gray-900">{panelTitle}</h3>
-              <button
-                type="button"
-                onClick={closePanel}
-                className="text-gray-400 hover:text-gray-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 rounded-md p-1"
-                aria-label="모달 닫기"
-              >
-                <svg
-                  className="h-6 w-6"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
+            <div
+              className="relative w-full max-w-2xl max-h-[92vh] rounded-xl bg-white shadow-xl flex flex-col"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
+                <h3 className="text-lg font-semibold text-gray-900">
+                  {panelTitle}
+                </h3>
+                <button
+                  type="button"
+                  onClick={closePanel}
+                  className="text-gray-400 hover:text-gray-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 rounded-md p-1"
+                  aria-label="모달 닫기"
                 >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M6 18L18 6M6 6l12 12"
-                  />
-                </svg>
-              </button>
+                  <svg
+                    className="h-6 w-6"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
+                  </svg>
+                </button>
+              </div>
+  
+              <div className="flex-1 overflow-y-auto px-6 py-6">
+                <EvaluationQuestionForm
+                  courseId={courseId}
+                  mode={panelMode}
+                  evaluationQuestionId={selectedEvaluationQuestion?.id}
+                  initialData={initialFormData}
+                  onSuccess={handleSuccess}
+                />
+              </div>
             </div>
-
-            <div className="flex-1 overflow-y-auto px-6 py-6">
-              <EvaluationQuestionForm
-                courseId={courseId}
-                mode={panelMode}
-                evaluationQuestionId={selectedEvaluationQuestion?.id}
-                initialData={initialFormData}
-                onSuccess={handleSuccess}
-              />
-            </div>
-          </div>
-        </div>,
-        document.body
+          </div>,
+          document.body
+        )}
+  
+      {/* 응시자 모달 */}
+      {submissionsModalOpen && submissionsEvaluation && (
+        <TeacherSubmissionsModal
+          courseId={courseId}
+          evaluationId={submissionsEvaluation.id}
+          unit={submissionsEvaluation.unit}
+          onClose={() => {
+            setSubmissionsModalOpen(false);
+            setSubmissionsEvaluation(null);
+          }}
+        />
+      )}
+      {isPreviewOpen && previewEvaluation && (
+        <StudentTakeEvaluationModal
+          courseId={courseId}
+          evaluation={previewEvaluation}
+          readOnly={true}
+          onEdit={() => {
+            // close preview and open edit panel for this evaluation
+            setIsPreviewOpen(false);
+            const ev = previewEvaluation;
+            setPreviewEvaluation(null);
+            if (ev) {
+              openEditPanel(ev);
+            }
+          }}
+          onClose={() => {
+            setIsPreviewOpen(false);
+            setPreviewEvaluation(null);
+          }}
+          onDelete={() => {
+            // refresh list after deletion
+            fetchEvaluationQuestions();
+          }}
+        />
       )}
     </>
   );
+  
 }

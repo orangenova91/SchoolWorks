@@ -43,7 +43,10 @@ export async function PUT(
       data: {
         unit: validatedData.unit,
         questionNumber: validatedData.questionNumber,
-        questions: JSON.stringify(validatedData.questions),
+        questions: JSON.stringify({
+          evaluationContent: validatedData.evaluationContent,
+          questions: validatedData.questions,
+        }),
       },
     });
 
@@ -52,7 +55,8 @@ export async function PUT(
         message: "평가 문항이 수정되었습니다.",
         evaluationQuestion: {
           ...updatedEvaluationQuestion,
-          questions: JSON.parse(updatedEvaluationQuestion.questions),
+          evaluationContent: validatedData.evaluationContent,
+          questions: validatedData.questions,
         },
       },
       { status: 200 }
