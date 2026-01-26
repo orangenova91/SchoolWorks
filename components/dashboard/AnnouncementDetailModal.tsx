@@ -1,4 +1,4 @@
-"use client";
+ "use client";
 
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { useToastContext } from "@/components/providers/ToastProvider";
 import { useSession } from "next-auth/react";
 import { CommentSection } from "./CommentSection";
+import { Button } from "@/components/ui/Button";
 
 interface SelectedClass {
   grade: string;
@@ -686,6 +687,209 @@ export function AnnouncementDetailModal({
     }
   };
 
+  
+  // Survey state
+  const [surveyAnswers, setSurveyAnswers] = useState<Record<string, any>>({});
+  const [isSurveyLoading, setIsSurveyLoading] = useState(false);
+  const [isSurveySubmitting, setIsSurveySubmitting] = useState(false);
+  const [existingSurveyResponse, setExistingSurveyResponse] = useState<{ id: string; answers: any[] } | null>(null);
+ 
+  // Load existing survey response when modal opens
+  useEffect(() => {
+    if (!isOpen || !announcement || announcement.category !== "survey") return;
+    let mounted = true;
+    const loadResponse = async () => {
+      setIsSurveyLoading(true);
+      try {
+        const res = await fetch(`/api/announcements/${announcement.id}/survey`);
+        const data = await res.json();
+        if (!mounted) return;
+        if (res.ok && data) {
+          if (data?.response?.answers) {
+            setExistingSurveyResponse({ id: data.response.id, answers: data.response.answers });
+            const map: Record<string, any> = {};
+            (data.response.answers || []).forEach((a: any) => {
+              map[a.id] = a.answer;
+            });
+            setSurveyAnswers(map);
+          } else {
+            setExistingSurveyResponse(null);
+            setSurveyAnswers({});
+          }
+        }
+      } catch (err) {
+        console.error("Failed to load survey response:", err);
+      } finally {
+        if (mounted) setIsSurveyLoading(false);
+      }
+    };
+    loadResponse();
+    return () => { mounted = false; };
+  }, [isOpen, announcement?.id]);
+
+  const handleChange = (questionId: string, value: any) => {
+    setSurveyAnswers((prev) => ({ ...prev, [questionId]: value }));
+  };
+
+  const toggleMulti = (questionId: string, option: string) => {
+    setSurveyAnswers((prev) => {
+      const cur = Array.isArray(prev[questionId]) ? [...prev[questionId]] : [];
+      const idx = cur.indexOf(option);
+      if (idx >= 0) {
+        cur.splice(idx, 1);
+      } else {
+        cur.push(option);
+      }
+      return { ...prev, [questionId]: cur };
+    });
+  };
+
+  const handleSubmitSurvey = async () => {
+    if (!announcement) return;
+    try {
+      const surveyQuestions: SurveyQuestion[] = typeof announcement.surveyData === "string"
+        ? JSON.parse(announcement.surveyData)
+        : announcement.surveyData || [];
+
+      // validation
+      for (const q of surveyQuestions) {
+        if (q.required) {
+          const val = surveyAnswers[q.id];
+          if (val === undefined || val === null || (Array.isArray(val) && val.length === 0) || val === "") {
+            showToast("필수 질문을 모두 답해주세요.", "error");
+            return;
+          }
+        }
+      }
+
+      setIsSurveySubmitting(true);
+      const payload = {
+        answers: surveyQuestions.map((q) => ({ id: q.id, answer: surveyAnswers[q.id] ?? null })),
+      };
+      const res = await fetch(`/api/announcements/${announcement.id}/survey`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "제출 실패");
+      showToast("설문이 제출되었습니다.", "success");
+      setExistingSurveyResponse({ id: data.response?.id || "", answers: payload.answers });
+    } catch (err: any) {
+      console.error("Submit survey error:", err);
+      showToast(err.message || "제출 중 오류가 발생했습니다.", "error");
+    } finally {
+      setIsSurveySubmitting(false);
+    }
+  };
+
+  // Teacher: survey responses view
+  const [surveyResponses, setSurveyResponses] = useState<any[]>([]);
+  const [isSurveyResponsesVisible, setIsSurveyResponsesVisible] = useState(false);
+  const [isSurveyResponsesLoading, setIsSurveyResponsesLoading] = useState(false);
+  const [surveyResponsesError, setSurveyResponsesError] = useState<string | null>(null);
+  const [surveyStats, setSurveyStats] = useState<any | null>(null);
+  const [selectedSurveyResponse, setSelectedSurveyResponse] = useState<any | null>(null);
+
+  const handleToggleSurveyResponses = async () => {
+    if (!announcement) return;
+    if (isSurveyResponsesVisible) {
+      setIsSurveyResponsesVisible(false);
+      return;
+    }
+    if (surveyResponses.length > 0) {
+      setIsSurveyResponsesVisible(true);
+      return;
+    }
+    setIsSurveyResponsesLoading(true);
+    setSurveyResponsesError(null);
+    try {
+      const res = await fetch(`/api/announcements/${announcement.id}/survey/responses`);
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "응답을 불러오지 못했습니다.");
+      }
+      setSurveyResponses(Array.isArray(data.responses) ? data.responses : []);
+      setSurveyStats(data.stats || null);
+      setIsSurveyResponsesVisible(true);
+    } catch (error: any) {
+      setSurveyResponses([]);
+      setSurveyResponsesError(error.message || "응답을 불러오지 못했습니다.");
+    } finally {
+      setIsSurveyResponsesLoading(false);
+    }
+  };
+ 
+  const handleDownloadCSV = () => {
+    if (!announcement) return;
+    try {
+      const surveyQuestions: SurveyQuestion[] = typeof announcement.surveyData === "string"
+        ? JSON.parse(announcement.surveyData)
+        : announcement.surveyData || [];
+
+      // headers
+      const headers = [
+        "번호",
+        "학번",
+        "이름",
+        "계정",
+        "구분",
+        "제출일",
+        ...surveyQuestions.map((q, idx) => `질문 ${idx + 1}: ${q.question}`),
+      ];
+
+      const rows: string[][] = surveyResponses.map((r: any, i: number) => {
+        const base = [
+          String(i + 1),
+          r.studentId || "",
+          r.user?.name || "",
+          r.user?.email || "",
+          r.user?.role || "",
+          r.createdAt || "",
+        ];
+        const answersMap: Record<string, any> = {};
+        (r.answers || []).forEach((a: any) => {
+          answersMap[a.id] = a.answer;
+        });
+        const answerCells = surveyQuestions.map((q) => {
+          const a = answersMap[q.id];
+          if (a == null) return "";
+          if (Array.isArray(a)) return a.join("; ");
+          return String(a);
+        });
+        return [...base, ...answerCells];
+      });
+
+      const escape = (v: string) => {
+        const s = String(v ?? "");
+        if (s.includes('"') || s.includes(",") || s.includes("\n") || s.includes("\r")) {
+          return `"${s.replace(/"/g, '""')}"`;
+        }
+        return s;
+      };
+
+      const csv = [
+        headers.map(escape).join(","),
+        ...rows.map((r) => r.map((c) => escape(c)).join(",")),
+      ].join("\r\n");
+
+      // prepend UTF-8 BOM to help Excel/Windows correctly detect UTF-8 (prevents Korean garbling)
+      const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      const filename = `survey_responses_${announcement.id}.csv`;
+      a.setAttribute("download", filename);
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("CSV 다운로드 실패:", err);
+      showToast("CSV 생성에 실패했습니다.", "error");
+    }
+  };
+
   if (!isOpen || !announcement || !mounted) return null;
 
   // 작성자 확인
@@ -870,7 +1074,7 @@ export function AnnouncementDetailModal({
           {/* 설문조사 질문 (category가 "survey"이고 surveyData가 있는 경우) */}
           {announcement.category === "survey" && announcement.surveyData && (() => {
             try {
-              const surveyQuestions: SurveyQuestion[] = typeof announcement.surveyData === 'string'
+              const surveyQuestions: SurveyQuestion[] = typeof announcement.surveyData === "string"
                 ? JSON.parse(announcement.surveyData)
                 : announcement.surveyData;
 
@@ -892,6 +1096,8 @@ export function AnnouncementDetailModal({
                     return type;
                 }
               };
+
+              
 
               return (
                 <div className="mt-6 pt-6 border-t border-gray-200">
@@ -923,35 +1129,93 @@ export function AnnouncementDetailModal({
                           </div>
                         </div>
 
-                        {/* 선택지 표시 (single, multiple 타입인 경우) */}
                         {(question.type === "single" || question.type === "multiple") && question.options && question.options.length > 0 && (
                           <div className="mt-3 space-y-2">
-                            {question.options.map((option, optIndex) => (
-                              <div
-                                key={optIndex}
-                                className="flex items-center gap-2 text-sm text-gray-700 bg-white px-3 py-2 rounded border border-gray-200"
-                              >
-                                {question.type === "single" ? (
-                                  <div className="w-4 h-4 rounded-full border-2 border-gray-400 flex-shrink-0" />
-                                ) : (
-                                  <div className="w-4 h-4 rounded border-2 border-gray-400 flex-shrink-0" />
-                                )}
-                                <span>{option || `옵션 ${optIndex + 1}`}</span>
-                              </div>
-                            ))}
+                            {question.options.map((option, optIndex) => {
+                              const value = option || `옵션 ${optIndex + 1}`;
+                              if (question.type === "single") {
+                                return (
+                                  <label
+                                    key={optIndex}
+                                    className={`flex items-center gap-2 text-sm text-gray-700 bg-white px-3 py-2 rounded border border-gray-200 ${isTeacher ? "cursor-default opacity-60" : "cursor-pointer"}`}
+                                  >
+                                    <input
+                                      type="radio"
+                                      name={question.id}
+                                      value={value}
+                                      checked={surveyAnswers[question.id] === value}
+                                      onChange={() => handleChange(question.id, value)}
+                                      className="w-4 h-4"
+                                      disabled={isTeacher}
+                                    />
+                                    <span>{value}</span>
+                                  </label>
+                                );
+                              }
+                              return (
+                                <label
+                                  key={optIndex}
+                                  className={`flex items-center gap-2 text-sm text-gray-700 bg-white px-3 py-2 rounded border border-gray-200 ${isTeacher ? "cursor-default opacity-60" : "cursor-pointer"}`}
+                                >
+                                  <input
+                                    type="checkbox"
+                                    name={`${question.id}-${optIndex}`}
+                                    value={value}
+                                    checked={Array.isArray(surveyAnswers[question.id]) && surveyAnswers[question.id].includes(value)}
+                                    onChange={() => toggleMulti(question.id, value)}
+                                    className="w-4 h-4"
+                                    disabled={isTeacher}
+                                  />
+                                  <span>{value}</span>
+                                </label>
+                              );
+                            })}
                           </div>
                         )}
 
-                        {/* 텍스트 입력 필드 표시 (text, textarea 타입인 경우) */}
                         {(question.type === "text" || question.type === "textarea") && (
                           <div className="mt-3">
-                            <div className="bg-white border border-gray-300 rounded px-3 py-2 text-sm text-gray-500">
-                              {question.type === "text" ? "단답형 답변 입력란" : "서술형 답변 입력란"}
-                            </div>
+                            {question.type === "text" ? (
+                              <input
+                                type="text"
+                                value={surveyAnswers[question.id] ?? ""}
+                                onChange={(e) => handleChange(question.id, e.target.value)}
+                                className={`w-full border border-gray-300 rounded px-3 py-2 text-sm ${isTeacher ? "opacity-60" : ""}`}
+                                placeholder="답변을 입력하세요"
+                                disabled={isTeacher}
+                              />
+                            ) : (
+                              <textarea
+                                value={surveyAnswers[question.id] ?? ""}
+                                onChange={(e) => handleChange(question.id, e.target.value)}
+                                className={`w-full border border-gray-300 rounded px-3 py-2 text-sm ${isTeacher ? "opacity-60" : ""}`}
+                                placeholder="서술형 답변을 입력하세요"
+                                rows={5}
+                                disabled={isTeacher}
+                              />
+                            )}
                           </div>
                         )}
                       </div>
                     ))}
+
+                    <div className="flex items-center justify-end gap-3">
+                      {!isTeacher ? (
+                        <>
+                          <Button variant="outline" onClick={() => { setSurveyAnswers({}); setExistingSurveyResponse(null); }}>
+                            초기화
+                          </Button>
+                          <Button
+                            onClick={handleSubmitSurvey}
+                            disabled={isSurveySubmitting || isSurveyLoading}
+                          >
+                            {isSurveySubmitting ? "제출 중..." : existingSurveyResponse ? "다시 제출" : "제출"}
+                          </Button>
+                        </>
+                      ) : (
+                        <div className="text-sm text-gray-500">교사 계정은 설문에 응답할 수 없습니다. 응답 현황은 아래에서 확인하세요.</div>
+                      )}
+                    </div>
                   </div>
                 </div>
               );
@@ -960,6 +1224,182 @@ export function AnnouncementDetailModal({
               return null;
             }
           })()}
+
+          {/* 교사용: 설문 응답 확인 섹션 */}
+          {isTeacher && announcement.category === "survey" && (
+            <div className="mt-6 pt-6 border-t border-gray-200">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-gray-900">응답 현황</h3>
+                <div className="flex items-center gap-3">
+                  {surveyStats && (
+                    <span className="text-sm text-gray-600">
+                      총 응답: {surveyStats.totalResponses}
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    onClick={handleToggleSurveyResponses}
+                    disabled={isSurveyResponsesLoading}
+                    className={cn(
+                      "inline-flex items-center rounded px-3 py-1.5 text-sm text-gray-700 border border-gray-200",
+                      isSurveyResponsesLoading ? "opacity-60 cursor-not-allowed" : "hover:bg-gray-50"
+                    )}
+                  >
+                    {isSurveyResponsesLoading ? "로딩 중..." : isSurveyResponsesVisible ? "응답자 닫기" : "응답자 보기"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleDownloadCSV}
+                    disabled={surveyResponses.length === 0}
+                    className={cn(
+                      "inline-flex items-center rounded px-3 py-1.5 text-sm text-white bg-green-600 hover:bg-green-700",
+                      surveyResponses.length === 0 ? "opacity-60 cursor-not-allowed bg-green-400" : ""
+                    )}
+                  >
+                    CSV 다운로드
+                  </button>
+                </div>
+              </div>
+
+              {isSurveyResponsesVisible && (
+                <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                  {isSurveyResponsesLoading ? (
+                    <p className="text-sm text-gray-500">응답을 불러오는 중...</p>
+                  ) : surveyResponsesError ? (
+                    <p className="text-sm text-red-500">{surveyResponsesError}</p>
+                  ) : surveyResponses.length === 0 ? (
+                    <p className="text-sm text-gray-500">응답이 없습니다.</p>
+                  ) : (
+                    <>
+                      <div className="overflow-x-auto">
+                        <table className="min-w-[700px] w-full text-xs text-left border-separate border-spacing-y-2">
+                          <thead className="text-[11px] uppercase text-gray-500">
+                            <tr>
+                              <th className="px-3 py-2">번호</th>
+                              <th className="px-3 py-2">구분</th>
+                              <th className="px-3 py-2">학번</th>
+                              <th className="px-3 py-2">응답자</th>
+                              <th className="px-3 py-2">제출일</th>
+                              <th className="px-3 py-2">작업</th>
+                            </tr>
+                          </thead>
+                          <tbody className="text-gray-700">
+                            {surveyResponses.map((item, index) => {
+                              const user = item.user;
+                              const roleLabel = user?.role === "student" ? "학생" : user?.role === "parent" ? "학부모" : user?.role || "-";
+                              const roleBadgeClass = user?.role === "student" ? "bg-green-100 text-green-700" : user?.role === "parent" ? "bg-blue-100 text-blue-700" : "bg-gray-100 text-gray-600";
+                              const studentId = item.studentId || "-";
+                              return (
+                                <tr key={item.id} className="bg-white border border-gray-200 shadow-sm">
+                                  <td className="px-3 py-3 text-gray-500">{index + 1}</td>
+                                  <td className="px-3 py-3">
+                                    <span className={`inline-flex items-center px-2 py-0.5 rounded ${roleBadgeClass}`}>{roleLabel}</span>
+                                  </td>
+                                  <td className="px-3 py-3 text-gray-600">{studentId}</td>
+                                  <td className="px-3 py-3">
+                                    <div className="font-semibold text-gray-900">{user?.name || "이름 없음"}</div>
+                                  </td>
+                                  <td className="px-3 py-3">{item.createdAt ? new Date(item.createdAt).toLocaleString("ko-KR") : "-"}</td>
+                                  <td className="px-3 py-3">
+                                    <button
+                                      type="button"
+                                      onClick={() => setSelectedSurveyResponse(item)}
+                                      className="px-3 py-2 text-xs font-medium rounded-md text-blue-600 bg-blue-50 hover:bg-blue-100"
+                                    >
+                                      보기
+                                    </button>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+
+                      {surveyStats && (
+                        <div className="mt-4 space-y-3">
+                          <h4 className="text-sm font-semibold text-gray-900">질문별 통계</h4>
+                          <div className="space-y-2 text-sm text-gray-700">
+                            {Object.values(surveyStats.questions || {}).map((q: any, idx: number) => (
+                              <div key={q.id} className="bg-white border border-gray-200 p-3 rounded">
+                                <div className="font-medium">
+                                  <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-200 text-gray-700 mr-2">
+                                    질문 {idx + 1}
+                                  </span>
+                                  {q.question}
+                                </div>
+                                {q.type === "single" || q.type === "multiple" ? (
+                                  <ul className="mt-2 list-disc list-inside text-xs">
+                                    {Object.entries(q.optionCounts || {}).map(([opt, cnt]) => (
+                                      <li key={String(opt)}>{String(opt)}: {String(cnt)}명</li>
+                                    ))}
+                                  </ul>
+                                ) : (
+                                  (() => {
+                                    const answersForQ = (surveyResponses || [])
+                                      .flatMap((r: any) =>
+                                        (r.answers || [])
+                                          .filter((a: any) => a.id === q.id)
+                                          .map((a: any) => ({
+                                            answer: a.answer,
+                                            respondent: r.user?.name || r.userId,
+                                          }))
+                                      )
+                                      .filter((a: any) => a.answer !== null && a.answer !== undefined && String(a.answer).trim() !== "");
+
+                                    return (
+                                      <div className="text-xs mt-2">
+                                        <div>응답 수: {answersForQ.length}</div>
+                                        {answersForQ.length > 0 && (
+                                          <ul className="mt-2 space-y-2">
+                                            {answersForQ.map((ans: any, idx: number) => (
+                                              <li key={idx} className="bg-gray-50 p-2 rounded border border-gray-100">
+                                                <div className="text-[11px] text-gray-500">{ans.respondent}</div>
+                                                <div className="mt-1 text-sm text-gray-900 whitespace-pre-wrap">{String(ans.answer)}</div>
+                                              </li>
+                                            ))}
+                                          </ul>
+                                        )}
+                                      </div>
+                                    );
+                                  })()
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
+
+              {selectedSurveyResponse && (
+                <div className="mt-4 bg-white border border-gray-200 rounded p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <h4 className="text-sm font-semibold">응답 상세</h4>
+                    <button className="text-xs text-gray-500" onClick={() => setSelectedSurveyResponse(null)}>닫기</button>
+                  </div>
+                  <div className="space-y-2 text-sm text-gray-700">
+                    {(selectedSurveyResponse.answers || []).map((a: any, idx: number) => {
+                      let qText = a.id;
+                      try {
+                        const surveyQuestions: SurveyQuestion[] = typeof announcement.surveyData === "string" ? JSON.parse(announcement.surveyData) : announcement.surveyData;
+                        const q = (surveyQuestions || []).find((qq: any) => qq.id === a.id);
+                        if (q) qText = q.question;
+                      } catch {}
+                      return (
+                        <div key={idx} className="bg-gray-50 p-2 rounded border border-gray-100">
+                          <div className="text-xs text-gray-500">{qText}</div>
+                          <div className="mt-1 text-sm text-gray-900">{Array.isArray(a.answer) ? a.answer.join(", ") : String(a.answer ?? "-")}</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* 동의서/설문조사 서명 패널 */}
           {shouldShowSignature && !isTeacher && (

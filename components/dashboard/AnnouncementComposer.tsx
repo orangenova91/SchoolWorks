@@ -399,6 +399,7 @@ function AnnouncementComposerForm({
   const [surveyEndDate, setSurveyEndDate] = useState("");
   const [showSurveyPeriod, setShowSurveyPeriod] = useState(false);
   const surveyListRef = useRef<HTMLDivElement | null>(null);
+  const surveyOptionRefs = useRef<Record<string, Array<HTMLInputElement | null>>>({});
   const [signatureData, setSignatureData] = useState<string | null>(null);
   const [showSignaturePanel, setShowSignaturePanel] = useState(false);
   const [isDrawing, setIsDrawing] = useState(false);
@@ -2829,9 +2830,9 @@ function AnnouncementComposerForm({
 
         {/* 설문 조사 패널 (survey 선택 시에만 표시) */}
         {category === "survey" && (
-          <div className="border border-gray-200 rounded-lg p-4 bg-gray-50 h-full flex flex-col">
+          <div className="border border-gray-200 rounded-lg p-4 h-full flex flex-col">
             {/* 설문 조사 기간 설정 */}
-            <div className="mb-4 pb-4 border-b border-gray-200">
+            <div className="-mx-4 -mt-4 px-4 py-4 mb-4 pb-4 bg-gray-100 border-b border-gray-200">
               <div className="flex items-center gap-2 mb-1">
                 <h3 className="text-sm font-semibold text-gray-700">설문 조사 기간</h3>
                 <label className="flex items-center gap-1.5 text-sm text-gray-700 cursor-pointer">
@@ -2890,7 +2891,7 @@ function AnnouncementComposerForm({
                   </div>
                 ) : (
                   surveyQuestions.map((question, index) => (
-                    <div key={question.id} className="border border-gray-300 rounded-lg p-3 bg-gray-100">
+                    <div key={question.id} className="border border-gray-300 bg-gray-50 rounded-lg p-3">
                       <div className="flex items-center justify-between mb-2">
                         {/* 왼쪽: 질문 배지 + 질문 타입 */}
                         <div className="flex items-center gap-2">
@@ -2961,9 +2962,30 @@ function AnnouncementComposerForm({
                                 className="h-4 w-4 text-blue-600 border-gray-300"
                               />
                               <Input
+                                ref={(el: any) => {
+                                  if (!surveyOptionRefs.current[question.id]) surveyOptionRefs.current[question.id] = [];
+                                  surveyOptionRefs.current[question.id][optIndex] = el;
+                                }}
                                 placeholder={`옵션 ${optIndex + 1}`}
                                 value={option}
                                 onChange={(e) => handleUpdateSurveyOption(question.id, optIndex, e.target.value)}
+                                onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
+                                  if (e.key !== "Enter") return;
+                                  e.preventDefault();
+                                  const opts = question.options || [];
+                                  const nextIndex = optIndex + 1;
+                                  if (nextIndex < opts.length) {
+                                    const next = surveyOptionRefs.current[question.id]?.[nextIndex];
+                                    next?.focus();
+                                  } else {
+                                    // add new option and focus it
+                                    handleAddSurveyOption(question.id);
+                                    setTimeout(() => {
+                                      const newInput = surveyOptionRefs.current[question.id]?.[nextIndex];
+                                      newInput?.focus();
+                                    }, 50);
+                                  }
+                                }}
                                 className="text-sm flex-1"
                               />
                               <Button
