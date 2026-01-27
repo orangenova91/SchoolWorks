@@ -8,6 +8,8 @@ import { useToastContext } from "@/components/providers/ToastProvider";
 import { useSession } from "next-auth/react";
 import { CommentSection } from "./CommentSection";
 import { Button } from "@/components/ui/Button";
+// @ts-ignore - optional dependency for charts; install `recharts` in production environment
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip } from "recharts";
 
 interface SelectedClass {
   grade: string;
@@ -762,10 +764,32 @@ export function AnnouncementDetailModal({
         }
       }
 
+      // If survey requires signature, ensure a signature exists or include signatureData in payload for simultaneous submission
+      const consentMeta = parseConsentData(announcement.consentData);
+      const requiresSignature =
+        announcement.category === "consent" ||
+        (announcement.category === "survey" && consentMeta?.requiresSignature);
+
+      const hasExistingSignature =
+        Boolean(existingSignature?.submittedAt) ||
+        Boolean(existingSignature?.signatureUrl) ||
+        Boolean(consentMeta?.signatureImage);
+
+      if (requiresSignature && !hasExistingSignature && !signatureData) {
+        showToast("설문 제출을 위해 서명이 필요합니다. 서명을 해주세요.", "error");
+        // Optionally open/focus signature area
+        setIsEditingSignature(true);
+        return;
+      }
+
       setIsSurveySubmitting(true);
-      const payload = {
+      const payload: any = {
         answers: surveyQuestions.map((q) => ({ id: q.id, answer: surveyAnswers[q.id] ?? null })),
       };
+      if (signatureData) {
+        payload.signatureImage = signatureData;
+      }
+
       const res = await fetch(`/api/announcements/${announcement.id}/survey`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1137,7 +1161,7 @@ export function AnnouncementDetailModal({
                                 return (
                                   <label
                                     key={optIndex}
-                                    className={`flex items-center gap-2 text-sm text-gray-700 bg-white px-3 py-2 rounded border border-gray-200 ${isTeacher ? "cursor-default opacity-60" : "cursor-pointer"}`}
+                                    className={`flex items-center gap-2 text-sm text-gray-700 bg-white px-3 py-2 rounded border border-gray-200 ${(isTeacher || Boolean(existingSurveyResponse)) ? "cursor-default opacity-60" : "cursor-pointer"}`}
                                   >
                                     <input
                                       type="radio"
@@ -1146,7 +1170,7 @@ export function AnnouncementDetailModal({
                                       checked={surveyAnswers[question.id] === value}
                                       onChange={() => handleChange(question.id, value)}
                                       className="w-4 h-4"
-                                      disabled={isTeacher}
+                                      disabled={isTeacher || Boolean(existingSurveyResponse)}
                                     />
                                     <span>{value}</span>
                                   </label>
@@ -1155,7 +1179,7 @@ export function AnnouncementDetailModal({
                               return (
                                 <label
                                   key={optIndex}
-                                  className={`flex items-center gap-2 text-sm text-gray-700 bg-white px-3 py-2 rounded border border-gray-200 ${isTeacher ? "cursor-default opacity-60" : "cursor-pointer"}`}
+                                  className={`flex items-center gap-2 text-sm text-gray-700 bg-white px-3 py-2 rounded border border-gray-200 ${(isTeacher || Boolean(existingSurveyResponse)) ? "cursor-default opacity-60" : "cursor-pointer"}`}
                                 >
                                   <input
                                     type="checkbox"
@@ -1164,7 +1188,7 @@ export function AnnouncementDetailModal({
                                     checked={Array.isArray(surveyAnswers[question.id]) && surveyAnswers[question.id].includes(value)}
                                     onChange={() => toggleMulti(question.id, value)}
                                     className="w-4 h-4"
-                                    disabled={isTeacher}
+                                    disabled={isTeacher || Boolean(existingSurveyResponse)}
                                   />
                                   <span>{value}</span>
                                 </label>
@@ -1180,18 +1204,18 @@ export function AnnouncementDetailModal({
                                 type="text"
                                 value={surveyAnswers[question.id] ?? ""}
                                 onChange={(e) => handleChange(question.id, e.target.value)}
-                                className={`w-full border border-gray-300 rounded px-3 py-2 text-sm ${isTeacher ? "opacity-60" : ""}`}
+                                className={`w-full border border-gray-300 rounded px-3 py-2 text-sm ${(isTeacher || Boolean(existingSurveyResponse)) ? "opacity-60" : ""}`}
                                 placeholder="답변을 입력하세요"
-                                disabled={isTeacher}
+                                disabled={isTeacher || Boolean(existingSurveyResponse)}
                               />
                             ) : (
                               <textarea
                                 value={surveyAnswers[question.id] ?? ""}
                                 onChange={(e) => handleChange(question.id, e.target.value)}
-                                className={`w-full border border-gray-300 rounded px-3 py-2 text-sm ${isTeacher ? "opacity-60" : ""}`}
+                                className={`w-full border border-gray-300 rounded px-3 py-2 text-sm ${(isTeacher || Boolean(existingSurveyResponse)) ? "opacity-60" : ""}`}
                                 placeholder="서술형 답변을 입력하세요"
                                 rows={5}
-                                disabled={isTeacher}
+                                disabled={isTeacher || Boolean(existingSurveyResponse)}
                               />
                             )}
                           </div>
@@ -1199,23 +1223,7 @@ export function AnnouncementDetailModal({
                       </div>
                     ))}
 
-                    <div className="flex items-center justify-end gap-3">
-                      {!isTeacher ? (
-                        <>
-                          <Button variant="outline" onClick={() => { setSurveyAnswers({}); setExistingSurveyResponse(null); }}>
-                            초기화
-                          </Button>
-                          <Button
-                            onClick={handleSubmitSurvey}
-                            disabled={isSurveySubmitting || isSurveyLoading}
-                          >
-                            {isSurveySubmitting ? "제출 중..." : existingSurveyResponse ? "다시 제출" : "제출"}
-                          </Button>
-                        </>
-                      ) : (
-                        <div className="text-sm text-gray-500">교사 계정은 설문에 응답할 수 없습니다. 응답 현황은 아래에서 확인하세요.</div>
-                      )}
-                    </div>
+                    
                   </div>
                 </div>
               );
@@ -1319,53 +1327,99 @@ export function AnnouncementDetailModal({
                       {surveyStats && (
                         <div className="mt-4 space-y-3">
                           <h4 className="text-sm font-semibold text-gray-900">질문별 통계</h4>
-                          <div className="space-y-2 text-sm text-gray-700">
-                            {Object.values(surveyStats.questions || {}).map((q: any, idx: number) => (
-                              <div key={q.id} className="bg-white border border-gray-200 p-3 rounded">
-                                <div className="font-medium">
-                                  <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-200 text-gray-700 mr-2">
-                                    질문 {idx + 1}
-                                  </span>
-                                  {q.question}
-                                </div>
-                                {q.type === "single" || q.type === "multiple" ? (
-                                  <ul className="mt-2 list-disc list-inside text-xs">
-                                    {Object.entries(q.optionCounts || {}).map(([opt, cnt]) => (
-                                      <li key={String(opt)}>{String(opt)}: {String(cnt)}명</li>
-                                    ))}
-                                  </ul>
-                                ) : (
-                                  (() => {
-                                    const answersForQ = (surveyResponses || [])
-                                      .flatMap((r: any) =>
-                                        (r.answers || [])
-                                          .filter((a: any) => a.id === q.id)
-                                          .map((a: any) => ({
-                                            answer: a.answer,
-                                            respondent: r.user?.name || r.userId,
-                                          }))
-                                      )
-                                      .filter((a: any) => a.answer !== null && a.answer !== undefined && String(a.answer).trim() !== "");
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {Object.values(surveyStats.questions || {}).map((q: any, idx: number) => {
+                              const isChoice = q.type === "single" || q.type === "multiple";
+                              if (isChoice) {
+                                // Use original survey definition to preserve option order/labels
+                                const surveyDef: SurveyQuestion[] = typeof announcement.surveyData === "string"
+                                  ? JSON.parse(announcement.surveyData)
+                                  : announcement.surveyData || [];
+                                const qDef = (surveyDef || []).find((s) => s.id === q.id);
+                                const optionList: string[] = (qDef && Array.isArray(qDef.options) && qDef.options.length > 0)
+                                  ? qDef.options
+                                  : Object.keys(q.optionCounts || {});
 
-                                    return (
-                                      <div className="text-xs mt-2">
-                                        <div>응답 수: {answersForQ.length}</div>
-                                        {answersForQ.length > 0 && (
-                                          <ul className="mt-2 space-y-2">
-                                            {answersForQ.map((ans: any, idx: number) => (
-                                              <li key={idx} className="bg-gray-50 p-2 rounded border border-gray-100">
-                                                <div className="text-[11px] text-gray-500">{ans.respondent}</div>
-                                                <div className="mt-1 text-sm text-gray-900 whitespace-pre-wrap">{String(ans.answer)}</div>
-                                              </li>
-                                            ))}
-                                          </ul>
-                                        )}
-                                      </div>
-                                    );
-                                  })()
-                                )}
-                              </div>
-                            ))}
+                                const data = optionList.map((name) => ({ name, cnt: (q.optionCounts && q.optionCounts[name]) ? q.optionCounts[name] : 0 }));
+
+                                return (
+                                  <div key={q.id} className="bg-white border border-gray-200 p-3 rounded">
+                                    <div className="font-medium mb-2">
+                                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-200 text-gray-700 mr-2">
+                                        질문 {idx + 1}
+                                      </span>
+                                      {q.question}
+                                    </div>
+                                    <div style={{ width: "100%", height: 160 }}>
+                                      <ResponsiveContainer width="100%" height="100%">
+                                        <BarChart data={data}>
+                                          <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+                                          <YAxis allowDecimals={false} tickFormatter={(v) => String(Math.round(Number(v) || 0))} />
+                                          <Tooltip formatter={(v: any) => [`${v}명`]} />
+                                          <Bar dataKey="cnt" fill="#4f46e5" />
+                                        </BarChart>
+                                      </ResponsiveContainer>
+                                    </div>
+                                  </div>
+                                );
+                              } else {
+                                // 주관식 응답: 상위 빈도 Top 5 표시
+                                const answersForQ = (surveyResponses || [])
+                                  .flatMap((r: any) =>
+                                    (r.answers || []).filter((a: any) => a.id === q.id).map((a: any) => ({
+                                      answer: a.answer,
+                                      respondent: r.user?.name || r.userId,
+                                    }))
+                                  )
+                                  .filter((a: any) => a.answer !== null && a.answer !== undefined && String(a.answer).trim() !== "");
+
+                                const counts: Record<string, number> = {};
+                                answersForQ.forEach((a: any) => {
+                                  const key = String(a.answer).trim();
+                                  counts[key] = (counts[key] || 0) + 1;
+                                });
+                                const top = Object.entries(counts)
+                                  .sort((a, b) => b[1] - a[1])
+                                  .slice(0, 5)
+                                  .map(([name, cnt]) => ({ name, cnt }));
+
+                                return (
+                                  <div key={q.id} className="bg-white border border-gray-200 p-3 rounded">
+                                    <div className="font-medium mb-2">
+                                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-200 text-gray-700 mr-2">
+                                        질문 {idx + 1}
+                                      </span>
+                                      {q.question}
+                                    </div>
+                                    <div className="text-xs text-gray-700 mb-2">응답 수: {answersForQ.length}</div>
+                                    {top.length > 0 ? (
+                                      <>
+                                        <div style={{ width: "100%", height: 120 }} className="mb-2">
+                                          <ResponsiveContainer width="100%" height="100%">
+                                            <BarChart data={top}>
+                                        <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+                                              <YAxis allowDecimals={false} tickFormatter={(v) => String(Math.round(Number(v) || 0))} />
+                                              <Tooltip formatter={(v: any) => [`${v}명`]} />
+                                              <Bar dataKey="cnt" fill="#10b981" />
+                                            </BarChart>
+                                          </ResponsiveContainer>
+                                        </div>
+                                        <ul className="text-xs space-y-1">
+                                          {top.map((t: any, i: number) => (
+                                            <li key={i} className="flex justify-between">
+                                              <span className="truncate">{t.name}</span>
+                                              <span className="text-gray-500 ml-2">{t.cnt}명</span>
+                                            </li>
+                                          ))}
+                                        </ul>
+                                      </>
+                                    ) : (
+                                      <div className="text-xs text-gray-500">응답이 없습니다.</div>
+                                    )}
+                                  </div>
+                                );
+                              }
+                            })}
                           </div>
                         </div>
                       )}
@@ -1411,27 +1465,12 @@ export function AnnouncementDetailModal({
                     {isSignatureLoading && (
                       <p className="text-sm text-gray-500">서명 정보를 불러오는 중...</p>
                     )}
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                      <div>
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-stretch">
+                      <div className="flex flex-col h-full">
                         <div className="flex items-center justify-between mb-2">
                           <h4 className="text-sm font-semibold text-gray-700">서명 입력</h4>
-                          <div className="flex items-center gap-2">
-                            <button
-                              type="button"
-                              onClick={clearSignature}
-                              disabled={!isEditingSignature || isSignatureSaving}
-                              className={cn(
-                                "px-3 py-1.5 text-xs font-medium rounded-md transition-colors",
-                                !isEditingSignature || isSignatureSaving
-                                  ? "text-gray-400 bg-gray-100 cursor-not-allowed"
-                                  : "text-gray-600 bg-gray-100 hover:bg-gray-200"
-                              )}
-                            >
-                              초기화
-                            </button>
-                          </div>
                         </div>
-                        <div className="border border-dashed border-gray-300 rounded-lg bg-white overflow-hidden relative">
+                        <div className="border border-dashed border-gray-300 rounded-lg bg-white overflow-hidden relative h-[200px]">
                           <canvas
                             ref={canvasRef}
                             onPointerDown={startDrawing}
@@ -1439,7 +1478,7 @@ export function AnnouncementDetailModal({
                             onPointerUp={stopDrawing}
                             onPointerLeave={stopDrawing}
                             className={cn(
-                              "w-full h-[200px]",
+                              "w-full h-full",
                               isEditingSignature
                                 ? "cursor-crosshair"
                                 : "cursor-not-allowed opacity-50"
@@ -1461,49 +1500,22 @@ export function AnnouncementDetailModal({
                             </div>
                           )}
                         </div>
-                        <div className="mt-3 flex items-center justify-between gap-3">
+                        <div className="mt-3 flex items-center gap-3 h-12">
                           <p className="text-xs text-gray-500">
                             {isReturned
                               ? "반환된 상태입니다. 수정 후 저장하세요."
                               : hasSubmitted
                               ? "제출 완료 상태입니다. 수정할 수 없습니다."
-                              : "서명 후 제출 버튼을 눌러주세요."}
+                              : (announcement.category === "survey" && announcement.surveyData)
+                                ? "서명 후 설문 제출 버튼을 눌러주세요."
+                                : "서명 후 제출 버튼을 눌러주세요."}
                           </p>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              saveSignature(
-                                announcement.id,
-                                isReturned ? "update" : "submit"
-                              )
-                            }
-                            disabled={
-                              !signatureData ||
-                              isSignatureSaving ||
-                              !isEditingSignature ||
-                              (hasSubmitted && !isReturned)
-                            }
-                            className={cn(
-                              "px-4 py-2 text-sm font-medium rounded-md transition-colors",
-                              !signatureData ||
-                              isSignatureSaving ||
-                              !isEditingSignature ||
-                              (hasSubmitted && !isReturned)
-                                ? "text-gray-400 bg-gray-100 cursor-not-allowed"
-                                : "text-white bg-blue-600 hover:bg-blue-700"
-                            )}
-                          >
-                            {isSignatureSaving
-                              ? "처리 중..."
-                              : isReturned
-                              ? "수정 저장"
-                              : "동의서 제출"}
-                          </button>
+                          
                         </div>
                       </div>
-                      <div>
+                      <div className="flex flex-col h-full">
                         <h4 className="text-sm font-semibold text-gray-700 mb-2">서명 미리보기</h4>
-                        <div className="border border-gray-300 rounded-lg bg-white p-4 min-h-[200px] flex items-center justify-center">
+                        <div className="border border-gray-300 rounded-lg bg-white p-4 flex items-center justify-center h-[200px]">
                           {signatureData ? (
                             <img
                               src={signatureData}
@@ -1522,18 +1534,65 @@ export function AnnouncementDetailModal({
                             </p>
                           )}
                         </div>
-                        {existingSignature?.signedAt && !isEditingSignature && (
-                          <p className="text-xs text-gray-500 mt-2">
-                            서명 일시: {formatDate(existingSignature.signedAt)}
-                          </p>
-                        )}
-                        {existingSignature?.submittedAt && (
-                          <p className="text-xs text-gray-500 mt-2">
+                        {/* 서명 관련 작업 버튼: 서명 미리보기 아래에 이동 */}
+                        <div className="mt-3 flex items-center justify-end gap-3 h-12">
+                          {/* 1. 공통 초기화 버튼 */}
+                          <button
+                            type="button"
+                            onClick={clearSignature}
+                            disabled={!isEditingSignature || isSignatureSaving}
+                            className={cn(
+                              "px-3 py-1.5 text-xs font-medium rounded-md transition-colors",
+                              !isEditingSignature || isSignatureSaving
+                                ? "text-gray-400 bg-gray-100 cursor-not-allowed"
+                                : "text-gray-600 bg-gray-100 hover:bg-gray-200"
+                            )}
+                          >
+                            초기화
+                          </button>
+
+                          {/* 2. 동의서 전용 제출 버튼 (설문이 없을 때만 표시) */}
+                          {!(announcement.category === "survey" && announcement.surveyData) && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                saveSignature(
+                                  announcement.id,
+                                  isReturned ? "update" : "submit"
+                                )
+                              }
+                              disabled={
+                                !signatureData ||
+                                isSignatureSaving ||
+                                !isEditingSignature ||
+                                (hasSubmitted && !isReturned)
+                              }
+                              className={cn(
+                                "px-4 py-2 text-sm font-medium rounded-md transition-colors",
+                                !signatureData ||
+                                isSignatureSaving ||
+                                !isEditingSignature ||
+                                (hasSubmitted && !isReturned)
+                                  ? "text-gray-400 bg-gray-100 cursor-not-allowed"
+                                  : "text-white bg-blue-600 hover:bg-blue-700"
+                              )}
+                            >
+                              {isSignatureSaving
+                                ? "처리 중..."
+                                : isReturned
+                                ? "수정 저장"
+                                : "동의서 제출"}
+                            </button>
+                          )}
+                        </div>
+
+                        {existingSignature?.submittedAt && !existingSignature?.returnedAt && (
+                          <p className="text-xs text-gray-500 mt-2 text-right">
                             제출 일시: {formatDate(existingSignature.submittedAt)}
                           </p>
                         )}
                         {existingSignature?.returnedAt && (
-                          <div className="mt-2 space-y-1">
+                          <div className="mt-2 space-y-1 text-right">
                             <p className="text-xs text-amber-600">
                               반환 일시: {formatDate(existingSignature.returnedAt)}
                             </p>
@@ -1592,6 +1651,31 @@ export function AnnouncementDetailModal({
                       </div>
                     )}
                   </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* If this announcement has a survey, show survey submit controls under the signature panel */}
+          {announcement && announcement.category === "survey" && announcement.surveyData && !isTeacher && (
+            <div className="mt-4 pt-4 border-t border-gray-200">
+              <div className="flex items-center justify-end gap-3">
+                {!existingSurveyResponse ? (
+                  <>
+                    <Button variant="outline" onClick={() => { setSurveyAnswers({}); setExistingSurveyResponse(null); }}>
+                      초기화
+                    </Button>
+                    <Button
+                      onClick={handleSubmitSurvey}
+                      disabled={isSurveySubmitting || isSurveyLoading}
+                    >
+                      {isSurveySubmitting ? "제출 중..." : "제출"}
+                    </Button>
+                  </>
+                ) : (
+                  <Button disabled className="px-4 py-2 text-sm bg-gray-100 text-gray-500 cursor-not-allowed">
+                    제출 완료
+                  </Button>
                 )}
               </div>
             </div>

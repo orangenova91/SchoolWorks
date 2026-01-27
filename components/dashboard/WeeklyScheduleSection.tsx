@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 
 type WeeklyScheduleEvent = {
   id: string;
@@ -25,6 +26,8 @@ type WeeklyScheduleDay = {
 type WeeklyScheduleSectionProps = {
   schedule: WeeklyScheduleDay[];
   todayIsoDate: string;
+  moreHref?: string;
+  moreLabel?: string;
 };
 
 const formatDateTime = (isoString: string | null | undefined) => {
@@ -42,6 +45,8 @@ const formatDateTime = (isoString: string | null | undefined) => {
 export default function WeeklyScheduleSection({
   schedule,
   todayIsoDate,
+  moreHref,
+  moreLabel = "학사일정 바로가기 →",
 }: WeeklyScheduleSectionProps) {
   const [selectedEvent, setSelectedEvent] = useState<WeeklyScheduleEvent | null>(
     null
@@ -55,7 +60,17 @@ export default function WeeklyScheduleSection({
 
   return (
     <section className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
-      <h3 className="text-lg font-semibold text-gray-900 mb-4">이번 주 학사일정</h3>
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-lg font-semibold text-gray-900">이번 주 학사일정</h3>
+        {moreHref && (
+          <Link
+            href={moreHref}
+            className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+          >
+            {moreLabel}
+          </Link>
+        )}
+      </div>
       <div className="rounded-xl border border-gray-100 overflow-hidden">
         <div className="hidden md:grid grid-cols-7 bg-gray-50 text-xs font-semibold uppercase tracking-wide text-gray-500">
           {schedule.map((day) => {

@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { z } from "zod";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { put } from "@vercel/blob";
 
 const answerSchema = z.object({
   id: z.string(),
@@ -11,7 +12,22 @@ const answerSchema = z.object({
 
 const submissionSchema = z.object({
   answers: z.array(answerSchema),
+  signatureImage: z.string().optional(), // data URL (base64) - optional simultaneous signature
 });
+
+const parseSignatureDataUrl = (dataUrl: string) => {
+  const match = dataUrl.match(/^data:(.+);base64,(.*)$/);
+  if (match) {
+    return {
+      contentType: match[1],
+      base64: match[2],
+    };
+  }
+  return {
+    contentType: "image/png",
+    base64: dataUrl,
+  };
+};
 
 export const dynamic = "force-dynamic";
 
@@ -74,7 +90,7 @@ export async function POST(
 
     const announcement = await (prisma as any).announcement.findUnique({
       where: { id: params.id },
-      select: { id: true, category: true, surveyStartDate: true, surveyEndDate: true },
+      select: { id: true, category: true, surveyStartDate: true, surveyEndDate: true, consentData: true, school: true },
     });
     if (!announcement) {
       return NextResponse.json({ error: "안내문을 찾을 수 없습니다." }, { status: 404 });
@@ -96,18 +112,94 @@ export async function POST(
     const parsed = submissionSchema.parse(body);
 
     const answersJson = JSON.stringify(parsed.answers);
+    // If this survey requires signature, enforce presence of signature:
+    let consentMeta = null;
+    try {
+      consentMeta = announcement.consentData ? (typeof announcement.consentData === "string" ? JSON.parse(announcement.consentData) : announcement.consentData) : null;
+    } catch {
+      consentMeta = null;
+    }
+    const requiresSignature =
+      announcement.category === "consent" ||
+      (announcement.category === "survey" && consentMeta?.requiresSignature);
 
-    const resp = await (prisma as any).announcementSurveyResponse.upsert({
+    // check existing consent
+    const existingConsent = await (prisma as any).announcementConsent.findUnique({
+      where: {
+        announcementId_userId: {
+          announcementId: params.id,
+          userId: session.user.id,
+        },
+      },
+    });
+
+    if (requiresSignature && !existingConsent?.submittedAt && !parsed.signatureImage) {
+      return NextResponse.json({ error: "설문 제출을 위해 서명이 필요합니다." }, { status: 400 });
+    }
+
+    // If signatureImage is provided, save it (only for student/parent roles)
+    if (parsed.signatureImage) {
+      if (!["parent", "student"].includes(session.user.role || "")) {
+        return NextResponse.json({ error: "서명 권한이 없습니다." }, { status: 403 });
+      }
+
+      const { contentType, base64 } = parseSignatureDataUrl(parsed.signatureImage);
+      const buffer = Buffer.from(base64, "base64");
+      const extension = contentType.split("/")[1] || "png";
+      const filename = `consents/${params.id}/${session.user.id}-${Date.now()}.${extension}`;
+
+      const blob = await put(filename, buffer, {
+        access: "public",
+        contentType,
+      });
+
+      const signedAt = new Date();
+      const submittedAt = new Date();
+
+      await (prisma as any).announcementConsent.upsert({
+        where: {
+          announcementId_userId: {
+            announcementId: params.id,
+            userId: session.user.id,
+          },
+        },
+        update: {
+          signatureImage: null,
+          signatureUrl: blob.url,
+          signedAt,
+          submittedAt,
+          returnedAt: null,
+          returnReason: null,
+        },
+        create: {
+          announcementId: params.id,
+          userId: session.user.id,
+          signatureImage: null,
+          signatureUrl: blob.url,
+          signedAt,
+          submittedAt,
+          returnedAt: null,
+          returnReason: null,
+        },
+      });
+    }
+
+    // Prevent resubmission: if a response already exists, reject with 409
+    const existingResponse = await (prisma as any).announcementSurveyResponse.findUnique({
       where: {
         announcementId_userId: {
           announcementId: params.id,
           userId: session.user.id,
         },
       } as any,
-      update: {
-        answers: answersJson,
-      },
-      create: {
+    });
+
+    if (existingResponse) {
+      return NextResponse.json({ error: "이미 제출된 설문입니다." }, { status: 409 });
+    }
+
+    const resp = await (prisma as any).announcementSurveyResponse.create({
+      data: {
         announcementId: params.id,
         userId: session.user.id,
         answers: answersJson,
