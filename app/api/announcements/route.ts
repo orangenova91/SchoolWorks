@@ -547,21 +547,54 @@ export async function GET(request: NextRequest) {
     if (session.user.role === "student" && boardType === "board_students") {
       const normalizeNumber = (value: string) => value.trim().replace(/^0+/, "");
       announcements = announcements.filter((announcement: any) => {
-        if (!announcement.selectedClasses) return false;
-        if (!studentGrade || !studentClassNumber) return false;
+        // If selectedClasses is missing -> treat as "all students" (include)
+        if (!announcement.selectedClasses) {
+          console.log(
+            `Announcement ${announcement.id} has no selectedClasses -> treating as all students`
+          );
+          return true;
+        }
+
+        if (!studentGrade || !studentClassNumber) {
+          console.log(
+            `Student grade/class unknown for user ${session.user.id} -> excluding announcement ${announcement.id}`
+          );
+          return false;
+        }
+
         try {
           const selected = JSON.parse(announcement.selectedClasses) as Array<{
             grade: string;
             classNumber: string;
           }>;
-          if (selected.length === 0) return false;
-          return selected.some((cls) =>
+
+          // If parsed value is not an array or empty -> treat as "all students"
+          if (!Array.isArray(selected) || selected.length === 0) {
+            console.log(
+              `Announcement ${announcement.id} selectedClasses empty or invalid -> treating as all students`
+            );
+            return true;
+          }
+
+          const matches = selected.some((cls) =>
             normalizeNumber(cls.grade) === normalizeNumber(studentGrade) &&
             normalizeNumber(cls.classNumber) === normalizeNumber(studentClassNumber)
           );
+
+          if (!matches) {
+            console.log(
+              `Announcement ${announcement.id} excluded for student ${session.user.id} (grade ${studentGrade} class ${studentClassNumber})`
+            );
+          }
+
+          return matches;
         } catch (error) {
-          console.error("Error parsing selectedClasses:", error);
-          return false;
+          console.error(
+            `Error parsing selectedClasses for announcement ${announcement.id}:`,
+            error
+          );
+          // Be permissive on parse error to avoid accidentally hiding notices: include for all students
+          return true;
         }
       });
     }

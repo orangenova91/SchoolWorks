@@ -702,7 +702,12 @@ export default async function TeacherDashboardPage() {
         </div>
       </header>
 
-      <WeeklyScheduleSection schedule={weeklySchedule} todayIsoDate={isoToday} />
+      <WeeklyScheduleSection
+        schedule={weeklySchedule}
+        todayIsoDate={isoToday}
+        moreHref="/dashboard/teacher/schedule"
+        moreLabel="더보기 →"
+      />
 
       <div className="flex gap-6 items-start">
         {/* 주간 시간표 섹션 */}

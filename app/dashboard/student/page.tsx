@@ -262,7 +262,12 @@ export default async function StudentDashboardPage() {
         </div>
       </header>
 
-      <WeeklyScheduleSection schedule={weeklySchedule} todayIsoDate={isoToday} />
+      <WeeklyScheduleSection
+        schedule={weeklySchedule}
+        todayIsoDate={isoToday}
+        moreHref="/dashboard/student/schedule"
+        moreLabel="더보기 →"
+      />
 
       <section className="grid gap-4 lg:grid-cols-3">
         <article className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm lg:col-span-2">
