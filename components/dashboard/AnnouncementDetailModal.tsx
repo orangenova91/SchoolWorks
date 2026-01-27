@@ -100,6 +100,7 @@ interface Announcement {
   consentData?: string | null;
   attachments?: string | null;
   editableBy?: string[];
+  boardType?: string | null;
 }
 
 interface AnnouncementDetailModalProps {
@@ -317,8 +318,13 @@ export function AnnouncementDetailModal({
     });
   };
 
+  const teacherAllowedAudiences = new Set(["teacher", "teachers", "all"]);
   const canSign =
-    session?.user?.role === "parent" || session?.user?.role === "student";
+    session?.user?.role === "parent" ||
+    session?.user?.role === "student" ||
+    (session?.user?.role === "teacher" &&
+      (teacherAllowedAudiences.has(announcement?.audience || "") ||
+        announcement?.boardType === "board_teachers"));
 
   const clearSignature = () => {
     const canvas = canvasRef.current;
@@ -695,7 +701,20 @@ export function AnnouncementDetailModal({
   const [isSurveyLoading, setIsSurveyLoading] = useState(false);
   const [isSurveySubmitting, setIsSurveySubmitting] = useState(false);
   const [existingSurveyResponse, setExistingSurveyResponse] = useState<{ id: string; answers: any[] } | null>(null);
+  // local fallback timestamp for survey submission when no signature timestamp exists
+  const [localSubmittedAt, setLocalSubmittedAt] = useState<string | null>(null);
  
+  // When a survey is submitted (either server-side existingSignature.submittedAt or localSubmittedAt),
+  // lock the signature UI to appear like a submitted consent: disable editing and show submitted state.
+  useEffect(() => {
+    const submitted = Boolean(localSubmittedAt) || Boolean(existingSignature?.submittedAt);
+    const returned = Boolean(existingSignature?.returnedAt);
+    if (submitted && !returned) {
+      setIsEditingSignature(false);
+    }
+    // We intentionally do not auto-enable editing here.
+  }, [localSubmittedAt, existingSignature?.submittedAt, existingSignature?.returnedAt]);
+
   // Load existing survey response when modal opens
   useEffect(() => {
     if (!isOpen || !announcement || announcement.category !== "survey") return;
@@ -799,6 +818,8 @@ export function AnnouncementDetailModal({
       if (!res.ok) throw new Error(data.error || "제출 실패");
       showToast("설문이 제출되었습니다.", "success");
       setExistingSurveyResponse({ id: data.response?.id || "", answers: payload.answers });
+      // record local submittedAt to display submission timestamp when signature timestamp is not present
+      setLocalSubmittedAt(new Date().toISOString());
     } catch (err: any) {
       console.error("Submit survey error:", err);
       showToast(err.message || "제출 중 오류가 발생했습니다.", "error");
@@ -946,6 +967,12 @@ export function AnnouncementDetailModal({
   const hasSubmitted = Boolean(existingSignature?.submittedAt);
   const isReturned = Boolean(existingSignature?.returnedAt);
   const isTeacher = session?.user?.role === "teacher";
+  // Allow teachers to respond when announcement is targeted at teachers or everyone
+  const canRespond = (
+    !isTeacher ||
+    teacherAllowedAudiences.has(announcement?.audience || "") ||
+    announcement?.boardType === "board_teachers"
+  );
   const canReviewConsents = isTeacher && isAuthor && shouldShowSignature;
 
   const modalContent = (
@@ -1161,7 +1188,7 @@ export function AnnouncementDetailModal({
                                 return (
                                   <label
                                     key={optIndex}
-                                    className={`flex items-center gap-2 text-sm text-gray-700 bg-white px-3 py-2 rounded border border-gray-200 ${(isTeacher || Boolean(existingSurveyResponse)) ? "cursor-default opacity-60" : "cursor-pointer"}`}
+                                    className={`flex items-center gap-2 text-sm text-gray-700 bg-white px-3 py-2 rounded border border-gray-200 ${(!canRespond || Boolean(existingSurveyResponse)) ? "cursor-default opacity-60" : "cursor-pointer"}`}
                                   >
                                     <input
                                       type="radio"
@@ -1170,7 +1197,7 @@ export function AnnouncementDetailModal({
                                       checked={surveyAnswers[question.id] === value}
                                       onChange={() => handleChange(question.id, value)}
                                       className="w-4 h-4"
-                                      disabled={isTeacher || Boolean(existingSurveyResponse)}
+                                      disabled={!canRespond || Boolean(existingSurveyResponse)}
                                     />
                                     <span>{value}</span>
                                   </label>
@@ -1179,7 +1206,7 @@ export function AnnouncementDetailModal({
                               return (
                                 <label
                                   key={optIndex}
-                                  className={`flex items-center gap-2 text-sm text-gray-700 bg-white px-3 py-2 rounded border border-gray-200 ${(isTeacher || Boolean(existingSurveyResponse)) ? "cursor-default opacity-60" : "cursor-pointer"}`}
+                                className={`flex items-center gap-2 text-sm text-gray-700 bg-white px-3 py-2 rounded border border-gray-200 ${(!canRespond || Boolean(existingSurveyResponse)) ? "cursor-default opacity-60" : "cursor-pointer"}`}
                                 >
                                   <input
                                     type="checkbox"
@@ -1188,7 +1215,7 @@ export function AnnouncementDetailModal({
                                     checked={Array.isArray(surveyAnswers[question.id]) && surveyAnswers[question.id].includes(value)}
                                     onChange={() => toggleMulti(question.id, value)}
                                     className="w-4 h-4"
-                                    disabled={isTeacher || Boolean(existingSurveyResponse)}
+                                    disabled={!canRespond || Boolean(existingSurveyResponse)}
                                   />
                                   <span>{value}</span>
                                 </label>
@@ -1204,18 +1231,18 @@ export function AnnouncementDetailModal({
                                 type="text"
                                 value={surveyAnswers[question.id] ?? ""}
                                 onChange={(e) => handleChange(question.id, e.target.value)}
-                                className={`w-full border border-gray-300 rounded px-3 py-2 text-sm ${(isTeacher || Boolean(existingSurveyResponse)) ? "opacity-60" : ""}`}
+                                className={`w-full border border-gray-300 rounded px-3 py-2 text-sm ${(!canRespond || Boolean(existingSurveyResponse)) ? "opacity-60" : ""}`}
                                 placeholder="답변을 입력하세요"
-                                disabled={isTeacher || Boolean(existingSurveyResponse)}
+                                disabled={!canRespond || Boolean(existingSurveyResponse)}
                               />
                             ) : (
                               <textarea
                                 value={surveyAnswers[question.id] ?? ""}
                                 onChange={(e) => handleChange(question.id, e.target.value)}
-                                className={`w-full border border-gray-300 rounded px-3 py-2 text-sm ${(isTeacher || Boolean(existingSurveyResponse)) ? "opacity-60" : ""}`}
+                                className={`w-full border border-gray-300 rounded px-3 py-2 text-sm ${(!canRespond || Boolean(existingSurveyResponse)) ? "opacity-60" : ""}`}
                                 placeholder="서술형 답변을 입력하세요"
                                 rows={5}
-                                disabled={isTeacher || Boolean(existingSurveyResponse)}
+                                disabled={!canRespond || Boolean(existingSurveyResponse)}
                               />
                             )}
                           </div>
@@ -1456,7 +1483,7 @@ export function AnnouncementDetailModal({
           )}
 
           {/* 동의서/설문조사 서명 패널 */}
-          {shouldShowSignature && !isTeacher && (
+          {shouldShowSignature && (canSign || canReviewConsents) && (
             <div className="mt-6 pt-6 border-t border-gray-200">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">서명</h3>
               <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
@@ -1540,10 +1567,10 @@ export function AnnouncementDetailModal({
                           <button
                             type="button"
                             onClick={clearSignature}
-                            disabled={!isEditingSignature || isSignatureSaving}
+                            disabled={!isEditingSignature || isSignatureSaving || ((hasSubmitted || Boolean(localSubmittedAt)) && !isReturned)}
                             className={cn(
                               "px-3 py-1.5 text-xs font-medium rounded-md transition-colors",
-                              !isEditingSignature || isSignatureSaving
+                              (!isEditingSignature || isSignatureSaving || ((hasSubmitted || Boolean(localSubmittedAt)) && !isReturned))
                                 ? "text-gray-400 bg-gray-100 cursor-not-allowed"
                                 : "text-gray-600 bg-gray-100 hover:bg-gray-200"
                             )}
@@ -1586,9 +1613,10 @@ export function AnnouncementDetailModal({
                           )}
                         </div>
 
-                        {existingSignature?.submittedAt && !existingSignature?.returnedAt && (
+                        {/* survey buttons moved outside signature panel */}
+                        {(existingSignature?.submittedAt || localSubmittedAt) && !existingSignature?.returnedAt && (
                           <p className="text-xs text-gray-500 mt-2 text-right">
-                            제출 일시: {formatDate(existingSignature.submittedAt)}
+                            제출 일시: {formatDate(existingSignature?.submittedAt || localSubmittedAt)}
                           </p>
                         )}
                         {existingSignature?.returnedAt && (
@@ -1656,19 +1684,54 @@ export function AnnouncementDetailModal({
             </div>
           )}
 
-          {/* If this announcement has a survey, show survey submit controls under the signature panel */}
-          {announcement && announcement.category === "survey" && announcement.surveyData && !isTeacher && (
-            <div className="mt-4 pt-4 border-t border-gray-200">
-              <div className="flex items-center justify-end gap-3">
+          {/* survey submit controls moved outside signature panel for unified layout */}
+          
+          {/* For surveys that include signature, show submit controls *outside* the gray signature panel */}
+          {shouldShowSignature && announcement && announcement.category === "survey" && announcement.surveyData && (canRespond || Boolean(existingSurveyResponse)) && (
+            <div className="mt-1 flex items-center justify-between">
+              <p className="text-xs text-gray-500">
+                {isReturned
+                  ? "반환된 상태입니다. 수정 후 제출하세요."
+                  : !hasSubmitted
+                  ? "서명(필요시) 후 설문 제출 버튼을 눌러주세요."
+                  : ""}
+              </p>
+              <div className="flex items-center gap-3">
                 {!existingSurveyResponse ? (
                   <>
                     <Button variant="outline" onClick={() => { setSurveyAnswers({}); setExistingSurveyResponse(null); }}>
                       초기화
                     </Button>
-                    <Button
-                      onClick={handleSubmitSurvey}
-                      disabled={isSurveySubmitting || isSurveyLoading}
-                    >
+                    <Button onClick={handleSubmitSurvey} disabled={isSurveySubmitting || isSurveyLoading || isSignatureSaving}>
+                      {isSurveySubmitting ? "제출 중..." : "제출"}
+                    </Button>
+                  </>
+                ) : (
+                  <Button disabled className="px-4 py-2 text-sm bg-gray-100 text-gray-500 cursor-not-allowed">
+                    제출 완료
+                  </Button>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* For surveys that don't require signature, show submit controls here */}
+          {!shouldShowSignature && announcement && announcement.category === "survey" && announcement.surveyData && (canRespond || Boolean(existingSurveyResponse)) && (
+            <div className="mt-1 flex items-center justify-between">
+              <p className="text-xs text-gray-500">
+                {isReturned
+                  ? "반환된 상태입니다. 수정 후 제출하세요."
+                  : !hasSubmitted
+                  ? "설문이 끝나면 제출 버튼을 눌러주세요."
+                  : ""}
+              </p>
+              <div className="flex items-center gap-3">
+                {!existingSurveyResponse ? (
+                  <>
+                    <Button variant="outline" onClick={() => { setSurveyAnswers({}); setExistingSurveyResponse(null); }}>
+                      초기화
+                    </Button>
+                    <Button onClick={handleSubmitSurvey} disabled={isSurveySubmitting || isSurveyLoading || isSignatureSaving}>
                       {isSurveySubmitting ? "제출 중..." : "제출"}
                     </Button>
                   </>
