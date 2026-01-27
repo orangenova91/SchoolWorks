@@ -90,7 +90,16 @@ export async function POST(
 
     const announcement = await (prisma as any).announcement.findUnique({
       where: { id: params.id },
-      select: { id: true, category: true, surveyStartDate: true, surveyEndDate: true, consentData: true, school: true },
+      select: {
+        id: true,
+        category: true,
+        surveyStartDate: true,
+        surveyEndDate: true,
+        consentData: true,
+        school: true,
+        audience: true,
+        boardType: true,
+      },
     });
     if (!announcement) {
       return NextResponse.json({ error: "안내문을 찾을 수 없습니다." }, { status: 404 });
@@ -137,9 +146,22 @@ export async function POST(
       return NextResponse.json({ error: "설문 제출을 위해 서명이 필요합니다." }, { status: 400 });
     }
 
-    // If signatureImage is provided, save it (only for student/parent roles)
+    // If signatureImage is provided, save it.
     if (parsed.signatureImage) {
-      if (!["parent", "student"].includes(session.user.role || "")) {
+      const role = session.user.role || "";
+
+      if (role === "teacher") {
+        // Allow teachers to upload signature only for teacher-targeted or global announcements
+        const teacherAllowed =
+          announcement.audience === "teacher" ||
+          announcement.audience === "teachers" ||
+          announcement.audience === "all" ||
+          announcement.boardType === "board_teachers";
+
+        if (!teacherAllowed) {
+          return NextResponse.json({ error: "교사는 이 설문에 서명할 권한이 없습니다." }, { status: 403 });
+        }
+      } else if (!["parent", "student"].includes(role)) {
         return NextResponse.json({ error: "서명 권한이 없습니다." }, { status: 403 });
       }
 
