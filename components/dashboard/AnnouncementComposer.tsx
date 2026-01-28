@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useState, useEffect, useRef, useMemo } from "react";
+import { useSession } from "next-auth/react";
 import { createPortal } from "react-dom";
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
@@ -258,16 +259,24 @@ interface SurveyQuestion {
   options?: string[];
   required: boolean;
 }
+interface SurveyQuestion {
+  id: string;
+  type: "single" | "multiple" | "text" | "textarea";
+  question: string;
+  options?: string[];
+  required: boolean;
+}
 
-const GRADES = ["1", "2", "3"];
-const CLASS_NUMBERS = Array.from({ length: 7 }, (_, i) => 
-  String(i + 1).padStart(2, "0")
-);
+// Default static fallback for grades and class numbers
+const DEFAULT_GRADES = ["1", "2", "3"];
+const DEFAULT_CLASS_NUMBERS = Array.from({ length: 7 }, (_, i) => String(i + 1).padStart(2, "0"));
 
 const getAllClasses = (): SelectedClass[] => {
   const allClasses: SelectedClass[] = [];
-  GRADES.forEach((grade) => {
-    CLASS_NUMBERS.forEach((classNumber) => {
+  const grades = DEFAULT_GRADES;
+  const classNumbers = DEFAULT_CLASS_NUMBERS;
+  grades.forEach((grade) => {
+    classNumbers.forEach((classNumber) => {
       allClasses.push({ grade, classNumber });
     });
   });
@@ -386,6 +395,7 @@ function AnnouncementComposerForm({
   onEditComplete,
   restrictedAudience,
 }: AnnouncementComposerProps & { onClose: () => void; editId?: string; onEditComplete?: () => void; restrictedAudience?: string }) {
+  const { data: session } = useSession();
   const [title, setTitle] = useState("");
   const [category, setCategory] = useState<string>("notice");
   const [selectedTargets, setSelectedTargets] = useState<string[]>([]);
@@ -394,6 +404,50 @@ function AnnouncementComposerForm({
   const [parentSelectedClasses, setParentSelectedClasses] = useState<SelectedClass[]>([]);
   const [classGroups, setClassGroups] = useState<ClassGroupOption[]>([]);
   const [isLoadingClassGroups, setIsLoadingClassGroups] = useState(false);
+  // Dynamic grades/class numbers loaded from server (per-school)
+  const [availableClassLabels, setAvailableClassLabels] = useState<string[] | null>(null);
+  const [availableGrades, setAvailableGrades] = useState<string[]>(DEFAULT_GRADES);
+  const [availableClassNumbers, setAvailableClassNumbers] = useState<string[]>(DEFAULT_CLASS_NUMBERS);
+
+  // Derived aliases used throughout the component
+  const GRADES = availableGrades;
+  const CLASS_NUMBERS = availableClassNumbers;
+
+  // Load class labels for the current user's school and derive grade/class lists
+  useEffect(() => {
+    let mounted = true;
+    const loadLabels = async () => {
+      try {
+        const res = await fetch("/api/user/class-labels");
+        if (!res.ok) throw new Error("Failed to fetch class labels");
+        const data = await res.json();
+        if (!mounted) return;
+        const labels: string[] = Array.isArray(data.classLabels) ? data.classLabels : [];
+        setAvailableClassLabels(labels);
+
+        const gradesSet = new Set<string>();
+        const numsSet = new Set<string>();
+        for (const lbl of labels) {
+          const parts = String(lbl).split("-");
+          if (parts.length >= 2) {
+            gradesSet.add(parts[0]);
+            numsSet.add(parts[1]);
+          }
+        }
+        const sortedGrades = Array.from(gradesSet).sort((a, b) => Number(a) - Number(b));
+        const sortedNums = Array.from(numsSet).sort((a, b) => Number(a) - Number(b));
+        if (sortedGrades.length > 0) setAvailableGrades(sortedGrades);
+        if (sortedNums.length > 0) setAvailableClassNumbers(sortedNums);
+      } catch (e) {
+        console.error("Failed to load class labels:", e);
+        // keep defaults on error
+      }
+    };
+    loadLabels();
+    return () => {
+      mounted = false;
+    };
+  }, []);
   const [surveyQuestions, setSurveyQuestions] = useState<SurveyQuestion[]>([]);
   const [surveyStartDate, setSurveyStartDate] = useState("");
   const [surveyEndDate, setSurveyEndDate] = useState("");
@@ -581,38 +635,51 @@ function AnnouncementComposerForm({
           }
 
           const announcement = data.announcement;
-          setTitle(announcement.title);
-          setCategory(announcement.category || "notice");
-          const audienceTargets = convertAudienceToTargets(announcement.audience);
-          // 선택된 학급 정보 로드 (있는 경우)
+          // parse selectedClasses / parentSelectedClasses safely
           let loadedSelectedClasses: SelectedClass[] = [];
           if (announcement.selectedClasses) {
             try {
-              const classes = typeof announcement.selectedClasses === 'string' 
-                ? JSON.parse(announcement.selectedClasses) 
+              const classes = typeof announcement.selectedClasses === "string"
+                ? JSON.parse(announcement.selectedClasses)
                 : announcement.selectedClasses;
               loadedSelectedClasses = Array.isArray(classes) ? classes : [];
             } catch (e) {
               loadedSelectedClasses = [];
             }
           }
-          setSelectedClasses(loadedSelectedClasses);
-          // 학부모용 선택된 학급 정보 로드 (있는 경우)
+
           let loadedParentSelectedClasses: SelectedClass[] = [];
           if (announcement.parentSelectedClasses) {
             try {
-              const classes = typeof announcement.parentSelectedClasses === 'string' 
-                ? JSON.parse(announcement.parentSelectedClasses) 
+              const classes = typeof announcement.parentSelectedClasses === "string"
+                ? JSON.parse(announcement.parentSelectedClasses)
                 : announcement.parentSelectedClasses;
               loadedParentSelectedClasses = Array.isArray(classes) ? classes : [];
             } catch (e) {
               loadedParentSelectedClasses = [];
             }
           }
-          setParentSelectedClasses(loadedParentSelectedClasses);
+
+          // basic fields always set
+          setTitle(announcement.title);
+          setCategory(announcement.category || "notice");
+          const audienceTargets = convertAudienceToTargets(announcement.audience);
+
+          // session school check: if announcement is from another school, do not preload class selections
+          const sessionSchool = session?.user?.school || null;
+          if (announcement.school && sessionSchool && announcement.school !== sessionSchool) {
+            console.warn(`Announcement ${announcement.id} school (${announcement.school}) differs from session school (${sessionSchool}). Skipping selectedClasses/parentSelectedClasses preload.`);
+            setSelectedClasses([]);
+            setParentSelectedClasses([]);
+          } else {
+            setSelectedClasses(loadedSelectedClasses);
+            setParentSelectedClasses(loadedParentSelectedClasses);
+          }
+
           if (loadedParentSelectedClasses.length > 0 && !audienceTargets.includes("parents")) {
             audienceTargets.push("parents");
           }
+
           const loadedClassGroupIds = Array.isArray(announcement.selectedClassGroupIds)
             ? announcement.selectedClassGroupIds
             : [];
@@ -764,11 +831,11 @@ function AnnouncementComposerForm({
 
   // restrictedAudience가 "students"일 때 초기값 설정
   useEffect(() => {
+    // For student-board, do NOT auto-select targets.
+    // Leave selectedTargets/selectedClasses empty so the composer starts with no default audience.
     if (restrictedAudience === "students" && !editId) {
-      if (selectedTargets.length === 0) {
-        setSelectedTargets(["students"]);
-      }
-      setSelectedClasses(getAllClasses());
+      setSelectedTargets([]);
+      setSelectedClasses([]);
     }
   }, [restrictedAudience, editId]);
 
@@ -1149,7 +1216,13 @@ function AnnouncementComposerForm({
 
   // 모든 학반이 선택되었는지 확인
   const isAllClassesSelected = (classes: SelectedClass[]): boolean => {
-    const allClasses = getAllClasses();
+    const allClasses = (() => {
+      const grades = availableGrades && availableGrades.length ? availableGrades : DEFAULT_GRADES;
+      const classNumbers = availableClassNumbers && availableClassNumbers.length ? availableClassNumbers : DEFAULT_CLASS_NUMBERS;
+      const arr: SelectedClass[] = [];
+      grades.forEach((g) => classNumbers.forEach((c) => arr.push({ grade: g, classNumber: c })));
+      return arr;
+    })();
     if (classes.length !== allClasses.length) return false;
     return allClasses.every((cls) =>
       classes.some((c) => c.grade === cls.grade && c.classNumber === cls.classNumber)
@@ -1184,7 +1257,13 @@ function AnnouncementComposerForm({
         setSelectedTargets(selectedTargets.filter(t => t !== value));
       } else {
         // 일부 선택되었거나 선택되지 않은 경우 -> 모두 선택
-        setSelectedClasses(getAllClasses());
+        {
+          const grades = availableGrades && availableGrades.length ? availableGrades : DEFAULT_GRADES;
+          const classNumbers = availableClassNumbers && availableClassNumbers.length ? availableClassNumbers : DEFAULT_CLASS_NUMBERS;
+          const all: SelectedClass[] = [];
+          grades.forEach((g) => classNumbers.forEach((c) => all.push({ grade: g, classNumber: c })));
+          setSelectedClasses(all);
+        }
         if (!selectedTargets.includes(value)) {
           setSelectedTargets([...selectedTargets, value]);
         }
@@ -1197,7 +1276,13 @@ function AnnouncementComposerForm({
         setSelectedTargets(selectedTargets.filter(t => t !== value));
       } else {
         // 일부 선택되었거나 선택되지 않은 경우 -> 모두 선택
-        setParentSelectedClasses(getAllClasses());
+        {
+          const grades = availableGrades && availableGrades.length ? availableGrades : DEFAULT_GRADES;
+          const classNumbers = availableClassNumbers && availableClassNumbers.length ? availableClassNumbers : DEFAULT_CLASS_NUMBERS;
+          const all: SelectedClass[] = [];
+          grades.forEach((g) => classNumbers.forEach((c) => all.push({ grade: g, classNumber: c })));
+          setParentSelectedClasses(all);
+        }
         if (!selectedTargets.includes(value)) {
           setSelectedTargets([...selectedTargets, value]);
         }
@@ -1543,20 +1628,19 @@ function AnnouncementComposerForm({
     
     const texts = sortedTargets.map(target => {
       if (target === "students" && selectedClasses.length > 0) {
-        // 모든 학반이 선택된 경우 (21개)
-        if (selectedClasses.length === 21) {
-          return `모든 재학생 (${selectedClasses.length}개 학급)`;
+        // 모든 학반이 선택된 경우 -> 단순히 '모든 재학생'으로 표시 (학급 수 미표시)
+        if (isAllClassesSelected(selectedClasses)) {
+          return `모든 재학생`;
         }
         // 일부 학반만 선택된 경우
-        return `재학생 (${selectedClasses.length}개 학급)`;
+        return `재학생 (${selectedClasses.filter(c => (availableGrades && availableGrades.length ? availableGrades : DEFAULT_GRADES).includes(c.grade) && (availableClassNumbers && availableClassNumbers.length ? availableClassNumbers : DEFAULT_CLASS_NUMBERS).includes(c.classNumber)).length}개 학급)`;
       }
       if (target === "parents" && parentSelectedClasses.length > 0) {
-        // 모든 학반이 선택된 경우 (21개)
-        if (parentSelectedClasses.length === 21) {
-          return `모든 학부모 (${parentSelectedClasses.length}개 학급)`;
+        if (isAllClassesSelected(parentSelectedClasses)) {
+          return `모든 학부모`;
         }
         // 일부 학반만 선택된 경우
-        return `학부모 (${parentSelectedClasses.length}개 학급)`;
+        return `학부모 (${parentSelectedClasses.filter(c => (availableGrades && availableGrades.length ? availableGrades : DEFAULT_GRADES).includes(c.grade) && (availableClassNumbers && availableClassNumbers.length ? availableClassNumbers : DEFAULT_CLASS_NUMBERS).includes(c.classNumber)).length}개 학급)`;
       }
       // 학급이 선택되지 않은 경우 (기본 라벨 사용)
       const option = targetOptions.find(opt => opt.value === target);
@@ -2414,14 +2498,14 @@ function AnnouncementComposerForm({
                               className="h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
                             />
                             <span className="text-base font-medium text-gray-900">{option.label}</span>
-                            {option.value === "students" && selectedTargets.includes("students") && selectedClasses.length > 0 && (
+                            {option.value === "students" && selectedTargets.includes("students") && selectedClasses.length > 0 && !isAllClassesSelected(selectedClasses) && (
                               <span className="text-sm text-gray-500 px-3 py-1 bg-gray-100 rounded-full">
-                                {selectedClasses.length}개 학급 선택됨
+                                {selectedClasses.filter(c => (availableGrades && availableGrades.length ? availableGrades : DEFAULT_GRADES).includes(c.grade) && (availableClassNumbers && availableClassNumbers.length ? availableClassNumbers : DEFAULT_CLASS_NUMBERS).includes(c.classNumber)).length}개 학급 선택됨
                               </span>
                             )}
-                            {option.value === "parents" && selectedTargets.includes("parents") && parentSelectedClasses.length > 0 && (
+                            {option.value === "parents" && selectedTargets.includes("parents") && parentSelectedClasses.length > 0 && !isAllClassesSelected(parentSelectedClasses) && (
                               <span className="text-sm text-gray-500 px-3 py-1 bg-gray-100 rounded-full">
-                                {parentSelectedClasses.length}개 학급 선택됨
+                                {parentSelectedClasses.filter(c => (availableGrades && availableGrades.length ? availableGrades : DEFAULT_GRADES).includes(c.grade) && (availableClassNumbers && availableClassNumbers.length ? availableClassNumbers : DEFAULT_CLASS_NUMBERS).includes(c.classNumber)).length}개 학급 선택됨
                               </span>
                             )}
                           </label>
