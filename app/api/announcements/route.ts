@@ -320,6 +320,12 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "인증이 필요합니다." }, { status: 401 });
     }
 
+    // Defensive: require that the session includes a school. If not, return empty list to avoid leaking cross-school data.
+    if (!session.user.school) {
+      console.warn(`User ${session.user.id} requested announcements but has no school set; returning empty list.`);
+      return NextResponse.json({ announcements: [] });
+    }
+
     const { searchParams } = new URL(request.url);
     const audience = searchParams.get("audience");
     const courseId = searchParams.get("courseId");
@@ -679,6 +685,7 @@ export async function GET(request: NextRequest) {
         editableBy: a.editableBy || [],
         lastEditedBy: a.lastEditedBy || null,
         lastEditedByName: a.lastEditedByName || null,
+        school: a.school || null,
       })),
     });
   } catch (error) {

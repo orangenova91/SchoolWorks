@@ -9,16 +9,21 @@ export async function GET() {
   try {
     const session = await getServerSession(authOptions);
 
-    if (!session) {
-      return NextResponse.json(
-        { error: "인증이 필요합니다." },
-        { status: 401 }
-      );
+    if (!session || !session.user) {
+      return NextResponse.json({ error: "인증이 필요합니다." }, { status: 401 });
     }
 
-    // 학생 프로필에서 고유한 classLabel 값들 가져오기
+    // 방어 로직: 세션에 school 정보가 없으면 빈 배열 반환
+    const school = session.user.school || null;
+    if (!school) {
+      console.warn("User session has no school set; returning empty classLabels");
+      return NextResponse.json({ classLabels: [] });
+    }
+
+    // 학생 프로필에서 같은 학교의 고유한 classLabel 값들만 가져오기
     const studentProfiles = await prisma.studentProfile.findMany({
       where: {
+        school,
         classLabel: {
           not: null,
         },
