@@ -76,6 +76,23 @@ export async function PATCH(
     const updateData: any = {};
     if (body.name !== undefined) updateData.name = body.name || null;
     if (body.role !== undefined) updateData.role = body.role || null;
+    if (body.school !== undefined) updateData.school = body.school || null;
+
+    // 이메일 업데이트: 형식 검사 및 중복 확인 (자기 자신은 허용)
+    if (body.email !== undefined) {
+      const emailRaw = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
+      if (!emailRaw) {
+        return NextResponse.json({ error: "이메일은 비어 있을 수 없습니다." }, { status: 400 });
+      }
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailRaw)) {
+        return NextResponse.json({ error: "유효하지 않은 이메일 형식입니다." }, { status: 400 });
+      }
+      const other = await prisma.user.findUnique({ where: { email: emailRaw } });
+      if (other && other.id !== userId) {
+        return NextResponse.json({ error: "이미 사용 중인 이메일입니다." }, { status: 400 });
+      }
+      updateData.email = emailRaw;
+    }
 
     await prisma.user.update({
       where: { id: userId },

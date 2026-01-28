@@ -116,7 +116,7 @@ export function EditUserModal({ user, isOpen, onClose, onSuccess, adminSchool }:
       // 편집 모드에서는 email과 school은 변경하지 않음
       const requestBody = isCreateMode
         ? formData
-        : {
+      : {
             name: formData.name,
             role: formData.role,
             studentId: formData.studentId,
@@ -124,7 +124,8 @@ export function EditUserModal({ user, isOpen, onClose, onSuccess, adminSchool }:
             className: formData.className,
             childEmails: formData.childEmails, // 학부모의 자녀 이메일
             roleLabel: formData.roleLabel, // 교사의 직책
-            // email과 school은 편집 모드에서 제외 (변경 불가)
+            email: formData.email, // allow email update
+            school: formData.school, // include school if editable in future
           };
 
       const response = await fetch(endpoint, {
@@ -262,18 +263,9 @@ export function EditUserModal({ user, isOpen, onClose, onSuccess, adminSchool }:
                   type="email"
                   value={formData.email}
                   onChange={(e) => handleChange("email", e.target.value)}
-                  required={isCreateMode}
-                  className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 ${
-                    isCreateMode ? "bg-white" : "bg-gray-100"
-                  }`}
-                  disabled={!isCreateMode}
-                  readOnly={!isCreateMode}
+                  required={true}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
                 />
-                {!isCreateMode && (
-                  <p className="text-xs text-gray-500 mt-1">
-                    이메일은 편집할 수 없습니다.
-                  </p>
-                )}
               </div>
 
               {isCreateMode && (

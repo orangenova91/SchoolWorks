@@ -45,8 +45,8 @@ const formSchema = z.object({
   classroom: z
     .string()
     .trim()
-    .min(1, "강의실을 입력하세요")
-    .max(50, "강의실은 50자 이하여야 합니다"),
+    .max(50, "강의실은 50자 이하여야 합니다")
+    .optional(),
   description: z
     .string()
     .trim()
@@ -121,9 +121,9 @@ export default function CreateClassForm({
     defaultValues: {
       academicYear: `${currentYear}`,
       semester: "",
-      subjectGroup: "",
-      subjectArea: "",
-      careerTrack: "",
+      subjectGroup: "-",
+      subjectArea: "-",
+      careerTrack: "-",
       subject: "",
       grade: "",
       classroom: "",
@@ -136,6 +136,7 @@ export default function CreateClassForm({
   const writtenTestRatio = watch("writtenTestRatio") ?? 60;
   const performanceTestRatio = watch("performanceTestRatio") ?? 40;
   const selectedSubject = watch("subject");
+  const [useRevisedCurriculum, setUseRevisedCurriculum] = useState<boolean>(false);
 
   // 과목명 목록 가져오기
   useEffect(() => {
@@ -164,9 +165,10 @@ export default function CreateClassForm({
     fetchSubjects();
   }, []);
 
-  // 과목명 선택 시 해당 과목의 정보 가져오기
+  // 과목명 선택 시 해당 과목의 정보 가져오기 (단, 2022 개정 교육과정 선택 시에만 동작)
   useEffect(() => {
     const fetchSubjectDetails = async () => {
+      if (!useRevisedCurriculum) return;
       if (!selectedSubject || selectedSubject === "") {
         return;
       }
@@ -194,7 +196,7 @@ export default function CreateClassForm({
     };
 
     fetchSubjectDetails();
-  }, [selectedSubject, setValue]);
+  }, [selectedSubject, setValue, useRevisedCurriculum]);
 
   const handleWrittenTestChange = (value: number) => {
     setValue("writtenTestRatio", value, { shouldValidate: true });
@@ -238,9 +240,9 @@ export default function CreateClassForm({
       reset({
         academicYear: "",
         semester: "",
-        subjectGroup: "",
-        subjectArea: "",
-        careerTrack: "",
+        subjectGroup: "-",
+        subjectArea: "-",
+        careerTrack: "-",
         subject: "",
         grade: "",
         classroom: "",
@@ -315,13 +317,55 @@ export default function CreateClassForm({
       </div>
 
       <div className="grid gap-6 sm:grid-cols-2">
-        <Select
-          {...register("subject")}
-          label="과목명"
-          options={subjectOptions}
-          error={errors.subject?.message}
-          aria-required="true"
-        />
+        <div>
+          <div className="flex items-center justify-between">
+            <label className="block text-sm font-medium text-gray-700">
+              과목명 <span className="text-red-500">*</span>
+            </label>
+            <label className="inline-flex items-center text-sm text-gray-600">
+              <input
+                type="checkbox"
+                className="mr-2"
+                checked={useRevisedCurriculum}
+                onChange={(e) => {
+                  const checked = e.target.checked;
+                  setUseRevisedCurriculum(checked);
+                  if (checked) {
+                    // enable selection mode: clear subject to force selection
+                    setValue("subject", "", { shouldValidate: false });
+                    // set placeholder markers
+                    setValue("careerTrack", "-", { shouldValidate: false });
+                    setValue("subjectGroup", "-", { shouldValidate: false });
+                    setValue("subjectArea", "-", { shouldValidate: false });
+                  } else {
+                    // free-text mode: set meta fields to "-" and keep subject as is (user may type)
+                    setValue("careerTrack", "-", { shouldValidate: false });
+                    setValue("subjectGroup", "-", { shouldValidate: false });
+                    setValue("subjectArea", "-", { shouldValidate: false });
+                  }
+                }}
+              />
+              2022 개정 교육과정
+            </label>
+          </div>
+          <div className="mt-2">
+            {useRevisedCurriculum ? (
+              <Select
+                {...register("subject")}
+                options={subjectOptions}
+                error={errors.subject?.message}
+                aria-required="true"
+              />
+            ) : (
+              <Input
+                {...register("subject")}
+                placeholder="과목명을 직접 입력하세요"
+                error={errors.subject?.message}
+                aria-required="true"
+              />
+            )}
+          </div>
+        </div>
         <Input
           value={instructorName}
           label="강사명"
@@ -337,7 +381,6 @@ export default function CreateClassForm({
           label="강의실"
           placeholder="예: 본관 3층 305호"
           error={errors.classroom?.message}
-          aria-required="true"
         />
         <Select
           {...register("grade")}
@@ -451,12 +494,13 @@ export default function CreateClassForm({
           type="button"
           variant="outline"
           onClick={() => {
+            setUseRevisedCurriculum(false);
             reset({
               academicYear: "",
               semester: "",
-              subjectGroup: "",
-              subjectArea: "",
-              careerTrack: "",
+              subjectGroup: "-",
+              subjectArea: "-",
+              careerTrack: "-",
               subject: "",
               grade: "",
               classroom: "",

@@ -124,6 +124,7 @@ export default function EditCourseForm({
   });
 
   const selectedSubject = watch("subject");
+  const [useRevisedCurriculum, setUseRevisedCurriculum] = useState<boolean>(false);
 
   // initialData가 변경될 때 폼 값 업데이트
   useEffect(() => {
@@ -189,9 +190,10 @@ export default function EditCourseForm({
     fetchSubjects();
   }, [initialData.subject]);
 
-  // 과목명 선택 시 해당 과목의 정보 가져오기
+  // 과목명 선택 시 해당 과목의 정보 가져오기 (2022 개정 교육과정 모드일 때만)
   useEffect(() => {
     const fetchSubjectDetails = async () => {
+      if (!useRevisedCurriculum) return;
       if (!selectedSubject || selectedSubject === "") {
         return;
       }
@@ -219,7 +221,7 @@ export default function EditCourseForm({
     };
 
     fetchSubjectDetails();
-  }, [selectedSubject, setValue]);
+  }, [selectedSubject, setValue, useRevisedCurriculum]);
 
   const onSubmit = async (values: FormValues) => {
     try {
@@ -310,14 +312,54 @@ export default function EditCourseForm({
       </div>
 
       <div className="grid gap-6 sm:grid-cols-2">
-        <Select
-          {...register("subject")}
-          label="과목명"
-          options={subjectOptions}
-          error={errors.subject?.message}
-          value={watch("subject") || initialData.subject || ""}
-          aria-required="true"
-        />
+        <div>
+          <div className="flex items-center justify-between">
+            <label className="block text-sm font-medium text-gray-700">
+              과목명 <span className="text-red-500">*</span>
+            </label>
+            <label className="inline-flex items-center text-sm text-gray-600">
+              <input
+                type="checkbox"
+                className="mr-2"
+                checked={useRevisedCurriculum}
+                onChange={(e) => {
+                  const checked = e.target.checked;
+                  setUseRevisedCurriculum(checked);
+                  if (checked) {
+                    // enable selection mode: clear subject to encourage selecting from list
+                    setValue("subject", "", { shouldValidate: false });
+                    setValue("careerTrack", "-", { shouldValidate: false });
+                    setValue("subjectGroup", "-", { shouldValidate: false });
+                    setValue("subjectArea", "-", { shouldValidate: false });
+                  } else {
+                    // free-text mode: keep current subject value but clear meta to placeholder
+                    setValue("careerTrack", "-", { shouldValidate: false });
+                    setValue("subjectGroup", "-", { shouldValidate: false });
+                    setValue("subjectArea", "-", { shouldValidate: false });
+                  }
+                }}
+              />
+              2022 개정 교육과정
+            </label>
+          </div>
+          <div className="mt-2">
+            {useRevisedCurriculum ? (
+              <Select
+                {...register("subject")}
+                options={subjectOptions}
+                error={errors.subject?.message}
+                aria-required="true"
+              />
+            ) : (
+              <Input
+                {...register("subject")}
+                placeholder="과목명을 직접 입력하세요"
+                error={errors.subject?.message}
+                aria-required="true"
+              />
+            )}
+          </div>
+        </div>
         <Input
           {...register("instructor")}
           label="강사명"
@@ -332,7 +374,7 @@ export default function EditCourseForm({
           label="강의실"
           placeholder="예: 본관 3층 305호"
           error={errors.classroom?.message}
-          aria-required="true"
+          
         />
         <Select
           {...register("grade")}

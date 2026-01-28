@@ -74,3 +74,75 @@ export async function GET(
     );
   }
 }
+
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: { courseId: string } }
+) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session) {
+      return NextResponse.json({ error: "인증이 필요합니다." }, { status: 401 });
+    }
+
+    const courseId = params.courseId;
+    const body = await request.json().catch(() => ({}));
+
+    const {
+      subject,
+      grade,
+      classroom,
+      careerTrack,
+      subjectGroup,
+      subjectArea,
+      instructor,
+      description,
+    } = body as {
+      subject?: string;
+      grade?: string;
+      classroom?: string | null;
+      careerTrack?: string;
+      subjectGroup?: string;
+      subjectArea?: string;
+      instructor?: string;
+      description?: string;
+    };
+
+    if (!subject || typeof subject !== "string" || subject.trim() === "") {
+      return NextResponse.json({ error: "과목명이 필요합니다." }, { status: 400 });
+    }
+
+    const existing = await prisma.course.findUnique({
+      where: { id: courseId },
+      select: { teacherId: true },
+    });
+    if (!existing) {
+      return NextResponse.json({ error: "수업을 찾을 수 없습니다." }, { status: 404 });
+    }
+
+    const isTeacherOwner = session.user.role === "teacher" && session.user.id === existing.teacherId;
+    const isAdmin = session.user.role === "admin";
+    if (!isTeacherOwner && !isAdmin) {
+      return NextResponse.json({ error: "수정 권한이 없습니다." }, { status: 403 });
+    }
+
+    const updated = await prisma.course.update({
+      where: { id: courseId },
+      data: {
+        subject: subject.trim(),
+        grade: grade ?? undefined,
+        classroom: typeof classroom === "string" && classroom.trim() !== "" ? classroom.trim() : null,
+        careerTrack: careerTrack ?? undefined,
+        subjectGroup: subjectGroup ?? undefined,
+        subjectArea: subjectArea ?? undefined,
+        instructor: instructor ?? undefined,
+        description: description ?? undefined,
+      },
+    });
+
+    return NextResponse.json({ course: updated });
+  } catch (error) {
+    console.error("Failed to update course:", error);
+    return NextResponse.json({ error: "수업 정보 수정 중 오류가 발생했습니다." }, { status: 500 });
+  }
+}
