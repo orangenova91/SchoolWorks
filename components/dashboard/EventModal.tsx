@@ -19,15 +19,12 @@ const eventFormSchema = z.object({
   title: z.string().trim().min(1, "제목을 입력하세요").max(200, "제목은 200자 이하여야 합니다"),
   description: z.string().trim().max(1000, "설명은 1000자 이하여야 합니다").optional(),
   startDate: z.string().min(1, "시작 날짜를 입력하세요"),
-  startTime: z.string().optional(),
   endDate: z.string().optional(),
-  endTime: z.string().optional(),
   eventType: z.preprocess(
     (val) => val === "" ? undefined : val,
     z.enum(["자율*자치", "동아리", "진로", "봉사", "학사행사", "개인 일정", "기타 행사"]).optional()
   ),
   scope: z.enum(["school", "personal"]).default("school"),
-  allDay: z.boolean().default(true),
   department: z.string().trim().max(100, "담당 부서는 100자 이하여야 합니다").optional(),
   responsiblePerson: z.string().trim().max(100, "담당자는 100자 이하여야 합니다").optional(),
   scheduleArea: z.enum(["창의적 체험활동", "교과", "기타", "개인일정(나만 보기)"], {
@@ -94,12 +91,9 @@ export default function EventModal({
       title: "",
       description: "",
       startDate: "",
-      startTime: "",
       endDate: "",
-      endTime: "",
       eventType: "" as any,
       scope: "school" as any,
-      allDay: true,
       department: "",
       responsiblePerson: "",
       scheduleArea: "" as any,
@@ -107,8 +101,8 @@ export default function EventModal({
       periods: [] as PeriodValue[],
     },
   });
-
-  const allDay = watch("allDay");
+  // no allDay field anymore; always show time inputs
+  const allDay = false;
   const scope = watch("scope");
   const scheduleArea = watch("scheduleArea");
   const hasScheduleArea = Boolean(scheduleArea);
@@ -147,12 +141,9 @@ export default function EventModal({
         title: event.title,
         description: event.description || "",
         startDate: formatLocalDate(startDate),
-        startTime: event.allDay ? "" : startDate.toTimeString().slice(0, 5),
         endDate: endDate ? formatLocalDate(endDate) : "",
-        endTime: endDate && !event.allDay ? endDate.toTimeString().slice(0, 5) : "",
         eventType: event.extendedProps.eventType as any,
         scope: event.extendedProps.scope as any,
-        allDay: event.allDay,
         department: event.extendedProps.department || "",
         responsiblePerson: event.extendedProps.responsiblePerson || "",
         scheduleArea: event.extendedProps.scheduleArea as any,
@@ -181,12 +172,9 @@ export default function EventModal({
         title: "",
         description: "",
         startDate: startDateStr,
-        startTime: "",
         endDate: endDateStr,
-        endTime: "",
         eventType: "" as any,
         scope: defaultScope as any,
-        allDay: true,
         department: "",
         responsiblePerson: "",
         scheduleArea: defaultScheduleArea as any,
@@ -196,13 +184,7 @@ export default function EventModal({
     }
   }, [event, selectedDate, selectedEndDate, reset, allowedScheduleAreas]);
 
-  // 종일 여부 변경 시 시간 필드 초기화
-  useEffect(() => {
-    if (allDay) {
-      setValue("startTime", "");
-      setValue("endTime", "");
-    }
-  }, [allDay, setValue]);
+  // no allDay effect
 
   // 일정 구분에 따라 eventType 자동 설정
   useEffect(() => {
@@ -222,17 +204,10 @@ export default function EventModal({
     }
     setIsSubmitting(true);
     try {
-      // 날짜/시간 결합
-      const startDateTime = allDay
-        ? new Date(values.startDate + "T00:00:00").toISOString()
-        : new Date(values.startDate + "T" + (values.startTime || "00:00") + ":00").toISOString();
-
+      // 날짜/시간 결합 (종일 필드 제거: 시간이 없으면 기본값 사용)
+      const startDateTime = new Date(values.startDate + "T00:00:00").toISOString();
       const endDateTime = values.endDate
-        ? allDay
-          ? new Date(values.endDate + "T23:59:59").toISOString()
-          : new Date(
-              values.endDate + "T" + (values.endTime || "23:59") + ":59"
-            ).toISOString()
+        ? new Date(values.endDate + "T23:59:59").toISOString()
         : null;
 
       const payload = {
@@ -242,7 +217,6 @@ export default function EventModal({
         endDate: endDateTime ?? undefined,
         eventType: values.eventType || undefined,
         scope: values.scheduleArea === "개인일정(나만 보기)" ? "personal" : values.scope,
-        allDay,
         department: values.department || undefined,
         responsiblePerson: values.responsiblePerson || undefined,
         scheduleArea: values.scheduleArea || undefined,
@@ -469,17 +443,7 @@ export default function EventModal({
             
           </div>
 
-          <div>
-            <label className="flex items-center space-x-2 mb-2">
-              <input
-                type="checkbox"
-                {...register("allDay")}
-                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                disabled={isReadOnlyEvent}
-              />
-              <span className="text-sm font-medium text-gray-700">종일</span>
-            </label>
-          </div>
+          {/* 종일 필드 제거 */}
 
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -491,16 +455,6 @@ export default function EventModal({
                 required
                 disabled={isReadOnlyEvent}
               />
-              {!allDay && (
-                <Input
-                  {...register("startTime")}
-                  label="시작 시간"
-                  type="time"
-                  error={errors.startTime?.message}
-                  className="mt-2"
-                  disabled={isReadOnlyEvent}
-                />
-              )}
             </div>
             <div>
               <Input
@@ -510,16 +464,6 @@ export default function EventModal({
                 error={errors.endDate?.message}
                 disabled={isReadOnlyEvent}
               />
-              {!allDay && (
-                <Input
-                  {...register("endTime")}
-                  label="종료 시간"
-                  type="time"
-                  error={errors.endTime?.message}
-                  className="mt-2"
-                  disabled={isReadOnlyEvent}
-                />
-              )}
             </div>
           </div>
 

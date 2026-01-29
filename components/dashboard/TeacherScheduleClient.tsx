@@ -4,6 +4,7 @@ import { useMemo, useState, useCallback, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import CalendarView, { CalendarEvent, CalendarViewHandle } from "./CalendarView";
 import { Button } from "@/components/ui/Button";
+import BulkUploadButton from "@/components/dashboard/BulkUploadButton";
 
 type TeacherScheduleClientProps = {
   initialEvents: CalendarEvent[];
@@ -130,9 +131,17 @@ export default function TeacherScheduleClient({
             <p className="mt-2 text-sm text-gray-600">{description}</p>
           </div>
           {showAddButton && (
-            <Button onClick={handleAddEvent}>
-              일정 추가
-            </Button>
+            <div className="flex flex-col items-start gap-2">
+              <div className="flex w-full justify-end">
+                <Button onClick={handleAddEvent}>
+                  일정 추가
+                </Button>
+              </div>
+            
+              <div>
+                <BulkUploadButton />
+              </div>
+          </div>
           )}
         </div>
       </header>
