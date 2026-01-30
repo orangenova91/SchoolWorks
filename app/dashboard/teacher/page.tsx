@@ -423,6 +423,8 @@ export default async function TeacherDashboardPage() {
         eventType: event.eventType,
         department: event.department ?? undefined,
         description: event.description ?? "",
+        gradeLevels: (event as any).gradeLevels ?? undefined,
+        periods: (event as any).periods ?? undefined,
         startDateISO: event.startDate.toISOString(),
         endDateISO: event.endDate ? event.endDate.toISOString() : null,
         scope: event.scope,

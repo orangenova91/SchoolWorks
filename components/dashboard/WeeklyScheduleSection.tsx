@@ -1,6 +1,7 @@
-"use client";
+ "use client";
 
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 
 type WeeklyScheduleEvent = {
@@ -48,9 +49,10 @@ export default function WeeklyScheduleSection({
   moreHref,
   moreLabel = "학사일정 바로가기 →",
 }: WeeklyScheduleSectionProps) {
-  const [selectedEvent, setSelectedEvent] = useState<WeeklyScheduleEvent | null>(
-    null
-  );
+  // removed click-to-toggle selectedEvent; using hover tooltip only
+  const [hoverTooltip, setHoverTooltip] = useState<
+    { event: WeeklyScheduleEvent; rect: DOMRect } | null
+  >(null);
 
   // isoDate로부터 요일을 계산하는 함수 (0=일요일, 6=토요일)
   const getDayOfWeek = (isoDate: string): number => {
@@ -156,24 +158,29 @@ export default function WeeklyScheduleSection({
                   <p className="text-xs text-gray-400">등록된 일정이 없습니다.</p>
                 ) : (
                   day.events.map((event) => {
-                    const isSelected = selectedEvent?.id === event.id;
                     return (
-                      <button
+                      <div
                         key={event.id}
-                        type="button"
-                        onClick={() =>
-                          setSelectedEvent(isSelected ? null : event)
-                        }
-                        className={`w-full text-left rounded-lg border py-2 px-3 shadow-sm transition focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
-                          isSelected
-                            ? "border-blue-200 bg-white"
-                            : "border-gray-100 bg-white/50 hover:bg-white hover:border-blue-200"
-                        }`}
+                        className="relative"
+                        onMouseEnter={(e) => {
+                          const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                          setHoverTooltip({ event, rect });
+                        }}
+                        onMouseMove={(e) => {
+                          const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                          setHoverTooltip({ event, rect });
+                        }}
+                        onMouseLeave={() => setHoverTooltip(null)}
                       >
-                        <p className="text-sm font-semibold text-gray-900 line-clamp-2">
-                          {event.title}
-                        </p>
-                      </button>
+                        <button
+                          type="button"
+                          className="w-full text-left rounded-lg border py-2 px-3 shadow-sm transition focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 border-gray-100 bg-white/50 hover:bg-white hover:border-blue-200"
+                        >
+                          <p className="text-sm font-semibold text-gray-900 line-clamp-2">
+                            {event.title}
+                          </p>
+                        </button>
+                      </div>
                     );
                   })
                 )}
@@ -183,72 +190,34 @@ export default function WeeklyScheduleSection({
         </div>
       </div>
 
-      {selectedEvent && (
-        <div className="mt-6 rounded-xl border border-blue-100 bg-blue-50/30 p-6">
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-semibold text-blue-700">
-                  {selectedEvent.dateLabel}
-                </p>
-                <h4 className="text-xl font-bold text-gray-900 mt-1">
-                  {selectedEvent.title}
-                </h4>
+      {/* click-to-open detailed panel removed; hover tooltip used instead */}
+      {hoverTooltip &&
+        typeof window !== "undefined" &&
+        createPortal(
+          <div
+            className="hidden md:block pointer-events-none z-50"
+            style={{
+              position: "absolute",
+              left: `${hoverTooltip.rect.left + hoverTooltip.rect.width / 2}px`,
+              top: `${hoverTooltip.rect.top - 8}px`,
+              transform: "translate(-50%, -100%)",
+            }}
+          >
+            <div className="bg-white border border-gray-200 rounded-lg shadow-lg px-4 py-3 text-sm text-gray-800 max-w-xs">
+              <div className="font-medium mb-1">{hoverTooltip.event.title}</div>
+              
+              <div className="text-xs text-gray-600 space-y-1">
+                <div><span className="font-medium text-gray-700">구분: </span>{hoverTooltip.event.eventType ?? "교과"}</div>
+                <div><span className="font-medium text-gray-700">학년: </span>{(hoverTooltip.event as any).gradeLevels?.join(", ") ?? "-"}</div>
+                <div><span className="font-medium text-gray-700">교시: </span>{(hoverTooltip.event as any).periods?.join(", ") ?? "-"}</div>
+                <div><span className="font-medium text-gray-700">부서: </span>{hoverTooltip.event.department ?? "-"}</div>
+                <div><span className="font-medium text-gray-700">담당자: </span>{hoverTooltip.event.responsiblePerson ?? "-"}</div>
               </div>
-              <span className="inline-flex items-center rounded-full bg-white px-3 py-1 text-xs font-medium text-blue-700 border border-blue-200">
-                {selectedEvent.eventType || "교과"}
-              </span>
             </div>
-
-            <dl className="space-y-3 text-sm text-gray-700">
-              <div className="flex items-start gap-4">
-                <dt className="w-20 text-gray-500 font-medium">시간</dt>
-                <dd className="flex-1 text-gray-900">
-                  {formatDateTime(selectedEvent.startDateISO) ??
-                    selectedEvent.displayTime}
-                  {selectedEvent.endDateISO &&
-                    ` ~ ${formatDateTime(selectedEvent.endDateISO)}`}
-                </dd>
-              </div>
-              <div className="flex items-start gap-4">
-                <dt className="w-20 text-gray-500 font-medium">범위</dt>
-                <dd className="flex-1 text-gray-900">{selectedEvent.scope}</dd>
-              </div>
-              {selectedEvent.department && (
-                <div className="flex items-start gap-4">
-                  <dt className="w-20 text-gray-500 font-medium">부서</dt>
-                  <dd className="flex-1 text-gray-900">
-                    {selectedEvent.department}
-                  </dd>
-                </div>
-              )}
-              {selectedEvent.responsiblePerson && (
-                <div className="flex items-start gap-4">
-                  <dt className="w-20 text-gray-500 font-medium">담당자</dt>
-                  <dd className="flex-1 text-gray-900">
-                    {selectedEvent.responsiblePerson}
-                  </dd>
-                </div>
-              )}
-            </dl>
-
-            {selectedEvent.description ? (
-              <div className="border-t border-blue-100 pt-4">
-                <h5 className="text-sm font-semibold text-gray-800 mb-2">
-                  상세 설명
-                </h5>
-                <p className="text-sm text-gray-700 whitespace-pre-line">
-                  {selectedEvent.description}
-                </p>
-              </div>
-            ) : (
-              <p className="text-sm text-gray-500 border-t border-blue-100 pt-4">
-                상세 설명이 없습니다.
-              </p>
-            )}
-          </div>
-        </div>
-      )}
+            <div className="w-3 h-3 bg-white border-l border-t border-gray-200 rotate-45 mt-1" style={{ margin: "0 auto" }} />
+          </div>,
+          document.body
+        )}
     </section>
   );
 }

@@ -13,6 +13,7 @@ import {
   Home,
   Calendar,
   BookOpen,
+  BookOpenCheck,
   FileText,
   Folder,
   BarChart,
@@ -149,11 +150,18 @@ export default async function DashboardLayout({
             iconName: "BookOpen"
           },
           {
+            href: "/dashboard/teacher/after-school",
+            label: "방과후 수업",
+            icon: <BookOpenCheck className="w-5 h-5" />,
+            iconName: "BookOpenCheck"
+          },
+          {
             href: "/dashboard/teacher/class-management",
             label: t.sidebar.teacher.classManagement,
             icon: <Users className="w-5 h-5" />,
             iconName: "Users"
           },
+
           {
             href: "/dashboard/teacher/student-progress",
             label: t.sidebar.teacher.studentProgress,

@@ -12,6 +12,7 @@ import { useToastContext } from "@/components/providers/ToastProvider";
 import Link from "next/link";
 import { getTranslations } from "@/lib/i18n";
 import { AnimatedBackground } from "@/components/ui/AnimatedBackground";
+import { Eye, EyeOff } from "lucide-react";
 
 const t = getTranslations("ko");
 const currentYear = new Date().getFullYear();
@@ -28,6 +29,7 @@ export default function LoginPage() {
   } = useForm<LoginInput>({
     resolver: zodResolver(loginSchema),
   });
+  const [showPassword, setShowPassword] = useState(false);
 
   const onSubmit = async (data: LoginInput) => {
     setIsLoading(true);
@@ -109,15 +111,29 @@ export default function LoginPage() {
                 aria-required="true"
                 className="transition-all duration-200"
               />
-              <Input
-                {...register("password")}
-                type="password"
-                label={t.auth.password}
-                error={errors.password?.message}
-                autoComplete="current-password"
-                aria-required="true"
-                className="transition-all duration-200"
-              />
+              <div className="relative">
+                <Input
+                  {...register("password")}
+                  type={showPassword ? "text" : "password"}
+                  label={t.auth.password}
+                  error={errors.password?.message}
+                  autoComplete="current-password"
+                  aria-required="true"
+                  className="transition-all duration-200 pr-10"
+                />
+                <button
+                  type="button"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  onClick={() => setShowPassword((s) => !s)}
+                  className="absolute right-2 top-[calc(50%+0.75rem)] -translate-y-1/2 text-gray-300 hover:text-gray-500 focus:outline-none"
+                >
+                  {showPassword ? (
+                    <EyeOff className="h-5 w-5" aria-hidden="true" />
+                  ) : (
+                    <Eye className="h-5 w-5" aria-hidden="true" />
+                  )}
+                </button>
+              </div>
             </div>
 
             <div className="flex items-center justify-end">

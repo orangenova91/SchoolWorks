@@ -75,6 +75,7 @@ const CalendarView = forwardRef<CalendarViewHandle, CalendarViewProps>(
   const calendarContainerRef = useRef<HTMLDivElement | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [currentViewDate, setCurrentViewDate] = useState<Date>(new Date());
 
     const openEventModal = useCallback((eventData: CalendarEvent) => {
       // 새 일정 추가인 경우 (id가 없거나 빈 문자열)
@@ -148,6 +149,10 @@ const CalendarView = forwardRef<CalendarViewHandle, CalendarViewProps>(
         titleEl.append(span);
       });
     });
+    // update current view date for header controls
+    if (dateInfo.view && dateInfo.view.currentStart) {
+      setCurrentViewDate(dateInfo.view.currentStart);
+    }
   }, [refreshEvents, onViewChange]);
 
     // 일정 클릭
@@ -254,7 +259,9 @@ const CalendarView = forwardRef<CalendarViewHandle, CalendarViewProps>(
   }, [events, onEventsChange]);
 
   const getSemesterStartDate = (type: "first" | "second", baseDate: Date) => {
-    const year = baseDate.getFullYear();
+    // Use the current year so semester buttons always jump to the academic semester
+    // for the current year: 1학기 -> Mar 1 ~ Jul, 2학기 -> Aug 1 ~ next Feb
+    const year = new Date().getFullYear();
 
     if (type === "first") {
       // 1학기: 3~7월 (항상 현재 연도 기준)
@@ -290,7 +297,13 @@ const CalendarView = forwardRef<CalendarViewHandle, CalendarViewProps>(
             plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin, multiMonthPlugin]}
             initialView="dayGridMonth"
             headerToolbar={{
-              left: "prev,next today",
+              left: (() => {
+                const today = new Date();
+                const isSameMonth =
+                  currentViewDate.getFullYear() === today.getFullYear() &&
+                  currentViewDate.getMonth() === today.getMonth();
+                return isSameMonth ? "prevNav,nextNav" : "prevNav,nextNav today";
+              })(),
               center: "title",
               right: "dayGridMonth,semester1,semester2",
             }}
@@ -309,13 +322,59 @@ const CalendarView = forwardRef<CalendarViewHandle, CalendarViewProps>(
               },
             }}
             customButtons={{
+              prevNav: {
+                text: "<",
+                click: () => {
+                  if (!calendarRef.current) return;
+                  const calendarApi = calendarRef.current.getApi();
+                  const viewType = calendarApi.view.type;
+                  if (viewType === "semester1" || viewType === "semester2") {
+                    const sem = viewType === "semester1" ? "first" : "second";
+                    const start = getSemesterStartDate(sem as "first" | "second", calendarApi.getDate());
+                    start.setFullYear(start.getFullYear() - 1);
+                    calendarApi.changeView(viewType);
+                    calendarApi.gotoDate(start);
+                  } else {
+                    calendarApi.prev();
+                  }
+                },
+              },
+              nextNav: {
+                text: ">",
+                click: () => {
+                  if (!calendarRef.current) return;
+                  const calendarApi = calendarRef.current.getApi();
+                  const viewType = calendarApi.view.type;
+                  if (viewType === "semester1" || viewType === "semester2") {
+                    const sem = viewType === "semester1" ? "first" : "second";
+                    const start = getSemesterStartDate(sem as "first" | "second", calendarApi.getDate());
+                    start.setFullYear(start.getFullYear() + 1);
+                    calendarApi.changeView(viewType);
+                    calendarApi.gotoDate(start);
+                  } else {
+                    calendarApi.next();
+                  }
+                },
+              },
+              today: {
+                text: "오늘",
+                click: () => {
+                  if (!calendarRef.current) return;
+                  const calendarApi = calendarRef.current.getApi();
+                  // always switch to month view and go to today
+                  calendarApi.changeView("dayGridMonth");
+                  calendarApi.gotoDate(new Date());
+                },
+              },
               semester1: {
                 text: "1학기",
                 click: () => {
                   if (!calendarRef.current) return;
                   const calendarApi = calendarRef.current.getApi();
                   const startDate = getSemesterStartDate("first", calendarApi.getDate());
-                  calendarApi.changeView("semester1", startDate);
+                  // ensure view is set first then navigate to the desired start date
+                  calendarApi.changeView("semester1");
+                  calendarApi.gotoDate(startDate);
                 },
               },
               semester2: {
@@ -324,7 +383,9 @@ const CalendarView = forwardRef<CalendarViewHandle, CalendarViewProps>(
                   if (!calendarRef.current) return;
                   const calendarApi = calendarRef.current.getApi();
                   const startDate = getSemesterStartDate("second", calendarApi.getDate());
-                  calendarApi.changeView("semester2", startDate);
+                  // ensure view is set first then navigate to the desired start date
+                  calendarApi.changeView("semester2");
+                  calendarApi.gotoDate(startDate);
                 },
               },
             }}

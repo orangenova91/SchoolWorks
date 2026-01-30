@@ -12,6 +12,7 @@ const BOARD_TYPES = [
   "board_students",
   "board_parents",
   "board_class",
+  "board_after_school",
 ] as const;
 
 const selectedClassSchema = z.object({
@@ -470,7 +471,7 @@ export async function GET(request: NextRequest) {
         );
       }
       // 학생 게시판 보드에서는 학년 단위 공지도 포함
-      if (boardType === "board_students" && audience === "students") {
+      if ((boardType === "board_students" || boardType === "board_after_school") && audience === "students") {
         audienceFilters.push(
           { audience: "grade-1" },
           { audience: "grade-2" },
@@ -549,8 +550,8 @@ export async function GET(request: NextRequest) {
       classGroupMap = new Map(classGroups.map((group) => [group.id, group]));
     }
 
-    // 학생 게시판에서만 학반 단위 필터링 (selectedClasses가 있는 경우에만 적용)
-    if (session.user.role === "student" && boardType === "board_students") {
+    // 학생 게시판 또는 방과후 전용 게시판에서만 학반 단위 필터링 (selectedClasses가 있는 경우에만 적용)
+    if (session.user.role === "student" && (boardType === "board_students" || boardType === "board_after_school")) {
       const normalizeNumber = (value: string) => value.trim().replace(/^0+/, "");
       announcements = announcements.filter((announcement: any) => {
         // If selectedClasses is missing -> treat as "all students" (include)
