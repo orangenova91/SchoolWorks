@@ -26,6 +26,7 @@ export default async function StudentClassroomPage() {
 
   type StudentCourse = {
     id: string;
+    courseType?: "regular" | "after_school";
     academicYear: string;
     semester: string;
     subject: string;
@@ -79,6 +80,9 @@ export default async function StudentClassroomPage() {
     (a, b) => b.course.createdAt.getTime() - a.course.createdAt.getTime()
   );
 
+  const regularEntries = courseEntries.filter((entry) => entry.course.courseType !== "after_school");
+  const afterSchoolEntries = courseEntries.filter((entry) => entry.course.courseType === "after_school");
+
   const formatGrade = (grade: string) => {
     switch (grade) {
       case "1":
@@ -116,108 +120,107 @@ export default async function StudentClassroomPage() {
       <section className="space-y-4 mt-6">
         <div className="rounded-lg border border-gray-100 p-4 bg-white">
           <h2 className="text-lg font-semibold text-gray-900">내 수업 목록</h2>
-          {courseEntries.length === 0 ? (
+          {regularEntries.length === 0 ? (
             <p className="mt-3 text-sm text-gray-600">
               아직 배정된 수업이 없습니다. 담당 선생님께 문의해 주세요.
             </p>
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {courseEntries.map(({ course, classGroups: groups }) => (
+              {regularEntries.map(({ course, classGroups: groups }) => (
                 <Link key={course.id} href={`/dashboard/student/classroom/${course.id}`}>
                   <article className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm flex flex-col justify-between transition hover:border-indigo-200 hover:shadow-md">
                     <div className="space-y-4">
-                    <div className="space-y-1">
-                      {(course.academicYear?.trim() || course.semester?.trim()) && (
-                        <div className="flex items-center gap-2 text-[11px] text-gray-500">
-                          {course.academicYear?.trim() && (
-                            <span>{course.academicYear.trim()}학년도</span>
-                          )}
-                          {course.semester?.trim() && <span>{course.semester.trim()}</span>}
-                        </div>
-                      )}
-                      <div className="flex items-center justify-between text-xs text-gray-600">
-                        <div className="flex items-center gap-1 overflow-hidden">
-                          {course.joinCode ? (
-                            <span className="inline-flex items-center gap-1 rounded-md bg-indigo-50 px-2.5 py-0.5 font-medium text-indigo-700 border border-indigo-100">
-                              <span className="uppercase tracking-wide text-[10px] text-indigo-500">
-                                코드
+                      <div className="space-y-1">
+                        {(course.academicYear?.trim() || course.semester?.trim()) && (
+                          <div className="flex items-center gap-2 text-[11px] text-gray-500">
+                            {course.academicYear?.trim() && (
+                              <span>{course.academicYear.trim()}학년도</span>
+                            )}
+                            {course.semester?.trim() && <span>{course.semester.trim()}</span>}
+                          </div>
+                        )}
+                        <div className="flex items-center justify-between text-xs text-gray-600">
+                          <div className="flex items-center gap-1 overflow-hidden">
+                            {course.joinCode ? (
+                              <span className="inline-flex items-center gap-1 rounded-md bg-indigo-50 px-2.5 py-0.5 font-medium text-indigo-700 border border-indigo-100">
+                                <span className="uppercase tracking-wide text-[10px] text-indigo-500">
+                                  코드
+                                </span>
+                                <span className="font-mono text-sm">{course.joinCode}</span>
                               </span>
-                              <span className="font-mono text-sm">{course.joinCode}</span>
-                            </span>
-                          ) : (
-                            <span className="text-gray-400">수업 코드 미발급</span>
-                          )}
-                        </div>
-                        <span className="inline-flex items-center rounded-md bg-slate-100 px-2 py-0.5 font-medium text-slate-700 border border-slate-200">
-                          {formatGrade(course.grade)}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between gap-4">
-                        <h3 className="text-lg font-semibold text-gray-900 flex-1 text-center">
-                          {course.subject}
-                        </h3>
-                        <dl className="space-y-1 text-right text-sm text-gray-600">
-                          <div className="flex items-center justify-end gap-2">
-                            <dt className="font-medium text-gray-500">강사</dt>
-                            <dd>{course.instructor}</dd>
+                            ) : (
+                              <span className="text-gray-400">수업 코드 미발급</span>
+                            )}
                           </div>
-                          <div className="flex items-center justify-end gap-2">
-                            <dt className="font-medium text-gray-500">강의실</dt>
-                            <dd>{course.classroom}</dd>
-                          </div>
-                        </dl>
-                      </div>
-                    </div>
-
-                    {groups.length > 0 ? (
-                      <div className="mt-4 space-y-3">
-                        <div className="flex items-center justify-between text-sm font-medium text-gray-800">
-                          <span>내 학반</span>
-                          <span className="text-xs text-gray-500">총 {groups.length}개</span>
+                          <span className="inline-flex items-center rounded-md bg-slate-100 px-2 py-0.5 font-medium text-slate-700 border border-slate-200">
+                            {formatGrade(course.grade)}
+                          </span>
                         </div>
-                        <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
-                          {groups.map((group) => {
-                            const schedules = parseSchedules(group.schedules);
-                            return (
-                              <div
-                                key={group.id}
-                                className="rounded-lg border border-gray-100 bg-gray-50 p-3 text-sm text-gray-700"
-                              >
-                                <div className="flex items-center justify-between">
-                                  <span className="font-semibold text-gray-900">{group.name}</span>
-                                  {group.period && (
-                                    <span className="text-xs text-gray-500">
-                                      차시 {group.period}
-                                    </span>
-                                  )}
-                                </div>
-                                {schedules.length > 0 && (
-                                  <div className="mt-2 flex flex-wrap gap-2 text-xs text-gray-600">
-                                    {schedules.map((schedule, index) => (
-                                      <span
-                                        key={`${group.id}-schedule-${index}`}
-                                        className="rounded-md bg-white px-2 py-1 border border-gray-200"
-                                      >
-                                        {schedule.day} {schedule.period}교시
+                      </div>
+
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between gap-4">
+                          <h3 className="text-lg font-semibold text-gray-900 flex-1 text-center">
+                            {course.subject}
+                          </h3>
+                          <dl className="space-y-1 text-right text-sm text-gray-600">
+                            <div className="flex items-center justify-end gap-2">
+                              <dt className="font-medium text-gray-500">강사</dt>
+                              <dd>{course.instructor}</dd>
+                            </div>
+                            <div className="flex items-center justify-end gap-2">
+                              <dt className="font-medium text-gray-500">강의실</dt>
+                              <dd>{course.classroom}</dd>
+                            </div>
+                          </dl>
+                        </div>
+                      </div>
+                      {groups.length > 0 ? (
+                        <div className="mt-4 space-y-3">
+                          <div className="flex items-center justify-between text-sm font-medium text-gray-800">
+                            <span>내 학반</span>
+                            <span className="text-xs text-gray-500">총 {groups.length}개</span>
+                          </div>
+                          <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                            {groups.map((group) => {
+                              const schedules = parseSchedules(group.schedules);
+                              return (
+                                <div
+                                  key={group.id}
+                                  className="rounded-lg border border-gray-100 bg-gray-50 p-3 text-sm text-gray-700"
+                                >
+                                  <div className="flex items-center justify-between">
+                                    <span className="font-semibold text-gray-900">{group.name}</span>
+                                    {group.period && (
+                                      <span className="text-xs text-gray-500">
+                                        차시 {group.period}
                                       </span>
-                                    ))}
+                                    )}
                                   </div>
-                                )}
-                                <p className="mt-2 text-xs text-gray-500">
-                                  학생 {group.studentIds.length}명
-                                </p>
-                              </div>
-                            );
-                          })}
+                                  {schedules.length > 0 && (
+                                    <div className="mt-2 flex flex-wrap gap-2 text-xs text-gray-600">
+                                      {schedules.map((schedule, index) => (
+                                        <span
+                                          key={`${group.id}-schedule-${index}`}
+                                          className="rounded-md bg-white px-2 py-1 border border-gray-200"
+                                        >
+                                          {schedule.day} {schedule.period}교시
+                                        </span>
+                                      ))}
+                                    </div>
+                                  )}
+                                  <p className="mt-2 text-xs text-gray-500">
+                                    학생 {group.studentIds.length}명
+                                  </p>
+                                </div>
+                              );
+                            })}
+                          </div>
                         </div>
-                      </div>
-                    ) : (
-                      <p className="mt-4 text-sm text-gray-500">아직 배정된 학반이 없습니다.</p>
-                    )}
-                  </div>
+                      ) : (
+                        <p className="mt-4 text-sm text-gray-500">아직 배정된 학반이 없습니다.</p>
+                      )}
+                    </div>
 
                     <footer className="mt-4 text-xs text-gray-400">
                       개설일 · {course.createdAt.toLocaleString("ko-KR")}
@@ -228,6 +231,114 @@ export default async function StudentClassroomPage() {
             </div>
           )}
         </div>
+
+        {/* After-school courses as a separate card */}
+        {afterSchoolEntries.length > 0 && (
+          <div className="mt-6 rounded-lg border border-dashed border-gray-200 p-4 bg-gray-50">
+            <h3 className="text-md font-semibold text-gray-900 mb-3">방과후 수업</h3>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {afterSchoolEntries.map(({ course, classGroups: groups }) => (
+                <Link key={course.id} href={`/dashboard/student/classroom/${course.id}`}>
+                  <article className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm flex flex-col justify-between transition hover:border-indigo-200 hover:shadow-md">
+                    <div className="space-y-4">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2 text-[11px] text-gray-500">
+                          <span className="ml-1 inline-flex items-center rounded-md bg-emerald-50 px-2 py-0.5 font-medium text-emerald-700 border border-emerald-100">
+                            방과후
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between text-xs text-gray-600">
+                          <div className="flex items-center gap-1 overflow-hidden">
+                            {course.joinCode ? (
+                              <span className="inline-flex items-center gap-1 rounded-md bg-indigo-50 px-2.5 py-0.5 font-medium text-indigo-700 border border-indigo-100">
+                                <span className="uppercase tracking-wide text-[10px] text-indigo-500">
+                                  코드
+                                </span>
+                                <span className="font-mono text-sm">{course.joinCode}</span>
+                              </span>
+                            ) : (
+                              <span className="text-gray-400">수업 코드 미발급</span>
+                            )}
+                          </div>
+                          <span className="inline-flex items-center rounded-md bg-slate-100 px-2 py-0.5 font-medium text-slate-700 border border-slate-200">
+                            {formatGrade(course.grade)}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between gap-4">
+                          <h3 className="text-lg font-semibold text-gray-900 flex-1 text-center">
+                            {course.subject}
+                          </h3>
+                          <dl className="space-y-1 text-right text-sm text-gray-600">
+                            <div className="flex items-center justify-end gap-2">
+                              <dt className="font-medium text-gray-500">강사</dt>
+                              <dd>{course.instructor}</dd>
+                            </div>
+                            <div className="flex items-center justify-end gap-2">
+                              <dt className="font-medium text-gray-500">강의실</dt>
+                              <dd>{course.classroom}</dd>
+                            </div>
+                          </dl>
+                        </div>
+                      </div>
+                      {groups.length > 0 ? (
+                        <div className="mt-4 space-y-3">
+                          <div className="flex items-center justify-between text-sm font-medium text-gray-800">
+                            <span>내 학반</span>
+                            <span className="text-xs text-gray-500">총 {groups.length}개</span>
+                          </div>
+                          <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                            {groups.map((group) => {
+                              const schedules = parseSchedules(group.schedules);
+                              return (
+                                <div
+                                  key={group.id}
+                                  className="rounded-lg border border-gray-100 bg-gray-50 p-3 text-sm text-gray-700"
+                                >
+                                  <div className="flex items-center justify-between">
+                                    <span className="font-semibold text-gray-900">{group.name}</span>
+                                    {group.period && (
+                                      <span className="text-xs text-gray-500">
+                                        차시 {group.period}
+                                      </span>
+                                    )}
+                                  </div>
+                                  {schedules.length > 0 && (
+                                    <div className="mt-2 flex flex-wrap gap-2 text-xs text-gray-600">
+                                      {schedules.map((schedule, index) => (
+                                        <span
+                                          key={`${group.id}-schedule-${index}`}
+                                          className="rounded-md bg-white px-2 py-1 border border-gray-200"
+                                        >
+                                          {schedule.day} {schedule.period}교시
+                                        </span>
+                                      ))}
+                                    </div>
+                                  )}
+                                  <p className="mt-2 text-xs text-gray-500">
+                                    학생 {group.studentIds.length}명
+                                  </p>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="mt-4 text-sm text-gray-500">아직 배정된 학반이 없습니다.</p>
+                      )}
+                    </div>
+
+                    <footer className="mt-4 text-xs text-gray-400">
+                      개설일 · {course.createdAt.toLocaleString("ko-KR")}
+                    </footer>
+                  </article>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
       </section>
     </div>
   );

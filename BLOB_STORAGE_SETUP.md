@@ -50,3 +50,5 @@ BLOB_READ_WRITE_TOKEN="vercel_blob_rw_여기에_토큰_붙여넣기"
 Vercel에 배포된 프로젝트에서는 자동으로 Blob Storage 토큰이 설정되므로 추가 작업이 필요 없습니다.
 
 
+
+
