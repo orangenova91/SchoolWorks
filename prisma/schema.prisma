@@ -86,8 +86,14 @@ model VerificationToken {
   @@map("verification_tokens")
 }
 
+enum CourseType {
+  regular
+  after_school
+}
+
 model Course {
   id                  String               @id @default(auto()) @map("_id") @db.ObjectId
+  courseType          CourseType           @default(regular)
   academicYear        String               @default("")
   semester            String               @default("")
   subjectGroup        String               @default("")
@@ -483,4 +489,25 @@ model Comment {
   @@index([authorId])
   @@index([parentId])
   @@map("comments")
+}
+
+model AfterSchoolCourseRequest {
+  id             String   @id @default(auto()) @map("_id") @db.ObjectId
+  courseName     String   // 희망 강좌명
+  desiredContent String   // 듣고 싶은 내용
+  notes          String?  // 비고
+  companionStudents String? // 함께 신청하는 학생 (표시용: "학번 이름, 학번 이름")
+  companionStudentUserIds String[] @default([]) // 함께 신청하는 학생 userId 목록 (id 기반)
+  studentId      String   @db.ObjectId // 신청한 학생 ID
+  studentName   String   // 신청한 학생 이름
+  school         String?  // 학교
+  status         String   @default("pending") // "pending", "approved", "rejected"
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([studentId])
+  @@index([school])
+  @@index([status])
+  @@index([createdAt])
+  @@map("after_school_course_requests")
 }

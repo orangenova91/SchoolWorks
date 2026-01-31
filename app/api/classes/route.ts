@@ -6,46 +6,58 @@ import { z } from "zod";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
-const createClassSchema = z.object({
-  academicYear: z
-    .string()
-    .trim()
-    .min(1, "학년도를 입력하세요")
-    .max(9, "학년도가 너무 깁니다 (예: 2025)"),
-  semester: z.string().trim().min(1, "학기를 선택하세요"),
-  subjectGroup: z
-    .string()
-    .trim()
-    .min(1, "교과군을 입력하세요")
-    .max(50, "교과군은 50자 이하여야 합니다"),
-  subjectArea: z
-    .string()
-    .trim()
-    .min(1, "교과영역을 입력하세요")
-    .max(50, "교과영역은 50자 이하여야 합니다"),
-  careerTrack: z
-    .string()
-    .trim()
-    .min(1, "진로구분을 입력하세요")
-    .max(50, "진로구분은 50자 이하여야 합니다"),
-  subject: z
-    .string()
-    .trim()
-    .min(1, "교과명을 입력하세요")
-    .max(50, "교과명은 50자 이하여야 합니다"),
-  grade: z.string().trim().min(1, "대상 학년을 선택하세요"),
-  classroom: z
-    .string()
-    .trim()
-    .min(1, "강의실을 입력하세요")
-    .max(50, "강의실은 50자 이하여야 합니다"),
-  description: z
-    .string()
-    .trim()
-    .min(1, "강의소개를 입력하세요")
-    .max(1000, "강의소개는 1000자 이하여야 합니다"),
-  instructor: z.string().trim().optional(),
-});
+const createClassSchema = z
+  .object({
+    courseType: z.enum(["regular", "after_school"]).optional(),
+    academicYear: z
+      .string()
+      .trim()
+      .min(1, "학년도를 입력하세요")
+      .max(9, "학년도가 너무 깁니다 (예: 2025)"),
+    semester: z.string().trim().min(1, "학기를 선택하세요"),
+    subjectGroup: z
+      .string()
+      .trim()
+      .min(1, "교과군을 입력하세요")
+      .max(50, "교과군은 50자 이하여야 합니다"),
+    subjectArea: z
+      .string()
+      .trim()
+      .min(1, "교과영역을 입력하세요")
+      .max(50, "교과영역은 50자 이하여야 합니다"),
+    careerTrack: z
+      .string()
+      .trim()
+      .min(1, "진로구분을 입력하세요")
+      .max(50, "진로구분은 50자 이하여야 합니다"),
+    subject: z
+      .string()
+      .trim()
+      .min(1, "교과명을 입력하세요")
+      .max(50, "교과명은 50자 이하여야 합니다"),
+    // 방과후는 대상 학년 입력을 받지 않으므로 필수 검증에서 제외
+    grade: z.string().trim().optional(),
+    // 프론트(CreateClassForm)에서 classroom을 optional로 두고 있으므로 서버도 동일하게 허용
+    classroom: z.string().trim().max(50, "강의실은 50자 이하여야 합니다").optional(),
+    description: z
+      .string()
+      .trim()
+      .min(1, "강의소개를 입력하세요")
+      .max(1000, "강의소개는 1000자 이하여야 합니다"),
+    instructor: z.string().trim().optional(),
+  })
+  .superRefine((data, ctx) => {
+    const courseType = data.courseType ?? "regular";
+    if (courseType === "regular") {
+      if (!data.grade || data.grade.trim().length === 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "대상 학년을 선택하세요",
+          path: ["grade"],
+        });
+      }
+    }
+  });
 
 export const dynamic = 'force-dynamic';
 
@@ -81,6 +93,7 @@ export async function POST(request: NextRequest) {
 
     const json = await request.json();
     const data = createClassSchema.parse(json);
+    const courseType = data.courseType ?? "regular";
 
     const instructorName =
       session.user?.name && session.user.name.trim().length > 0
@@ -91,15 +104,16 @@ export async function POST(request: NextRequest) {
 
     const newClass = await prisma.course.create({
       data: {
+        courseType,
         academicYear: data.academicYear,
         semester: data.semester,
         subjectGroup: data.subjectGroup,
         subjectArea: data.subjectArea,
         careerTrack: data.careerTrack,
         subject: data.subject,
-        grade: data.grade,
+        grade: courseType === "after_school" ? (data.grade ?? "") : (data.grade as string),
         instructor: instructorName,
-        classroom: data.classroom,
+        classroom: data.classroom ?? "",
         description: data.description,
         joinCode,
         teacherId: session.user.id,
@@ -111,6 +125,7 @@ export async function POST(request: NextRequest) {
         message: "수업이 생성되었습니다.",
         class: {
           id: newClass.id,
+          courseType: newClass.courseType,
           academicYear: newClass.academicYear,
           semester: newClass.semester,
           subjectGroup: newClass.subjectGroup,

@@ -8,63 +8,64 @@ import { Select } from "@/components/ui/Select";
 import { Button } from "@/components/ui/Button";
 import { useToastContext } from "@/components/providers/ToastProvider";
 
-const formSchema = z.object({
-  academicYear: z
-    .string()
-    .trim()
-    .min(1, "학년도를 입력하세요")
-    .max(9, "학년도가 너무 깁니다 (예: 2025)"),
-  semester: z
-    .string()
-    .trim()
-    .min(1, "학기를 선택하세요"),
-  subjectGroup: z
-    .string()
-    .trim()
-    .min(1, "교과(군)을 입력하세요")
-    .max(50, "교과(군)은 50자 이하여야 합니다"),
-  subjectArea: z
-    .string()
-    .trim()
-    .min(1, "과목구분을 입력하세요")
-    .max(50, "과목구분은 50자 이하여야 합니다"),
-  careerTrack: z
-    .string()
-    .trim()
-    .min(1, "교과구분을 입력하세요")
-    .max(50, "교과구분은 50자 이하여야 합니다"),
-  subject: z
-    .string()
-    .trim()
-    .min(1, "과목명을 입력하세요")
-    .max(50, "과목명은 50자 이하여야 합니다"),
-  grade: z
-    .string()
-    .trim()
-    .min(1, "대상 학년을 선택하세요"),
-  classroom: z
-    .string()
-    .trim()
-    .max(50, "강의실은 50자 이하여야 합니다")
-    .optional(),
-  description: z
-    .string()
-    .trim()
-    .min(1, "강의소개를 입력하세요")
-    .max(1000, "강의소개는 1000자 이하여야 합니다"),
-  writtenTestRatio: z
-    .number()
-    .min(0, "지필평가 비율은 0 이상이어야 합니다")
-    .max(100, "지필평가 비율은 100 이하여야 합니다")
-    .optional(),
-  performanceTestRatio: z
-    .number()
-    .min(0, "수행평가 비율은 0 이상이어야 합니다")
-    .max(100, "수행평가 비율은 100 이하여야 합니다")
-    .optional(),
-});
+const createFormSchema = (isAfterSchool: boolean) =>
+  z.object({
+    academicYear: z
+      .string()
+      .trim()
+      .min(1, "학년도를 입력하세요")
+      .max(9, "학년도가 너무 깁니다 (예: 2025)"),
+    semester: z
+      .string()
+      .trim()
+      .min(1, "학기를 선택하세요"),
+    subjectGroup: z
+      .string()
+      .trim()
+      .min(1, "교과(군)을 입력하세요")
+      .max(50, "교과(군)은 50자 이하여야 합니다"),
+    subjectArea: z
+      .string()
+      .trim()
+      .min(1, "과목구분을 입력하세요")
+      .max(50, "과목구분은 50자 이하여야 합니다"),
+    careerTrack: z
+      .string()
+      .trim()
+      .min(1, "교과구분을 입력하세요")
+      .max(50, "교과구분은 50자 이하여야 합니다"),
+    subject: z
+      .string()
+      .trim()
+      .min(1, "과목명을 입력하세요")
+      .max(50, "과목명은 50자 이하여야 합니다"),
+    // 방과후는 '대상 학년' 입력을 받지 않으므로 필수 검증에서 제외 (빈 문자열 저장)
+    grade: isAfterSchool
+      ? z.string().trim().optional()
+      : z.string().trim().min(1, "대상 학년을 선택하세요"),
+    classroom: z
+      .string()
+      .trim()
+      .max(50, "강의실은 50자 이하여야 합니다")
+      .optional(),
+    description: z
+      .string()
+      .trim()
+      .min(1, "강의소개를 입력하세요")
+      .max(1000, "강의소개는 1000자 이하여야 합니다"),
+    writtenTestRatio: z
+      .number()
+      .min(0, "지필평가 비율은 0 이상이어야 합니다")
+      .max(100, "지필평가 비율은 100 이하여야 합니다")
+      .optional(),
+    performanceTestRatio: z
+      .number()
+      .min(0, "수행평가 비율은 0 이상이어야 합니다")
+      .max(100, "수행평가 비율은 100 이하여야 합니다")
+      .optional(),
+  });
 
-type FormValues = z.infer<typeof formSchema>;
+type FormValues = z.infer<ReturnType<typeof createFormSchema>>;
 
 const gradeOptions = [
   { value: "", label: "대상 학년 선택" },
@@ -81,9 +82,11 @@ const semesterOptions = [
 
 type CreateClassFormProps = {
   instructorName: string;
+  courseType?: "regular" | "after_school";
   onSuccess?: () => void;
   onCreated?: (course: {
     id: string;
+    courseType?: string;
     academicYear: string;
     semester: string;
     subjectGroup: string;
@@ -101,11 +104,13 @@ type CreateClassFormProps = {
 
 export default function CreateClassForm({
   instructorName,
+  courseType = "regular",
   onSuccess,
   onCreated,
 }: CreateClassFormProps) {
   const { showToast } = useToastContext();
   const currentYear = new Date().getFullYear();
+  const isAfterSchool = courseType === "after_school";
   const [subjectOptions, setSubjectOptions] = useState<{ value: string; label: string }[]>([
     { value: "", label: "과목명 선택" },
   ]);
@@ -117,7 +122,7 @@ export default function CreateClassForm({
     watch,
     setValue,
   } = useForm<FormValues>({
-    resolver: zodResolver(formSchema),
+    resolver: zodResolver(createFormSchema(isAfterSchool)),
     defaultValues: {
       academicYear: `${currentYear}`,
       semester: "",
@@ -138,8 +143,9 @@ export default function CreateClassForm({
   const selectedSubject = watch("subject");
   const [useRevisedCurriculum, setUseRevisedCurriculum] = useState<boolean>(false);
 
-  // 과목명 목록 가져오기
+  // 과목명 목록 가져오기 (방과후는 단순 입력 위주라 생략)
   useEffect(() => {
+    if (isAfterSchool) return;
     const fetchSubjects = async () => {
       try {
         const response = await fetch("/api/subjects");
@@ -167,6 +173,7 @@ export default function CreateClassForm({
 
   // 과목명 선택 시 해당 과목의 정보 가져오기 (단, 2022 개정 교육과정 선택 시에만 동작)
   useEffect(() => {
+    if (isAfterSchool) return;
     const fetchSubjectDetails = async () => {
       if (!useRevisedCurriculum) return;
       if (!selectedSubject || selectedSubject === "") {
@@ -196,7 +203,7 @@ export default function CreateClassForm({
     };
 
     fetchSubjectDetails();
-  }, [selectedSubject, setValue, useRevisedCurriculum]);
+  }, [isAfterSchool, selectedSubject, setValue, useRevisedCurriculum]);
 
   const handleWrittenTestChange = (value: number) => {
     setValue("writtenTestRatio", value, { shouldValidate: true });
@@ -213,7 +220,11 @@ export default function CreateClassForm({
       const payload = {
         ...values,
         instructor: instructorName,
+        courseType,
       };
+      if (isAfterSchool) {
+        (payload as any).grade = (values as any).grade ?? "";
+      }
 
       const response = await fetch("/api/classes", {
         method: "POST",
@@ -267,6 +278,17 @@ export default function CreateClassForm({
       className="space-y-6 bg-white border border-gray-200 rounded-xl shadow-sm p-6"
       noValidate
     >
+      {/* Ensure hidden fields exist for after-school mode even if UI is simplified */}
+      {isAfterSchool && (
+        <>
+          <input type="hidden" {...register("careerTrack")} />
+          <input type="hidden" {...register("subjectGroup")} />
+          <input type="hidden" {...register("subjectArea")} />
+          <input type="hidden" {...register("grade")} />
+          <input type="hidden" {...register("writtenTestRatio")} />
+          <input type="hidden" {...register("performanceTestRatio")} />
+        </>
+      )}
       <div className="grid gap-6 sm:grid-cols-2">
         <Input
           {...register("academicYear")}
@@ -283,38 +305,40 @@ export default function CreateClassForm({
         />
       </div>
 
-      <div className="grid gap-6 sm:grid-cols-3">
-        <Input
-          {...register("careerTrack")}
-          label="교과구분"
-          placeholder="-"
-          error={errors.careerTrack?.message}
-          readOnly
-          aria-readonly="true"
-          tabIndex={-1}
-          aria-required="true"
-        />
-        <Input
-          {...register("subjectGroup")}
-          label="교과(군)"
-          placeholder="-"
-          error={errors.subjectGroup?.message}
-          readOnly
-          aria-readonly="true"
-          tabIndex={-1}
-          aria-required="true"
-        />
-        <Input
-          {...register("subjectArea")}
-          label="과목구분"
-          placeholder="-"
-          error={errors.subjectArea?.message}
-          readOnly
-          aria-readonly="true"
-          tabIndex={-1}
-          aria-required="true"
-        />
-      </div>
+      {!isAfterSchool && (
+        <div className="grid gap-6 sm:grid-cols-3">
+          <Input
+            {...register("careerTrack")}
+            label="교과구분"
+            placeholder="-"
+            error={errors.careerTrack?.message}
+            readOnly
+            aria-readonly="true"
+            tabIndex={-1}
+            aria-required="true"
+          />
+          <Input
+            {...register("subjectGroup")}
+            label="교과(군)"
+            placeholder="-"
+            error={errors.subjectGroup?.message}
+            readOnly
+            aria-readonly="true"
+            tabIndex={-1}
+            aria-required="true"
+          />
+          <Input
+            {...register("subjectArea")}
+            label="과목구분"
+            placeholder="-"
+            error={errors.subjectArea?.message}
+            readOnly
+            aria-readonly="true"
+            tabIndex={-1}
+            aria-required="true"
+          />
+        </div>
+      )}
 
       <div className="grid gap-6 sm:grid-cols-2">
         <div>
@@ -322,34 +346,36 @@ export default function CreateClassForm({
             <label className="block text-sm font-medium text-gray-700">
               과목명 <span className="text-red-500">*</span>
             </label>
-            <label className="inline-flex items-center text-sm text-gray-600">
-              <input
-                type="checkbox"
-                className="mr-2"
-                checked={useRevisedCurriculum}
-                onChange={(e) => {
-                  const checked = e.target.checked;
-                  setUseRevisedCurriculum(checked);
-                  if (checked) {
-                    // enable selection mode: clear subject to force selection
-                    setValue("subject", "", { shouldValidate: false });
-                    // set placeholder markers
-                    setValue("careerTrack", "-", { shouldValidate: false });
-                    setValue("subjectGroup", "-", { shouldValidate: false });
-                    setValue("subjectArea", "-", { shouldValidate: false });
-                  } else {
-                    // free-text mode: set meta fields to "-" and keep subject as is (user may type)
-                    setValue("careerTrack", "-", { shouldValidate: false });
-                    setValue("subjectGroup", "-", { shouldValidate: false });
-                    setValue("subjectArea", "-", { shouldValidate: false });
-                  }
-                }}
-              />
-              2022 개정 교육과정
-            </label>
+            {!isAfterSchool && (
+              <label className="inline-flex items-center text-sm text-gray-600">
+                <input
+                  type="checkbox"
+                  className="mr-2"
+                  checked={useRevisedCurriculum}
+                  onChange={(e) => {
+                    const checked = e.target.checked;
+                    setUseRevisedCurriculum(checked);
+                    if (checked) {
+                      // enable selection mode: clear subject to force selection
+                      setValue("subject", "", { shouldValidate: false });
+                      // set placeholder markers
+                      setValue("careerTrack", "-", { shouldValidate: false });
+                      setValue("subjectGroup", "-", { shouldValidate: false });
+                      setValue("subjectArea", "-", { shouldValidate: false });
+                    } else {
+                      // free-text mode: set meta fields to "-" and keep subject as is (user may type)
+                      setValue("careerTrack", "-", { shouldValidate: false });
+                      setValue("subjectGroup", "-", { shouldValidate: false });
+                      setValue("subjectArea", "-", { shouldValidate: false });
+                    }
+                  }}
+                />
+                2022 개정 교육과정
+              </label>
+            )}
           </div>
           <div className="mt-2">
-            {useRevisedCurriculum ? (
+            {!isAfterSchool && useRevisedCurriculum ? (
               <Select
                 {...register("subject")}
                 options={subjectOptions}
@@ -359,7 +385,7 @@ export default function CreateClassForm({
             ) : (
               <Input
                 {...register("subject")}
-                placeholder="과목명을 직접 입력하세요"
+                placeholder={isAfterSchool ? "강좌명을 입력하세요" : "과목명을 직접 입력하세요"}
                 error={errors.subject?.message}
                 aria-required="true"
               />
@@ -375,97 +401,101 @@ export default function CreateClassForm({
         />
       </div>
 
-      <div className="grid gap-6 sm:grid-cols-2">
+      <div className={`grid gap-6 ${isAfterSchool ? "sm:grid-cols-1" : "sm:grid-cols-2"}`}>
         <Input
           {...register("classroom")}
           label="강의실"
           placeholder="예: 본관 3층 305호"
           error={errors.classroom?.message}
         />
-        <Select
-          {...register("grade")}
-          label="대상 학년"
-          options={gradeOptions}
-          error={errors.grade?.message}
-          aria-required="true"
-        />
+        {!isAfterSchool && (
+          <Select
+            {...register("grade")}
+            label="대상 학년"
+            options={gradeOptions}
+            error={errors.grade?.message}
+            aria-required="true"
+          />
+        )}
       </div>
 
-      <div className="space-y-6">
-        <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700">
-              평가 비율 설정
-            </label>
-          </div>
-          <div className="space-y-4 pt-2">
-              {/* 지필평가 슬라이더 */}
-              <div className="flex items-center gap-4">
-                <label className="text-sm font-medium text-gray-700 min-w-[70px]">
-                  지필평가
-                </label>
-                <input
-                  type="range"
-                  min="0"
-                  max="100"
-                  value={writtenTestRatio}
-                  onChange={(e) =>
-                    handleWrittenTestChange(Number(e.target.value))
-                  }
-                  className="flex-1 h-3 bg-gray-200 rounded-lg appearance-none cursor-pointer range-input range-input-blue"
-                  style={{
-                    background: `linear-gradient(to right, #2563eb 0%, #2563eb ${writtenTestRatio}%, #e5e7eb ${writtenTestRatio}%, #e5e7eb 100%)`,
-                  }}
-                />
-                <span className="text-sm font-semibold text-blue-600 min-w-[45px] text-right">
-                  {writtenTestRatio}%
-                </span>
-              </div>
+      {!isAfterSchool && (
+        <div className="space-y-6">
+          <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700">
+                평가 비율 설정
+              </label>
+            </div>
+            <div className="space-y-4 pt-2">
+                {/* 지필평가 슬라이더 */}
+                <div className="flex items-center gap-4">
+                  <label className="text-sm font-medium text-gray-700 min-w-[70px]">
+                    지필평가
+                  </label>
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    value={writtenTestRatio}
+                    onChange={(e) =>
+                      handleWrittenTestChange(Number(e.target.value))
+                    }
+                    className="flex-1 h-3 bg-gray-200 rounded-lg appearance-none cursor-pointer range-input range-input-blue"
+                    style={{
+                      background: `linear-gradient(to right, #2563eb 0%, #2563eb ${writtenTestRatio}%, #e5e7eb ${writtenTestRatio}%, #e5e7eb 100%)`,
+                    }}
+                  />
+                  <span className="text-sm font-semibold text-blue-600 min-w-[45px] text-right">
+                    {writtenTestRatio}%
+                  </span>
+                </div>
 
-              {/* 수행평가 슬라이더 */}
-              <div className="flex items-center gap-4">
-                <label className="text-sm font-medium text-gray-700 min-w-[70px]">
-                  수행평가
-                </label>
-                <input
-                  type="range"
-                  min="0"
-                  max="100"
-                  value={performanceTestRatio}
-                  onChange={(e) =>
-                    handlePerformanceTestChange(Number(e.target.value))
-                  }
-                  className="flex-1 h-3 bg-gray-200 rounded-lg appearance-none cursor-pointer range-input range-input-green"
-                  style={{
-                    background: `linear-gradient(to right, #16a34a 0%, #16a34a ${performanceTestRatio}%, #e5e7eb ${performanceTestRatio}%, #e5e7eb 100%)`,
-                  }}
-                />
-                <span className="text-sm font-semibold text-green-600 min-w-[45px] text-right">
-                  {performanceTestRatio}%
-                </span>
-              </div>
+                {/* 수행평가 슬라이더 */}
+                <div className="flex items-center gap-4">
+                  <label className="text-sm font-medium text-gray-700 min-w-[70px]">
+                    수행평가
+                  </label>
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    value={performanceTestRatio}
+                    onChange={(e) =>
+                      handlePerformanceTestChange(Number(e.target.value))
+                    }
+                    className="flex-1 h-3 bg-gray-200 rounded-lg appearance-none cursor-pointer range-input range-input-green"
+                    style={{
+                      background: `linear-gradient(to right, #16a34a 0%, #16a34a ${performanceTestRatio}%, #e5e7eb ${performanceTestRatio}%, #e5e7eb 100%)`,
+                    }}
+                  />
+                  <span className="text-sm font-semibold text-green-600 min-w-[45px] text-right">
+                    {performanceTestRatio}%
+                  </span>
+                </div>
 
-              {/* 합계 표시 */}
-              <div className="flex items-center justify-between pt-2 border-t border-gray-200">
-                <span className="text-sm font-medium text-gray-700">합계</span>
-                <span
-                  className={`text-sm font-semibold ${
-                    writtenTestRatio + performanceTestRatio === 100
-                      ? "text-gray-900"
-                      : "text-red-600"
-                  }`}
-                >
-                  {writtenTestRatio + performanceTestRatio}%
-                </span>
-              </div>
+                {/* 합계 표시 */}
+                <div className="flex items-center justify-between pt-2 border-t border-gray-200">
+                  <span className="text-sm font-medium text-gray-700">합계</span>
+                  <span
+                    className={`text-sm font-semibold ${
+                      writtenTestRatio + performanceTestRatio === 100
+                        ? "text-gray-900"
+                        : "text-red-600"
+                    }`}
+                  >
+                    {writtenTestRatio + performanceTestRatio}%
+                  </span>
+                </div>
 
-            {/* 안내 문구 */}
-            <p className="text-xs text-gray-500 text-right mt-1">
-              * 평가 세부 항목 비율 및 평가 방법은 수업 생성 후 설정 가능
-            </p>
+              {/* 안내 문구 */}
+              <p className="text-xs text-gray-500 text-right mt-1">
+                * 평가 세부 항목 비율 및 평가 방법은 수업 생성 후 설정 가능
+              </p>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       <div>
         <label

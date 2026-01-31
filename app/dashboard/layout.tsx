@@ -230,6 +230,12 @@ export default async function DashboardLayout({
             iconName: "BookOpen"
           },
           {
+            href: "/dashboard/student/after-school",
+            label: "방과후 수업",
+            icon: <BookOpenCheck className="w-5 h-5" />,
+            iconName: "BookOpenCheck"
+          },
+          {
             href: "/dashboard/student/assignments",
             label: t.sidebar.student.assignments,
             icon: <FileText className="w-5 h-5" />,
