@@ -5,7 +5,6 @@
  import { Button } from "@/components/ui/Button";
  import { MoreVertical, X } from "lucide-react";
 import CreateClassForm from "@/components/dashboard/CreateClassForm";
-import CreateClassGroupButton from "@/components/dashboard/CreateClassGroupButton";
 
 type CreateCourseSectionProps = {
   instructorName: string;
@@ -23,8 +22,6 @@ export default function CreateCourseSection({ instructorName }: CreateCourseSect
   const [detailLocalCourse, setDetailLocalCourse] = useState<any | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [isEditingDetail, setIsEditingDetail] = useState(false);
-  const [justCreatedCourseId, setJustCreatedCourseId] = useState<string | null>(null);
-  const [openCreateGroupAfterCreate, setOpenCreateGroupAfterCreate] = useState(false);
   const [detailForm, setDetailForm] = useState({
     subject: "",
     classroom: "",
@@ -125,19 +122,9 @@ export default function CreateCourseSection({ instructorName }: CreateCourseSect
             instructorName={instructorName}
             courseType="after_school"
             onSuccess={handleClose}
-            onCreated={async (createdCourse) => {
-              // Store created course id and open class-group modal after creation
-              try {
-                const id = createdCourse?.id as string | undefined;
-                if (id) {
-                  setJustCreatedCourseId(id);
-                  setOpenCreateGroupAfterCreate(true);
-                }
-              } catch (err) {
-                /* ignore */
-              } finally {
-                await fetchCourses();
-              }
+            onCreated={async () => {
+              // After class created, refresh list. Do not auto-open class-group modal.
+              await fetchCourses();
             }}
           />
           {error && <div className="mt-4 text-sm text-red-600">{error}</div>}
@@ -551,25 +538,7 @@ export default function CreateCourseSection({ instructorName }: CreateCourseSect
           </div>,
           document.body
         )}
-      {/* If a course was just created, render CreateClassGroupButton to allow adding class-groups immediately */}
-      {justCreatedCourseId && (
-        <CreateClassGroupButton
-          courseId={justCreatedCourseId}
-          initialOpen={openCreateGroupAfterCreate}
-          hideStudents={true}
-          showTrigger={false}
-          onCreated={() => {
-            // after class-group creation, refresh list and reset temporary state
-            setOpenCreateGroupAfterCreate(false);
-            setJustCreatedCourseId(null);
-            fetchCourses();
-          }}
-          onClose={() => {
-            setOpenCreateGroupAfterCreate(false);
-            setJustCreatedCourseId(null);
-          }}
-        />
-      )}
+      
     </>
   );
 }
