@@ -781,7 +781,17 @@ export default function StudentCourseRequestSection({ showApplyButton = true }: 
                   {currentUserRole === "teacher" || currentUserId === selectedRequest.studentId ? (
                     <>
                       {!isEditingDetail ? (
-                        <Button type="button" variant="outline" onClick={() => setIsEditingDetail(true)}>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setTimeout(() => {
+                              setIsEditingDetail(true);
+                            }, 0);
+                          }}
+                        >
                           수정
                         </Button>
                       ) : (

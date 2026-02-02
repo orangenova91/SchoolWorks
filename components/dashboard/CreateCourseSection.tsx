@@ -42,10 +42,10 @@ export default function CreateCourseSection({ instructorName }: CreateCourseSect
     return () => window.removeEventListener("click", onWindowClick);
   }, [openMenuId]);
 
-  const fetchCourses = async () => {
+  const fetchCourses = async (options?: { force?: boolean }) => {
     try {
       // If user is actively editing a detail, skip fetching to avoid interfering with edit session.
-      if (isEditingDetail) {
+      if (isEditingDetail && !options?.force) {
         console.log("fetchCourses skipped because isEditingDetail === true");
         return;
       }
@@ -188,7 +188,7 @@ export default function CreateCourseSection({ instructorName }: CreateCourseSect
     try {
       const res = await fetch(`/api/classes/${id}`, { method: "DELETE" });
       if (!res.ok) throw new Error("삭제 실패");
-      await fetchCourses();
+      await fetchCourses({ force: true });
       closeDetail();
     } catch (err) {
       console.error(err);
@@ -209,7 +209,7 @@ export default function CreateCourseSection({ instructorName }: CreateCourseSect
         const data = await res.json().catch(() => ({}));
         throw new Error(data.error || "수정 실패");
       }
-      await fetchCourses();
+      await fetchCourses({ force: true });
       setIsEditingDetail(false);
       closeDetail();
     } catch (err) {
@@ -492,8 +492,12 @@ export default function CreateCourseSection({ instructorName }: CreateCourseSect
                       variant="outline"
                       onMouseDown={(e) => e.preventDefault()}
                       onClick={(e) => {
+                        e.preventDefault();
                         e.stopPropagation();
-                        setIsEditingDetail(true);
+                        // Defer switching to editing mode to avoid click turning into submit
+                        setTimeout(() => {
+                          setIsEditingDetail(true);
+                        }, 0);
                       }}
                     >
                       수정
