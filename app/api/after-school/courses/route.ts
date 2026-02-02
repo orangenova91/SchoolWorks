@@ -128,7 +128,17 @@ export async function GET(request: NextRequest) {
     const courses = await (prisma as any).course.findMany({
       where,
       orderBy: { createdAt: "desc" },
-      select: { id: true, subject: true, instructor: true, createdAt: true },
+      // Include fields needed by the UI: classroom, description, academicYear, semester
+      select: {
+        id: true,
+        subject: true,
+        instructor: true,
+        classroom: true,
+        description: true,
+        academicYear: true,
+        semester: true,
+        createdAt: true,
+      },
     });
 
     console.log("Found after-school courses:", courses.length);

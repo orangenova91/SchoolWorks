@@ -17,7 +17,7 @@ export async function GET(
       );
     }
 
-    let course: { id: string; subject: string; grade: string } | null = null;
+    let course: { id: string; subject: string; grade: string; academicYear?: string | null; semester?: string | null } | null = null;
 
     if (session.user.role === "teacher") {
       course = await (prisma as unknown as {
@@ -32,7 +32,7 @@ export async function GET(
           id: params.courseId,
           teacherId: session.user.id,
         },
-        select: { id: true, subject: true, grade: true },
+        select: { id: true, subject: true, grade: true, academicYear: true, semester: true },
       });
     } else if (session.user.role === "student") {
       const classGroup = await (prisma as unknown as {
@@ -44,7 +44,7 @@ export async function GET(
         };
       }).classGroup.findFirst({
         where: { courseId: params.courseId, studentIds: { has: session.user.id } },
-        include: { course: { select: { id: true, subject: true, grade: true } } },
+        include: { course: { select: { id: true, subject: true, grade: true, academicYear: true, semester: true } } },
       });
       course = classGroup?.course ?? null;
     } else {
@@ -65,6 +65,8 @@ export async function GET(
       id: course.id,
       subject: course.subject,
       grade: course.grade,
+      academicYear: (course as any).academicYear ?? "",
+      semester: (course as any).semester ?? "",
     });
   } catch (error) {
     console.error("Failed to fetch course:", error);
@@ -97,6 +99,8 @@ export async function PUT(
       subjectArea,
       instructor,
       description,
+      academicYear,
+      semester,
     } = body as {
       subject?: string;
       grade?: string;
@@ -106,6 +110,8 @@ export async function PUT(
       subjectArea?: string;
       instructor?: string;
       description?: string;
+      academicYear?: string | null;
+      semester?: string | null;
     };
 
     if (!subject || typeof subject !== "string" || subject.trim() === "") {
@@ -137,6 +143,8 @@ export async function PUT(
         subjectArea: subjectArea ?? undefined,
         instructor: instructor ?? undefined,
         description: description ?? undefined,
+        academicYear: academicYear ?? undefined,
+        semester: semester ?? undefined,
       },
     });
 
