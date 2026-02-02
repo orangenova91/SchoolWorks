@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Button } from "@/components/ui/Button";
 
 interface Course {
   id: string;
@@ -81,7 +82,8 @@ export default function AfterSchoolCourseList() {
                   <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">번호</th>
                   <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">강좌명</th>
                   <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">강사</th>
-                  <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">생성일시</th>
+                  <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">수강 신청</th>
+                  <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">수강생 수</th>
                 </tr>
               </thead>
               <tbody>
@@ -90,7 +92,20 @@ export default function AfterSchoolCourseList() {
                     <td className="py-3 px-4 text-sm text-gray-600">{courses.length - idx}</td>
                     <td className="py-3 px-4 text-sm text-gray-900">{course.subject}</td>
                     <td className="py-3 px-4 text-sm text-gray-600">{course.instructor}</td>
-                    <td className="py-3 px-4 text-sm text-gray-600">{formatDate(course.createdAt)}</td>
+                    <td className="py-3 px-4 text-sm text-gray-600">
+                      <Button
+                        type="button"
+                        onClick={() => {
+                          const ok = window.confirm("해당 강좌에 신청하시겠습니까? (학생 계정으로 신청해야 합니다.)");
+                          if (!ok) return;
+                          window.alert("신청 기능은 학생 계정에서 진행해야 합니다. (추후 구현 예정)");
+                        }}
+                        className="flex items-center justify-center bg-blue-600 hover:bg-blue-700 text-white px-1 h-6 rounded-sm text-xs"
+                      >
+                        신청하기
+                      </Button>
+                    </td>
+                    <td className="py-3 px-4 text-sm text-gray-600">(수강생 수 ? 명)</td>
                   </tr>
                 ))}
               </tbody>

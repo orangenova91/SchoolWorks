@@ -28,16 +28,26 @@ type ClassGroup = {
 
 type CreateClassGroupButtonProps = {
   courseId: string;
-  students: Student[];
+  students?: Student[];
+  initialOpen?: boolean;
+  hideStudents?: boolean;
+  showTrigger?: boolean;
   onCreated?: () => void;
+  onClose?: () => void;
 };
 
 export default function CreateClassGroupButton({
   courseId,
   students,
+  initialOpen = false,
+  hideStudents = false,
+  showTrigger = true,
   onCreated,
+  onClose,
 }: CreateClassGroupButtonProps) {
-  const [isOpen, setIsOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(Boolean(initialOpen));
+  const [fetchedStudents, setFetchedStudents] = useState<Student[]>([]);
+  const studentsList = (students && students.length > 0) ? students : fetchedStudents;
   const [mounted, setMounted] = useState(false);
   const [className, setClassName] = useState("");
   const [period, setPeriod] = useState("1");
@@ -73,6 +83,28 @@ export default function CreateClassGroupButton({
 
     loadClassGroups();
   }, [courseId, isOpen]);
+
+  // 학생 목록이 전달되지 않으면 모달 열릴 때 학생 목록을 시도해서 로드
+  useEffect(() => {
+    if (!isOpen) return;
+    if (students && students.length > 0) return;
+
+    const loadStudents = async () => {
+      try {
+        const res = await fetch(`/api/courses/${courseId}/students`);
+        if (!res.ok) {
+          // no-op: parent should provide students if endpoint unavailable
+          return;
+        }
+        const data = await res.json();
+        setFetchedStudents(data.students || []);
+      } catch (err) {
+        console.error("학생 목록 로드 실패:", err);
+      }
+    };
+
+    loadStudents();
+  }, [courseId, isOpen, students]);
 
   // body 스크롤 잠금
   useEffect(() => {
@@ -114,7 +146,12 @@ export default function CreateClassGroupButton({
     setSearchQuery("");
     setSelectedClassGroupFilter("");
     setValidationError(null);
-  }, []);
+    try {
+      onClose?.();
+    } catch (err) {
+      // ignore
+    }
+  }, [onClose]);
 
   const handlePeriodChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const newPeriod = e.target.value;
@@ -155,14 +192,14 @@ export default function CreateClassGroupButton({
   // 학생들의 고유한 classLabel 목록
   const uniqueClassLabels = useMemo(() => {
     const labels = new Set<string>();
-    students.forEach((student) => {
+    studentsList.forEach((student) => {
       const classLabel = student.studentProfile?.classLabel?.trim();
       if (classLabel) {
         labels.add(classLabel);
       }
     });
     return Array.from(labels).sort();
-  }, [students]);
+  }, [studentsList]);
 
   // 학생이 속한 학반 매핑
   const studentClassGroupMap = useMemo(() => {
@@ -176,7 +213,7 @@ export default function CreateClassGroupButton({
   }, [classGroups]);
 
   const filteredStudents = useMemo(() => {
-    let result = students;
+    let result = studentsList;
 
     // classLabel 필터 적용
     if (selectedClassGroupFilter) {
@@ -231,7 +268,7 @@ export default function CreateClassGroupButton({
     });
 
     return result;
-  }, [students, searchQuery, selectedClassGroupFilter]);
+  }, [studentsList, searchQuery, selectedClassGroupFilter]);
 
   const toggleStudent = useCallback((studentId: string) => {
     setSelectedStudentIds((prev) => {
@@ -315,8 +352,8 @@ export default function CreateClassGroupButton({
         return;
       }
 
-      // 수강생 검증
-      if (selectedStudentIds.size === 0) {
+      // 수강생 검증 (hideStudents가 true면 선택 검증 스킵)
+      if (!hideStudents && selectedStudentIds.size === 0) {
         setValidationError("최소 1명 이상의 수강생을 선택해주세요.");
         return;
       }
@@ -336,7 +373,7 @@ export default function CreateClassGroupButton({
               name: className.trim(),
               period: period.trim() || null,
               schedules: schedules.filter((s) => s.day && s.period),
-              studentIds: Array.from(selectedStudentIds),
+              studentIds: hideStudents ? [] : Array.from(selectedStudentIds),
             }),
           }
         );
@@ -482,111 +519,115 @@ export default function CreateClassGroupButton({
               </div>
 
               <div className="flex-1 overflow-hidden flex flex-col">
-                <div className="flex items-center justify-between mb-2">
-                  <label className="block text-sm font-medium text-gray-700">
-                    수강생 추가하기 <span className="text-red-500">*</span>
-                  </label>
-                  {filteredStudents.length > 0 && (
-                    <div className="flex items-center gap-2">
-                      {allFilteredSelected ? (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={deselectAllFiltered}
-                          className="text-xs"
-                        >
-                          전체 해제
-                        </Button>
-                      ) : (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={selectAllFiltered}
-                          className="text-xs"
-                        >
-                          전체 선택
-                        </Button>
+                {!hideStudents && (
+                  <>
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="block text-sm font-medium text-gray-700">
+                        수강생 추가하기 <span className="text-red-500">*</span>
+                      </label>
+                      {filteredStudents.length > 0 && (
+                        <div className="flex items-center gap-2">
+                          {allFilteredSelected ? (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={deselectAllFiltered}
+                              className="text-xs"
+                            >
+                              전체 해제
+                            </Button>
+                          ) : (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={selectAllFiltered}
+                              className="text-xs"
+                            >
+                              전체 선택
+                            </Button>
+                          )}
+                        </div>
                       )}
                     </div>
-                  )}
-                </div>
-                <div className="mb-2 space-y-2">
-                  <div className="flex gap-2">
-                    <div className="flex-1">
-                      <Input
-                        type="text"
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        placeholder="학생 이름 또는 이메일로 검색 (콤마로 구분: 김철수, 이영희)"
-                        className="w-full"
-                      />
-                    </div>
-                    <div className="w-40">
-                      <Select
-                        options={[
-                          { value: "", label: "전체 학반" },
-                          ...uniqueClassLabels.map((label) => ({
-                            value: label,
-                            label: label,
-                          })),
-                        ]}
-                        value={selectedClassGroupFilter}
-                        onChange={(e) => setSelectedClassGroupFilter(e.target.value)}
-                        disabled={uniqueClassLabels.length === 0}
-                      />
-                    </div>
-                  </div>
-                </div>
-                <div className="flex-1 overflow-y-auto border border-gray-200 rounded-md">
-                  {students.length === 0 ? (
-                    <div className="p-4 text-sm text-gray-500 text-center">
-                      학생 계정이 없습니다.
-                    </div>
-                  ) : filteredStudents.length === 0 ? (
-                    <div className="p-4 text-sm text-gray-500 text-center">
-                      검색 결과가 없습니다.
-                    </div>
-                  ) : (
-                    <div className="divide-y divide-gray-100">
-                      {filteredStudents.map((student) => (
-                        <label
-                          key={student.id}
-                          className="flex items-center gap-3 p-3 hover:bg-gray-50 cursor-pointer"
-                        >
-                          <input
-                            type="checkbox"
-                            checked={selectedStudentIds.has(student.id)}
-                            onChange={() => toggleStudent(student.id)}
-                            className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    <div className="mb-2 space-y-2">
+                      <div className="flex gap-2">
+                        <div className="flex-1">
+                          <Input
+                            type="text"
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            placeholder="학생 이름 또는 이메일로 검색 (콤마로 구분: 김철수, 이영희)"
+                            className="w-full"
                           />
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2">
-                              <div className="text-sm font-medium text-gray-900">
-                                {student.studentProfile?.studentId && (
-                                  <span className="text-gray-500 mr-1">
-                                    {student.studentProfile.studentId}
-                                  </span>
-                                )}
-                                {student.name ?? "이름 없음"}
-                              </div>
-                              {studentClassGroupMap.has(student.id) && (
-                                <span className="inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700 border border-blue-100">
-                                  {studentClassGroupMap.get(student.id)}
-                                </span>
-                              )}
-                            </div>
-                            <div className="text-xs text-gray-500 truncate">
-                              {student.email}
-                            </div>
-                          </div>
-                        </label>
-                      ))}
+                        </div>
+                        <div className="w-40">
+                          <Select
+                            options={[
+                              { value: "", label: "전체 학반" },
+                              ...uniqueClassLabels.map((label) => ({
+                                value: label,
+                                label: label,
+                              })),
+                            ]}
+                            value={selectedClassGroupFilter}
+                            onChange={(e) => setSelectedClassGroupFilter(e.target.value)}
+                            disabled={uniqueClassLabels.length === 0}
+                          />
+                        </div>
+                      </div>
                     </div>
-                  )}
-                </div>
-                {students.length > 0 && (
+                    <div className="flex-1 overflow-y-auto border border-gray-200 rounded-md">
+                      {studentsList.length === 0 ? (
+                        <div className="p-4 text-sm text-gray-500 text-center">
+                          학생 계정이 없습니다.
+                        </div>
+                      ) : filteredStudents.length === 0 ? (
+                        <div className="p-4 text-sm text-gray-500 text-center">
+                          검색 결과가 없습니다.
+                        </div>
+                      ) : (
+                        <div className="divide-y divide-gray-100">
+                          {filteredStudents.map((student) => (
+                            <label
+                              key={student.id}
+                              className="flex items-center gap-3 p-3 hover:bg-gray-50 cursor-pointer"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={selectedStudentIds.has(student.id)}
+                                onChange={() => toggleStudent(student.id)}
+                                className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                              />
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <div className="text-sm font-medium text-gray-900">
+                                    {student.studentProfile?.studentId && (
+                                      <span className="text-gray-500 mr-1">
+                                        {student.studentProfile.studentId}
+                                      </span>
+                                    )}
+                                    {student.name ?? "이름 없음"}
+                                  </div>
+                                  {studentClassGroupMap.has(student.id) && (
+                                    <span className="inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700 border border-blue-100">
+                                      {studentClassGroupMap.get(student.id)}
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="text-xs text-gray-500 truncate">
+                                  {student.email}
+                                </div>
+                              </div>
+                            </label>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </>
+                )}
+                {studentsList.length > 0 && (
                   <div className="mt-2 text-xs text-gray-500">
                     {selectedStudentIds.size}명 선택됨
                     {(searchQuery || selectedClassGroupFilter) && (
@@ -628,14 +669,13 @@ export default function CreateClassGroupButton({
 
   return (
     <>
-      <Button variant="primary" type="button" onClick={handleOpen}>
-        학반 생성
-      </Button>
-
-      {mounted && typeof window !== "undefined" && createPortal(
-        modalContent,
-        document.body
+      {showTrigger && (
+        <Button variant="primary" type="button" onClick={handleOpen}>
+          학반 생성
+        </Button>
       )}
+
+      {mounted && typeof window !== "undefined" && createPortal(modalContent, document.body)}
     </>
   );
 }

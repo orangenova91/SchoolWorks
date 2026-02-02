@@ -111,6 +111,50 @@ export default function CreateClassForm({
   const { showToast } = useToastContext();
   const currentYear = new Date().getFullYear();
   const isAfterSchool = courseType === "after_school";
+  const [showClassGroup, setShowClassGroup] = useState(true);
+  const [cgName, setCgName] = useState("");
+  const [cgPeriod, setCgPeriod] = useState("1");
+  const [cgSchedules, setCgSchedules] = useState<Array<{ day: string; period: string }>>([
+    { day: "", period: "" },
+  ]);
+  const [cgErrors, setCgErrors] = useState<{ name?: string; period?: string; schedules?: string }>(
+    {}
+  );
+
+  const cgDaysOfWeek = [
+    { value: "", label: "요일 선택" },
+    { value: "월", label: "월요일" },
+    { value: "화", label: "화요일" },
+    { value: "수", label: "수요일" },
+    { value: "목", label: "목요일" },
+    { value: "금", label: "금요일" },
+  ];
+
+  const cgPeriodsOptions = Array.from({ length: 10 }, (_, i) => ({
+    value: `${i + 1}`,
+    label: `${i + 1}교시`,
+  }));
+
+  const handleCgPeriodChange = (value: string) => {
+    setCgPeriod(value);
+    const periodCount = parseInt(value, 10) || 0;
+    if (periodCount > 0) {
+      setCgSchedules((prev) => {
+        const newSchedules = Array.from({ length: periodCount }, (_, index) => {
+          return prev[index] || { day: "", period: "" };
+        });
+        return newSchedules;
+      });
+    }
+  };
+
+  const handleCgScheduleChange = (index: number, field: "day" | "period", value: string) => {
+    setCgSchedules((prev) => {
+      const next = [...prev];
+      next[index] = { ...next[index], [field]: value };
+      return next;
+    });
+  };
   const [subjectOptions, setSubjectOptions] = useState<{ value: string; label: string }[]>([
     { value: "", label: "과목명 선택" },
   ]);
@@ -216,6 +260,22 @@ export default function CreateClassForm({
   };
 
   const onSubmit = async (values: FormValues) => {
+    // client-side validation for class-group when enabled
+    setCgErrors({});
+    if (showClassGroup) {
+      const errors: { name?: string; period?: string; schedules?: string } = {};
+      if (!cgName.trim()) errors.name = "학반명을 입력해주세요.";
+      const periodNum = parseInt(cgPeriod, 10) || 0;
+      if (!periodNum || periodNum < 1) errors.period = "차시(교시 수)를 올바르게 입력하세요.";
+      const incomplete = cgSchedules.slice(0, periodNum).some((s) => !s.day || !s.period);
+      if (periodNum > 0 && incomplete) errors.schedules = "모든 차시의 요일과 교시를 입력해주세요.";
+      if (Object.keys(errors).length > 0) {
+        setCgErrors(errors);
+        showToast("학반 정보를 확인하세요.", "error");
+        return;
+      }
+    }
+
     try {
       const payload = {
         ...values,
@@ -248,6 +308,37 @@ export default function CreateClassForm({
       }
 
       showToast("수업이 생성되었습니다.", "success");
+      // If user enabled class-group creation, attempt sequential create
+      if (showClassGroup) {
+        const periodNum = parseInt(cgPeriod, 10) || 0;
+        const incomplete = cgSchedules.slice(0, periodNum).some((s) => !s.day || !s.period);
+        if (!cgName.trim() || periodNum < 1 || incomplete) {
+          showToast("수업은 생성되었으나, 학반 정보가 불완전합니다. 학반 정보를 확인해 주세요.", "warning");
+        } else {
+          try {
+            const courseId = responseBody.class.id;
+            const cgRes = await fetch(`/api/courses/${courseId}/class-groups`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                name: cgName.trim(),
+                period: cgPeriod.trim() || null,
+                schedules: cgSchedules.slice(0, periodNum).filter((s) => s.day && s.period),
+                studentIds: [], // no students selected in combined flow
+              }),
+            });
+            if (!cgRes.ok) {
+              showToast("수업은 생성되었으나 학반 정보 등록에 실패했습니다. 수동으로 등록해 주세요.", "warning");
+            } else {
+              showToast("학반이 함께 생성되었습니다.", "success");
+            }
+          } catch (err) {
+            console.error("class-group create error:", err);
+            showToast("수업은 생성되었으나 학반 정보 등록에 실패했습니다. 수동으로 등록해 주세요.", "warning");
+          }
+        }
+      }
+
       reset({
         academicYear: "",
         semester: "",
@@ -517,6 +608,47 @@ export default function CreateClassForm({
             {errors.description.message}
           </p>
         )}
+      </div>
+
+      {/* Optional class-group section */}
+      <div className="border-t pt-4">
+        <div className="mt-4 space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">학반명 <span className="text-red-500">*</span></label>
+            <Input value={cgName} onChange={(e) => setCgName(e.target.value)} placeholder="예: 1반" />
+            {cgErrors.name && <p className="mt-1 text-sm text-red-600" role="alert">{cgErrors.name}</p>}
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">차시(교시 수) <span className="text-red-500">*</span></label>
+              <Input value={cgPeriod} onChange={(e) => handleCgPeriodChange(e.target.value)} />
+              {cgErrors.period && <p className="mt-1 text-sm text-red-600" role="alert">{cgErrors.period}</p>}
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">스케줄 <span className="text-red-500">*</span></label>
+              <div className="space-y-2">
+                {cgSchedules.map((s, idx) => (
+                  <div key={idx} className="flex gap-2">
+                    <Select
+                      options={cgDaysOfWeek}
+                      value={s.day}
+                      onChange={(e) => handleCgScheduleChange(idx, "day", e.target.value)}
+                      className="flex-1"
+                    />
+                    <Select
+                      options={[{ value: "", label: "교시 선택" }, ...cgPeriodsOptions]}
+                      value={s.period}
+                      onChange={(e) => handleCgScheduleChange(idx, "period", e.target.value)}
+                      className="flex-1"
+                    />
+                  </div>
+                ))}
+              </div>
+              {cgErrors.schedules && <p className="mt-1 text-sm text-red-600" role="alert">{cgErrors.schedules}</p>}
+            </div>
+          </div>
+        </div>
       </div>
 
       <div className="flex justify-end gap-3">
