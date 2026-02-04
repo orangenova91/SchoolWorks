@@ -128,22 +128,53 @@ export async function GET(request: NextRequest) {
     const courses = await (prisma as any).course.findMany({
       where,
       orderBy: { createdAt: "desc" },
-      // Include fields needed by the UI: classroom, description, academicYear, semester
       select: {
         id: true,
         subject: true,
         instructor: true,
         classroom: true,
         description: true,
+        enrollmentOpen: true,
         academicYear: true,
         semester: true,
         createdAt: true,
       },
     });
 
-    console.log("Found after-school courses:", courses.length);
+    // For each course, fetch the latest class-group (if any) to expose schedules for UI
+    const coursesWithSchedules = await Promise.all(
+      courses.map(async (course: any) => {
+        try {
+          const groups = await (prisma as any).classGroup.findMany({
+            where: { courseId: course.id },
+            orderBy: { createdAt: "desc" },
+            take: 1,
+            select: { id: true, name: true, schedules: true, studentIds: true },
+          });
+          const firstGroup = groups && groups.length > 0 ? groups[0] : null;
+          const schedules = firstGroup ? JSON.parse(firstGroup.schedules || "[]") : [];
+          // produce a compact display string like "월 3교시, 수 2교시"
+          const scheduleDisplay =
+            schedules && Array.isArray(schedules) && schedules.length > 0
+              ? schedules.map((s: any) => `${s.day} ${s.period}`).join(", ")
+              : "";
+          // include first class-group id and studentIds for client decision
+          return {
+            ...course,
+            classGroupSchedule: scheduleDisplay,
+            firstClassGroupId: firstGroup ? firstGroup.id : null,
+            firstClassGroupStudentIds: firstGroup ? (firstGroup.studentIds || []) : [],
+          };
+        } catch (err) {
+          console.error("Failed to fetch class-groups for course:", course.id, err);
+          return { ...course, classGroupSchedule: "", firstClassGroupId: null, firstClassGroupStudentIds: [] };
+        }
+      })
+    );
 
-    return NextResponse.json({ courses });
+    console.log("Found after-school courses:", coursesWithSchedules.length);
+
+    return NextResponse.json({ courses: coursesWithSchedules });
   } catch (err) {
     console.error("Get courses error:", err);
     return NextResponse.json({ error: "강의 목록을 불러오는 중 오류가 발생했습니다." }, { status: 500 });
