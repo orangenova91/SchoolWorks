@@ -8,15 +8,32 @@ interface Course {
   subject: string;
   instructor: string;
   createdAt: string;
+  classGroupSchedule?: string;
+  firstClassGroupId?: string | null;
+  firstClassGroupStudentIds?: string[];
+  enrollmentOpen?: boolean;
 }
 
 export default function AfterSchoolCourseList() {
   const [courses, setCourses] = useState<Course[]>([]);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [currentUserRole, setCurrentUserRole] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchCourses();
+    (async () => {
+      try {
+        const res = await fetch("/api/auth/session");
+        if (!res.ok) return;
+        const data = await res.json();
+        setCurrentUserId(data?.user?.id || null);
+        setCurrentUserRole(data?.user?.role || null);
+      } catch (e) {
+        // ignore
+      }
+    })();
   }, []);
 
   const fetchCourses = async () => {
@@ -81,6 +98,7 @@ export default function AfterSchoolCourseList() {
                 <tr className="border-b border-gray-200">
                   <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">번호</th>
                   <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">강좌명</th>
+                  <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">스케줄</th>
                   <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">강사</th>
                   <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">수강 신청</th>
                   <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">수강생 수</th>
@@ -91,21 +109,95 @@ export default function AfterSchoolCourseList() {
                   <tr key={course.id} className="border-b border-gray-100 hover:bg-gray-50">
                     <td className="py-3 px-4 text-sm text-gray-600">{courses.length - idx}</td>
                     <td className="py-3 px-4 text-sm text-gray-900">{course.subject}</td>
+                    <td className="py-3 px-4 text-sm text-gray-600">{course.classGroupSchedule || "-"}</td>
                     <td className="py-3 px-4 text-sm text-gray-600">{course.instructor}</td>
                     <td className="py-3 px-4 text-sm text-gray-600">
-                      <Button
-                        type="button"
-                        onClick={() => {
-                          const ok = window.confirm("해당 강좌에 신청하시겠습니까? (학생 계정으로 신청해야 합니다.)");
-                          if (!ok) return;
-                          window.alert("신청 기능은 학생 계정에서 진행해야 합니다. (추후 구현 예정)");
-                        }}
-                        className="flex items-center justify-center bg-blue-600 hover:bg-blue-700 text-white px-1 h-6 rounded-sm text-xs"
-                      >
-                        신청하기
-                      </Button>
+                      {currentUserRole === "student" && course.firstClassGroupId ? (
+                        (() => {
+                          const joined =
+                            Array.isArray((course as any).firstClassGroupStudentIds) &&
+                            currentUserId &&
+                            (course as any).firstClassGroupStudentIds.includes(currentUserId);
+                          const open = course.enrollmentOpen ?? true;
+                          // If enrollment is closed, show disabled "강의 닫힘"
+                          if (!open) {
+                            return (
+                              <button
+                                type="button"
+                                disabled
+                                className="flex items-center justify-center px-1 h-6 rounded-sm text-xs bg-gray-200 text-gray-500 cursor-not-allowed"
+                                title="신청이 종료된 강의입니다."
+                              >
+                                강의 닫힘
+                              </button>
+                            );
+                          }
+                          return (
+                            <Button
+                              type="button"
+                              onClick={async (e) => {
+                                e.stopPropagation();
+                                try {
+                                  if (!joined) {
+                                    const res = await fetch(
+                                      `/api/courses/${course.id}/class-groups/${(course as any).firstClassGroupId}/join`,
+                                      { method: "POST" }
+                                    );
+                                    const body = await res.json().catch(() => null);
+                                    if (!res.ok) {
+                                      alert(body?.error || "가입에 실패했습니다.");
+                                      return;
+                                    }
+                                    alert(body?.message || "가입되었습니다.");
+                                  } else {
+                                    // confirm before unjoining
+                                    const confirmed = window.confirm("신청을 취소하시겠습니까?");
+                                    if (!confirmed) {
+                                      return;
+                                    }
+                                    const res = await fetch(
+                                      `/api/courses/${course.id}/class-groups/${(course as any).firstClassGroupId}/join`,
+                                      { method: "DELETE" }
+                                    );
+                                    const body = await res.json().catch(() => null);
+                                    if (!res.ok) {
+                                      alert(body?.error || "취소에 실패했습니다.");
+                                      return;
+                                    }
+                                    alert(body?.message || "가입이 취소되었습니다.");
+                                  }
+                                  await fetchCourses();
+                                } catch (err) {
+                                  console.error(err);
+                                  alert("요청 중 오류가 발생했습니다.");
+                                }
+                              }}
+                              className={`flex items-center justify-center px-1 h-6 rounded-sm text-xs ${
+                                // style difference if joined
+                                joined ? "bg-gray-200 text-gray-700 cursor-pointer" : "bg-blue-600 hover:bg-blue-700 text-white"
+                              }`}
+                            >
+                              {joined ? "신청완료" : "신청하기"}
+                            </Button>
+                          );
+                        })()
+                      ) : (
+                        <Button
+                          type="button"
+                          onClick={() => {
+                            const ok = window.confirm("해당 강좌에 신청하시겠습니까? (학생 계정으로 신청해야 합니다.)");
+                            if (!ok) return;
+                            window.alert("신청 기능은 학생 계정에서 진행해야 합니다. (추후 구현 예정)");
+                          }}
+                          className="flex items-center justify-center bg-blue-600 hover:bg-blue-700 text-white px-1 h-6 rounded-sm text-xs"
+                        >
+                          신청하기
+                        </Button>
+                      )}
                     </td>
-                    <td className="py-3 px-4 text-sm text-gray-600">(수강생 수 ? 명)</td>
+                    <td className="py-3 px-4 text-sm text-gray-600">
+                      {Array.isArray(course.firstClassGroupStudentIds) ? `${course.firstClassGroupStudentIds.length}명` : "0명"}
+                    </td>
                   </tr>
                 ))}
               </tbody>

@@ -2,7 +2,10 @@
 
  import { useEffect, useState } from "react";
  import { createPortal } from "react-dom";
- import { Button } from "@/components/ui/Button";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
+import { Select } from "@/components/ui/Select";
+import { useToastContext } from "@/components/providers/ToastProvider";
  import { MoreVertical, X } from "lucide-react";
 import CreateClassForm from "@/components/dashboard/CreateClassForm";
 
@@ -20,8 +23,15 @@ export default function CreateCourseSection({ instructorName }: CreateCourseSect
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [selectedCourse, setSelectedCourse] = useState<any | null>(null);
   const [detailLocalCourse, setDetailLocalCourse] = useState<any | null>(null);
+  const [detailClassGroupId, setDetailClassGroupId] = useState<string | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [isEditingDetail, setIsEditingDetail] = useState(false);
+  const { showToast } = useToastContext();
+  const [showClassGroup, setShowClassGroup] = useState(true);
+  const [cgName, setCgName] = useState("");
+  const [cgPeriod, setCgPeriod] = useState("1");
+  const [cgSchedules, setCgSchedules] = useState<Array<{ day: string; period: string }>>([{ day: "", period: "" }]);
+  const [cgErrors, setCgErrors] = useState<{ name?: string; period?: string; schedules?: string }>({});
   const [detailForm, setDetailForm] = useState({
     subject: "",
     classroom: "",
@@ -29,6 +39,11 @@ export default function CreateCourseSection({ instructorName }: CreateCourseSect
     academicYear: "",
     semester: "",
   });
+  const semesterOptions = [
+    { value: "", label: "학기 선택" },
+    { value: "1학기", label: "1학기" },
+    { value: "2학기", label: "2학기" },
+  ];
 
   useEffect(() => {
     setMounted(true);
@@ -85,7 +100,19 @@ export default function CreateCourseSection({ instructorName }: CreateCourseSect
     }
   };
 
-  const handleOpen = () => setIsModalOpen(true);
+  const handleOpen = () => {
+    // Open the detail-style modal in "create" mode using a local blank course.
+    const blankCourse = {
+      id: "new",
+      subject: "",
+      classroom: "",
+      description: "",
+      academicYear: `${new Date().getFullYear()}`,
+      semester: "",
+      instructor: instructorName,
+    };
+    openDetail(blankCourse, { startEditing: true });
+  };
   const handleClose = () => {
     setIsModalOpen(false);
     setError(null);
@@ -166,6 +193,35 @@ export default function CreateCourseSection({ instructorName }: CreateCourseSect
       semester: course.semester || "",
     });
     setIsEditingDetail(Boolean(options?.startEditing));
+    // Initialize class-group fields.
+    setCgName("");
+    setCgPeriod("1");
+    setCgSchedules([{ day: "", period: "" }]);
+    setCgErrors({});
+
+    // If opening an existing course, fetch its class-groups and populate the fields
+    if (course && course.id && course.id !== "new") {
+      (async () => {
+        try {
+          const res = await fetch(`/api/courses/${course.id}/class-groups`);
+          if (!res.ok) return;
+          const data = await res.json().catch(() => null);
+          const groups = data?.classGroups || [];
+          if (Array.isArray(groups) && groups.length > 0) {
+            const g = groups[0];
+            setDetailClassGroupId(g.id || null);
+            setCgName(g.name || "");
+            setCgPeriod((g.period as string) || "1");
+            setCgSchedules(Array.isArray(g.schedules) && g.schedules.length > 0 ? g.schedules : [{ day: "", period: "" }]);
+            setCgErrors({});
+          } else {
+            setDetailClassGroupId(null);
+          }
+        } catch (err) {
+          console.error("Failed to fetch class-groups:", err);
+        }
+      })();
+    }
     setIsDetailOpen(true);
   };
 
@@ -178,9 +234,30 @@ export default function CreateCourseSection({ instructorName }: CreateCourseSect
     setIsEditingDetail(false);
   };
 
-  const handleDetailChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const handleDetailChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setDetailForm((p) => ({ ...p, [name]: value }));
+  };
+
+  const handleCgPeriodChange = (value: string) => {
+    setCgPeriod(value);
+    const periodCount = parseInt(value, 10) || 0;
+    if (periodCount > 0) {
+      setCgSchedules((prev) => {
+        const newSchedules = Array.from({ length: periodCount }, (_, index) => {
+          return prev[index] || { day: "", period: "" };
+        });
+        return newSchedules;
+      });
+    }
+  };
+
+  const handleCgScheduleChange = (index: number, field: "day" | "period", value: string) => {
+    setCgSchedules((prev) => {
+      const next = [...prev];
+      next[index] = { ...next[index], [field]: value };
+      return next;
+    });
   };
 
   const handleDeleteCourse = async (id: string) => {
@@ -201,21 +278,144 @@ export default function CreateCourseSection({ instructorName }: CreateCourseSect
 
   const handleUpdateCourse = async (id: string) => {
     try {
-      const res = await fetch(`/api/courses/${id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(detailForm),
-      });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || "수정 실패");
+      let createdCourseId: string | undefined = undefined;
+      if (id === "new") {
+        // Create new after-school course using the full classes endpoint so fields persist
+        const payload = {
+          courseType: "after_school",
+          academicYear: detailForm.academicYear || "",
+          semester: detailForm.semester || "",
+          subjectGroup: "-",
+          subjectArea: "-",
+          careerTrack: "-",
+          subject: detailForm.subject || "",
+          grade: "",
+          classroom: detailForm.classroom || "",
+          description: detailForm.description || "",
+          instructor: instructorName || "",
+        };
+        const res = await fetch("/api/classes", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        const responseBody = await res.json().catch(() => null);
+        if (!res.ok) {
+          throw new Error(responseBody?.error || "생성 실패");
+        }
+        createdCourseId = responseBody?.class?.id;
+        // If user requested class-group creation, attempt to create it as well
+        if (showClassGroup && createdCourseId) {
+          // validate class-group inputs
+          const periodNum = parseInt(cgPeriod, 10) || 0;
+          const incomplete = cgSchedules.slice(0, periodNum).some((s) => !s.day || !s.period);
+          const errors: { name?: string; period?: string; schedules?: string } = {};
+          if (!cgName.trim()) errors.name = "학반명을 입력해주세요.";
+          if (!periodNum || periodNum < 1) errors.period = "차시 수를 올바르게 입력하세요.";
+          if (periodNum > 0 && incomplete) errors.schedules = "모든 차시의 요일과 교시를 입력해주세요.";
+          if (Object.keys(errors).length > 0) {
+            setCgErrors(errors);
+            showToast?.("학반 정보를 확인하세요.", "error");
+          } else {
+            try {
+              const cgRes = await fetch(`/api/courses/${createdCourseId}/class-groups`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  name: cgName.trim(),
+                  period: cgPeriod.trim() || null,
+                  schedules: cgSchedules.slice(0, periodNum).filter((s) => s.day && s.period),
+                  studentIds: [],
+                }),
+              });
+              if (!cgRes.ok) {
+                showToast?.("수업은 생성되었으나 학반 정보 등록에 실패했습니다. 수동으로 등록해 주세요.", "warning");
+              } else {
+                showToast?.("학반이 함께 생성되었습니다.", "success");
+              }
+            } catch (err) {
+              console.error("class-group create error:", err);
+              showToast?.("수업은 생성되었으나 학반 정보 등록에 실패했습니다. 수동으로 등록해 주세요.", "warning");
+            }
+          }
+        }
+      } else {
+        const res = await fetch(`/api/courses/${id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(detailForm),
+        });
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          throw new Error(data.error || "수정 실패");
+        }
       }
+
+      // Determine courseId to use for class-group operations
+      const courseIdToUse = createdCourseId ?? (id === "new" ? undefined : id);
+
+      // If class-group inputs present, attempt to create or update class-group
+      if (cgName.trim() && courseIdToUse) {
+        setCgErrors({});
+        const periodNum = parseInt(cgPeriod, 10) || 0;
+        const incomplete = cgSchedules.slice(0, periodNum).some((s) => !s.day || !s.period);
+        const errors: { name?: string; period?: string; schedules?: string } = {};
+        if (!cgName.trim()) errors.name = "학반명을 입력해주세요.";
+        if (!periodNum || periodNum < 1) errors.period = "차시(교시 수)를 올바르게 입력하세요.";
+        if (periodNum > 0 && incomplete) errors.schedules = "모든 차시의 요일과 교시를 입력해주세요.";
+        if (Object.keys(errors).length > 0) {
+          setCgErrors(errors);
+          showToast?.("학반 정보를 확인하세요.", "error");
+        } else {
+          try {
+            if (detailClassGroupId) {
+              // update existing
+              const cgRes = await fetch(`/api/courses/${courseIdToUse}/class-groups/${detailClassGroupId}`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  name: cgName.trim(),
+                  period: cgPeriod.trim() || null,
+                  schedules: cgSchedules.slice(0, periodNum).filter((s) => s.day && s.period),
+                  studentIds: [],
+                }),
+              });
+              if (!cgRes.ok) {
+                showToast?.("학반 수정에 실패했습니다. 수동으로 확인해 주세요.", "warning");
+              } else {
+                showToast?.("학반이 수정되었습니다.", "success");
+              }
+            } else {
+              // create new
+              const cgRes = await fetch(`/api/courses/${courseIdToUse}/class-groups`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  name: cgName.trim(),
+                  period: cgPeriod.trim() || null,
+                  schedules: cgSchedules.slice(0, periodNum).filter((s) => s.day && s.period),
+                  studentIds: [],
+                }),
+              });
+              if (!cgRes.ok) {
+                showToast?.("수업은 생성되었으나 학반 정보 등록에 실패했습니다. 수동으로 등록해 주세요.", "warning");
+              } else {
+                showToast?.("학반이 함께 생성되었습니다.", "success");
+              }
+            }
+          } catch (err) {
+            console.error("class-group create/update error:", err);
+            showToast?.("학반 정보 등록 중 오류가 발생했습니다.", "warning");
+          }
+        }
+      }
+
       await fetchCourses({ force: true });
       setIsEditingDetail(false);
       closeDetail();
     } catch (err) {
       console.error(err);
-      alert("수정 중 오류가 발생했습니다.");
+      alert((err instanceof Error && err.message) ? err.message : "수정 중 오류가 발생했습니다.");
     }
   };
 
@@ -247,6 +447,7 @@ export default function CreateCourseSection({ instructorName }: CreateCourseSect
                   <tr className="border-b border-gray-200">
                     <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">번호</th>
                     <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">강좌명</th>
+                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">스케줄</th>
                     <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">강사</th>
                     <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">수강 신청</th>
                     <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">수강생 수</th>
@@ -265,20 +466,41 @@ export default function CreateCourseSection({ instructorName }: CreateCourseSect
                     >
                       <td className="py-3 px-4 text-sm text-gray-600">{courses.length - idx}</td>
                       <td className="py-3 px-4 text-sm text-gray-900">{c.subject}</td>
+                      <td className="py-3 px-4 text-sm text-gray-600">{c.classGroupSchedule || "-"}</td>
                       <td className="py-3 px-4 text-sm text-gray-600">{c.instructor}</td>
                       <td className="py-3 px-4 text-sm text-gray-600">
                         <Button
                           type="button"
-                          onClick={(e) => {
+                          onClick={async (e) => {
                             e.stopPropagation();
-                            handleApplyClick(c.id);
+                            try {
+                              const res = await fetch(`/api/courses/${c.id}/enrollment`, {
+                                method: "PUT",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ open: !(c.enrollmentOpen ?? true) }),
+                              });
+                              const data = await res.json().catch(() => null);
+                              if (!res.ok) {
+                                alert(data?.error || "상태 변경에 실패했습니다.");
+                                return;
+                              }
+                              // refresh list to reflect change
+                              await fetchCourses({ force: true });
+                            } catch (err) {
+                              console.error(err);
+                              alert("상태 변경 중 오류가 발생했습니다.");
+                            }
                           }}
-                          className="flex items-center justify-center bg-blue-600 hover:bg-blue-700 text-white px-1 h-6 rounded-sm text-xs"
+                          className={`flex items-center justify-center px-2 h-7 rounded-md text-sm ${
+                            c.enrollmentOpen ? "bg-green-600 hover:bg-green-700 text-white" : "bg-gray-200 text-gray-700"
+                          }`}
                         >
-                          신청하기
+                          {c.enrollmentOpen ? "신청 받기" : "신청 닫음"}
                         </Button>
                       </td>
-                      <td className="py-3 px-4 text-sm text-gray-600">(수강생 수 ? 명)</td>
+                      <td className="py-3 px-4 text-sm text-gray-600">
+                        {Array.isArray(c.firstClassGroupStudentIds) ? `${c.firstClassGroupStudentIds.length}명` : "0명"}
+                      </td>
                       <td className="py-3 px-4">
                         <div className="relative flex justify-end" onClick={(e) => e.stopPropagation()}>
                           <button
@@ -387,7 +609,9 @@ export default function CreateCourseSection({ instructorName }: CreateCourseSect
                       return (
                         <>
                           <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">학년도</label>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              학년도 <span className="text-red-500">*</span>
+                            </label>
                             <input
                               name="academicYear"
                               value={detailForm.academicYear}
@@ -397,13 +621,17 @@ export default function CreateCourseSection({ instructorName }: CreateCourseSect
                             />
                           </div>
                           <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">학기</label>
-                            <input
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              학기 <span className="text-red-500">*</span>
+                            </label>
+                            <Select
                               name="semester"
                               value={detailForm.semester}
                               onChange={handleDetailChange}
-                              readOnly={!canEdit}
-                              className={inputClass}
+                              options={semesterOptions}
+                              placeholder="학기 선택"
+                              disabled={!canEdit}
+                              className={canEdit ? undefined : "bg-gray-50 text-gray-700"}
                             />
                           </div>
                         </>
@@ -446,6 +674,8 @@ export default function CreateCourseSection({ instructorName }: CreateCourseSect
                     </div>
                   </div>
 
+                  {/* description comes next; class-group section moved below description */}
+
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">강의실</label>
                     {(() => {
@@ -466,7 +696,9 @@ export default function CreateCourseSection({ instructorName }: CreateCourseSect
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">강의소개</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      강의소개 <span className="text-red-500">*</span>
+                    </label>
                     {(() => {
                       const canEdit = isEditingDetail;
                       const inputClass = canEdit
@@ -483,6 +715,71 @@ export default function CreateCourseSection({ instructorName }: CreateCourseSect
                         />
                       );
                     })()}
+                  </div>
+
+                  {/* Class-group section moved here (after description) */}
+                  <div>
+                    <div className="mt-4 space-y-4">
+                      
+
+                      <>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">학반명 <span className="text-red-500">*</span></label>
+                            <Input
+                              value={cgName}
+                              onChange={(e) => isEditingDetail && setCgName(e.target.value)}
+                              placeholder="예: 1반"
+                              readOnly={!isEditingDetail}
+                              aria-readonly={!isEditingDetail}
+                            />
+                            {cgErrors.name && <p className="mt-1 text-sm text-red-600" role="alert">{cgErrors.name}</p>}
+                          </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-2">차시(교시 수) <span className="text-red-500">*</span></label>
+                              <Input
+                                value={cgPeriod}
+                                onChange={(e) => isEditingDetail && handleCgPeriodChange(e.target.value)}
+                                readOnly={!isEditingDetail}
+                                aria-readonly={!isEditingDetail}
+                              />
+                              {cgErrors.period && <p className="mt-1 text-sm text-red-600" role="alert">{cgErrors.period}</p>}
+                            </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">스케줄 <span className="text-red-500">*</span></label>
+                            <div className="space-y-2">
+                              {cgSchedules.map((s, idx) => (
+                                <div key={idx} className="flex gap-2">
+                                    <Select
+                                      options={[
+                                        { value: "", label: "요일 선택" },
+                                        { value: "월", label: "월요일" },
+                                        { value: "화", label: "화요일" },
+                                        { value: "수", label: "수요일" },
+                                        { value: "목", label: "목요일" },
+                                        { value: "금", label: "금요일" },
+                                      ]}
+                                      value={s.day}
+                                      onChange={(e) => isEditingDetail && handleCgScheduleChange(idx, "day", e.target.value)}
+                                      className="flex-1"
+                                      disabled={!isEditingDetail}
+                                    />
+                                    <Select
+                                      options={[{ value: "", label: "교시 선택" }, ...Array.from({ length: 10 }, (_, i) => ({ value: `${i+1}`, label: `${i+1}교시` }))]}
+                                      value={s.period}
+                                      onChange={(e) => isEditingDetail && handleCgScheduleChange(idx, "period", e.target.value)}
+                                      className="flex-1"
+                                      disabled={!isEditingDetail}
+                                    />
+                                </div>
+                              ))}
+                            </div>
+                            {cgErrors.schedules && <p className="mt-1 text-sm text-red-600" role="alert">{cgErrors.schedules}</p>}
+                          </div>
+                        </div>
+                      </>
+                    </div>
                   </div>
                 </div>
 
