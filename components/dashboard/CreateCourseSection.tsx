@@ -474,11 +474,22 @@ export default function CreateCourseSection({ instructorName }: CreateCourseSect
                           onClick={async (e) => {
                             e.stopPropagation();
                             try {
-                              const res = await fetch(`/api/courses/${c.id}/enrollment`, {
+                              const payload = { open: !(c.enrollmentOpen ?? true) };
+                              // Try PUT first; if server/hosting blocks PUT (405), fallback to POST
+                              let res = await fetch(`/api/courses/${c.id}/enrollment`, {
                                 method: "PUT",
                                 headers: { "Content-Type": "application/json" },
-                                body: JSON.stringify({ open: !(c.enrollmentOpen ?? true) }),
-                              });
+                                body: JSON.stringify(payload),
+                              }).catch(() => null);
+
+                              if (!res || res.status === 405) {
+                                res = await fetch(`/api/courses/${c.id}/enrollment`, {
+                                  method: "POST",
+                                  headers: { "Content-Type": "application/json" },
+                                  body: JSON.stringify(payload),
+                                });
+                              }
+
                               const data = await res.json().catch(() => null);
                               if (!res.ok) {
                                 alert(data?.error || "상태 변경에 실패했습니다.");
