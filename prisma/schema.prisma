@@ -117,6 +117,17 @@ model Course {
   @@map("classes")
 }
 
+model PeriodSetting {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  key       String   @unique
+  start     DateTime?
+  end       DateTime?
+  updatedBy String?  @db.ObjectId
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@map("period_settings")
+}
+
 model Assignment {
   id               String                 @id @default(auto()) @map("_id") @db.ObjectId
   title            String

@@ -20,6 +20,31 @@ export default function AfterSchoolCourseList() {
   const [currentUserRole, setCurrentUserRole] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [periodStart, setPeriodStart] = useState<string>("");
+  const [periodEnd, setPeriodEnd] = useState<string>("");
+  // Period state helpers (derive early so other code can use)
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const isPeriodSet = Boolean(periodStart && periodEnd);
+  const isPeriodOpen = isPeriodSet && periodStart <= todayStr && todayStr <= periodEnd;
+
+  const fetchPeriod = async () => {
+    try {
+      const res = await fetch("/api/after-school/periods/course_creation");
+      if (!res.ok) return;
+      const data = await res.json().catch(() => null);
+      const p = data?.period;
+      if (p) {
+        setPeriodStart(p.start ? new Date(p.start).toISOString().slice(0, 10) : "");
+        setPeriodEnd(p.end ? new Date(p.end).toISOString().slice(0, 10) : "");
+      } else {
+        // If no period data, reset to empty
+        setPeriodStart("");
+        setPeriodEnd("");
+      }
+    } catch (err) {
+      // ignore
+    }
+  };
 
   useEffect(() => {
     fetchCourses();
@@ -34,6 +59,29 @@ export default function AfterSchoolCourseList() {
         // ignore
       }
     })();
+    // fetch configured period (course_creation) for display
+    fetchPeriod();
+  }, []);
+
+  // Refetch period when page becomes visible (e.g., user switches back to tab)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        fetchPeriod();
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, []);
+
+  // Periodically refetch period to ensure it stays up-to-date (every 30 seconds)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetchPeriod();
+    }, 30000); // 30 seconds
+    return () => clearInterval(interval);
   }, []);
 
   const fetchCourses = async () => {
@@ -72,7 +120,14 @@ export default function AfterSchoolCourseList() {
       <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
         <div className="flex items-center justify-between mb-3" style={{ minHeight: '2.5rem' }}>
           <h2 className="text-lg font-semibold text-gray-900">강의 생성</h2>
-          <div className="h-10"></div>
+          <span className="inline-flex items-center px-3 py-1 rounded-full bg-gray-100 border border-gray-200 shadow-sm">
+            <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">강의 생성 기간</span>
+            <span className="mx-2 w-px h-3 bg-gray-300" /> {/* 수직 구분선 추가 (선택사항) */}
+            <span className="text-sm font-medium text-gray-800">
+              {periodStart || "미설정"}
+              {periodEnd ? ` ~ ${periodEnd}` : ""}
+            </span>
+          </span>
         </div>
         <p className="text-sm text-gray-600">신청 목록을 보고 교사가 강의를 생성할 수 있습니다.</p>
       </div>
@@ -135,8 +190,13 @@ export default function AfterSchoolCourseList() {
                           return (
                             <Button
                               type="button"
+                              disabled={!isPeriodOpen}
                               onClick={async (e) => {
                                 e.stopPropagation();
+                                if (!isPeriodOpen) {
+                                  alert(!isPeriodSet ? "교사가 강의 생성 기간을 설정하지 않았습니다." : "현재는 강의 생성 기간이 아닙니다.");
+                                  return;
+                                }
                                 try {
                                   if (!joined) {
                                     const res = await fetch(
@@ -172,9 +232,20 @@ export default function AfterSchoolCourseList() {
                                   alert("요청 중 오류가 발생했습니다.");
                                 }
                               }}
+                              title={
+                                !isPeriodSet
+                                  ? "교사가 강의 생성 기간을 설정하지 않았습니다."
+                                  : !isPeriodOpen
+                                  ? "현재는 강의 생성 기간이 아닙니다."
+                                  : undefined
+                              }
                               className={`flex items-center justify-center px-1 h-6 rounded-sm text-xs ${
-                                // style difference if joined
-                                joined ? "bg-gray-200 text-gray-700 cursor-pointer" : "bg-blue-600 hover:bg-blue-700 text-white"
+                                // style difference if joined or disabled
+                                !isPeriodOpen
+                                  ? "bg-gray-200 text-gray-500 cursor-not-allowed"
+                                  : joined
+                                  ? "bg-gray-200 text-gray-700 cursor-pointer"
+                                  : "bg-blue-600 hover:bg-blue-700 text-white"
                               }`}
                             >
                               {joined ? "신청완료" : "신청하기"}

@@ -31,7 +31,8 @@ import {
   ClipboardMinus,
   ClipboardCopy,
   ClipboardList,
-  MessageSquare
+  MessageSquare,
+  GraduationCap
 } from "lucide-react";
 
 export default async function DashboardLayout({
@@ -135,6 +136,12 @@ export default async function DashboardLayout({
             label: t.sidebar.teacher.overview,
             icon: <Home className="w-5 h-5" />,
             iconName: "Home"
+          },
+          {
+            href: "/dashboard/teacher/academic-preparation",
+            label: "학사 준비",
+            icon: <GraduationCap className="w-5 h-5" />,
+            iconName: "GraduationCap"
           },
           {
             href: "/dashboard/teacher/schedule",
