@@ -523,3 +523,20 @@ model AfterSchoolCourseRequest {
   @@index([createdAt])
   @@map("after_school_course_requests")
 }
+
+model CleaningArea {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  classGroup   String   // 학반 (예: 1-1)
+  area         String   // 담당구역 (예: 복도 A구역)
+  teacher      String   // 지도교사
+  studentCount Int?     // 학생수 (권장)
+  studentIds   String[] @default([]) // 선택된 학생 ID 배열
+  notes        String?  // 비고
+  school       String?  // 학교
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([school])
+  @@index([classGroup])
+  @@map("cleaning_areas")
+}

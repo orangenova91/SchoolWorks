@@ -2,6 +2,12 @@ import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
 import CourseTabs from "@/components/dashboard/CourseTabs";
+import dynamic from "next/dynamic";
+
+const CleaningAreaClient = dynamic(() => import("@/components/dashboard/CleaningArea"), {
+  ssr: false,
+  loading: () => <div className="rounded-2xl border border-gray-200 bg-white p-6">로딩 중...</div>,
+});
 
 export default async function AcademicPreparationPage() {
   const session = await getServerSession(authOptions);
@@ -20,20 +26,24 @@ export default async function AcademicPreparationPage() {
       <section>
         <CourseTabs
           tabs={[
+            { id: "work-guide", label: "업무 안내" },
             { id: "cleaning-area", label: "청소구역" },
             { id: "volunteer", label: "봉사활동" },
             { id: "club", label: "동아리" },
             { id: "organization", label: "학급 및 학생회 조직" },
             { id: "awards", label: "수상(교내 시상 계획)" },
-            { id: "work-guide", label: "업무 안내" },
           ]}
         >
           {[
+            <article key="work-guide" className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">업무 안내</h2>
+            <div className="text-center py-12">
+              <p className="text-gray-500">내용이 준비 중입니다.</p>
+            </div>
+          </article>,
+          
             <article key="cleaning-area" className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">청소구역</h2>
-              <div className="text-center py-12">
-                <p className="text-gray-500">내용이 준비 중입니다.</p>
-              </div>
+              <CleaningAreaClient />
             </article>,
 
             <article key="volunteer" className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
@@ -64,12 +74,7 @@ export default async function AcademicPreparationPage() {
               </div>
             </article>,
 
-            <article key="work-guide" className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">업무 안내</h2>
-              <div className="text-center py-12">
-                <p className="text-gray-500">내용이 준비 중입니다.</p>
-              </div>
-            </article>,
+            
           ]}
         </CourseTabs>
       </section>
