@@ -540,3 +540,28 @@ model CleaningArea {
   @@index([classGroup])
   @@map("cleaning_areas")
 }
+
+model Volunteer {
+  id                String   @id @default(auto()) @map("_id") @db.ObjectId
+  type              String   // "homeroom" | "manager" (담임 선발 | 담당자 선발)
+  department        String   // 부서명
+  teacher           String   // 담당교사
+  activityName      String   // 봉사활동명
+  activityContent   String?  // 활동 내용
+  volunteerArea     String?  // 봉사 영역
+  startDate         DateTime? // 시작 날짜
+  endDate           DateTime? // 종료 날짜
+  grade             String?  // 활동 학년
+  selectionCount    Int?     // 선발 인원
+  volunteerHours    Int?     // 봉사 시간
+  location          String?  // 활동 장소
+  studentSelections String?  // 학반별 학생 선택 정보 (JSON 문자열: { "classLabel": ["studentId1", "studentId2", ...] })
+  school            String?  // 학교
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([school])
+  @@index([type])
+  @@index([teacher])
+  @@map("volunteers")
+}
