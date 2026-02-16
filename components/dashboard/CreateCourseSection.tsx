@@ -39,6 +39,9 @@ export default function CreateCourseSection({ instructorName }: CreateCourseSect
     academicYear: "",
     semester: "",
   });
+  const [periodStart, setPeriodStart] = useState<string>("");
+  const [periodEnd, setPeriodEnd] = useState<string>("");
+  const [periodLoading, setPeriodLoading] = useState(false);
   const semesterOptions = [
     { value: "", label: "학기 선택" },
     { value: "1학기", label: "1학기" },
@@ -48,6 +51,24 @@ export default function CreateCourseSection({ instructorName }: CreateCourseSect
   useEffect(() => {
     setMounted(true);
     fetchCourses();
+  }, []);
+
+  // fetch configured period (teacher-set) for display/edit
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch("/api/after-school/periods/course_creation");
+        if (!res.ok) return;
+        const data = await res.json().catch(() => null);
+        const p = data?.period;
+        if (p) {
+          setPeriodStart(p.start ? new Date(p.start).toISOString().slice(0, 10) : "");
+          setPeriodEnd(p.end ? new Date(p.end).toISOString().slice(0, 10) : "");
+        }
+      } catch (err) {
+        // ignore
+      }
+    })();
   }, []);
 
   useEffect(() => {
@@ -425,7 +446,74 @@ export default function CreateCourseSection({ instructorName }: CreateCourseSect
         {/* 강의 생성 섹션 */}
         <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
           <div className="flex items-center justify-between mb-3" style={{ minHeight: '2.5rem' }}>
-            <h2 className="text-lg font-semibold text-gray-900">강의 생성</h2>
+            <div className="flex items-center gap-3">
+              <h2 className="text-lg font-semibold text-gray-900">교사 강의 생성</h2>
+
+              <div className="flex items-center gap-1">
+                <label className="text-sm text-gray-700 mr-1 hidden sm:block">{/*기간 적었던 곳*/}</label>
+                <input
+                  type="date"
+                  value={periodStart}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setPeriodStart(v);
+                    if (periodEnd && new Date(v) > new Date(periodEnd)) {
+                      setPeriodEnd("");
+                    }
+                  }}
+                  max={periodEnd || undefined}
+                  className="px-2 py-1 border border-gray-200 rounded-md text-sm"
+                  aria-label="기간 시작일"
+                  title="기간 시작일"
+                />
+                <span className="text-sm text-gray-500">~</span>
+                <input
+                  type="date"
+                  value={periodEnd}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    if (periodStart && new Date(v) < new Date(periodStart)) {
+                      setPeriodEnd(periodStart);
+                    } else {
+                      setPeriodEnd(v);
+                    }
+                  }}
+                  min={periodStart || undefined}
+                  className="px-2 py-1 border border-gray-200 rounded-md text-sm"
+                  aria-label="기간 종료일"
+                  title="기간 종료일"
+                />
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      setPeriodLoading(true);
+                      const res = await fetch("/api/after-school/periods/course_creation", {
+                        method: "PUT",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ start: periodStart || null, end: periodEnd || null }),
+                      });
+                      const data = await res.json().catch(() => null);
+                      if (!res.ok) {
+                        alert(data?.error || "기간 저장에 실패했습니다.");
+                        return;
+                      }
+                      alert("기간이 저장되었습니다.");
+                    } catch (err) {
+                      console.error(err);
+                      alert("기간 저장 중 오류가 발생했습니다.");
+                    } finally {
+                      setPeriodLoading(false);
+                    }
+                  }}
+                  disabled={periodLoading || Boolean(periodStart && periodEnd && new Date(periodEnd) < new Date(periodStart))}
+                  className="inline-flex items-center px-3 py-1 rounded-md bg-green-600 hover:bg-green-700 text-white text-sm disabled:opacity-50"
+                >
+                  {periodLoading ? "저장중..." : "저장"}
+                </button>
+              </div>
+            </div>
+
             <Button onClick={handleOpen} className="bg-green-600 hover:bg-green-700 h-10">
               강의 생성
             </Button>
@@ -506,7 +594,7 @@ export default function CreateCourseSection({ instructorName }: CreateCourseSect
                             c.enrollmentOpen ? "bg-green-600 hover:bg-green-700 text-white" : "bg-gray-200 text-gray-700"
                           }`}
                         >
-                          {c.enrollmentOpen ? "신청 받기" : "신청 닫음"}
+                          {c.enrollmentOpen ? "신청 받음" : "신청 닫음"}
                         </Button>
                       </td>
                       <td className="py-3 px-4 text-sm text-gray-600">

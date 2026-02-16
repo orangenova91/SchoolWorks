@@ -47,6 +47,32 @@ export default function StudentCourseRequestSection({ showApplyButton = true }: 
     notes: "",
     companionStudents: "",
   });
+  const [periodStart, setPeriodStart] = useState<string>("");
+  const [periodEnd, setPeriodEnd] = useState<string>("");
+  const [periodLoading, setPeriodLoading] = useState(false);
+  // Period state helpers (derive early so other code can use)
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const isPeriodSet = Boolean(periodStart && periodEnd);
+  const isPeriodOpen = isPeriodSet && periodStart <= todayStr && todayStr <= periodEnd;
+
+  const fetchPeriod = async () => {
+    try {
+      const res = await fetch("/api/after-school/periods/student_requests");
+      if (!res.ok) return;
+      const data = await res.json().catch(() => null);
+      const p = data?.period;
+      if (p) {
+        setPeriodStart(p.start ? new Date(p.start).toISOString().slice(0, 10) : "");
+        setPeriodEnd(p.end ? new Date(p.end).toISOString().slice(0, 10) : "");
+      } else {
+        // If no period data, reset to empty
+        setPeriodStart("");
+        setPeriodEnd("");
+      }
+    } catch (err) {
+      // ignore
+    }
+  };
 
   useEffect(() => {
     setMounted(true);
@@ -65,6 +91,29 @@ export default function StudentCourseRequestSection({ showApplyButton = true }: 
         // ignore
       }
     })();
+    // fetch configured period (teacher-set) - key: student_requests
+    fetchPeriod();
+  }, []);
+
+  // Refetch period when page becomes visible (e.g., user switches back to tab)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        fetchPeriod();
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, []);
+
+  // Periodically refetch period to ensure it stays up-to-date (every 30 seconds)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetchPeriod();
+    }, 30000); // 30 seconds
+    return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {
@@ -365,14 +414,21 @@ export default function StudentCourseRequestSection({ showApplyButton = true }: 
               type="button"
               variant="outline"
               onClick={handleClose}
-              disabled={isSubmitting}
+                disabled={isSubmitting || (currentUserRole !== "teacher" && !isPeriodOpen)}
               className="border-gray-300 text-gray-700 hover:bg-gray-50"
             >
               취소
             </Button>
-            <Button 
-              type="submit" 
-              disabled={isSubmitting}
+            <Button
+              type="submit"
+              disabled={isSubmitting || (currentUserRole !== "teacher" && !isPeriodOpen)}
+              title={
+                currentUserRole !== "teacher" && !isPeriodSet
+                  ? "교사가 신청 기간을 설정하지 않았습니다."
+                  : currentUserRole !== "teacher" && !isPeriodOpen
+                  ? "현재는 신청 기간이 아닙니다."
+                  : undefined
+              }
               className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50"
             >
               {isSubmitting ? "신청 중..." : "신청하기"}
@@ -480,11 +536,103 @@ export default function StudentCourseRequestSection({ showApplyButton = true }: 
         <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
           <div className="flex items-center justify-between mb-3" style={{ minHeight: '2.5rem' }}>
             <h2 className="text-lg font-semibold text-gray-900">학생 강의 신청</h2>
-            {showApplyButton ? (
-              <Button onClick={handleOpen} className="bg-blue-600 hover:bg-blue-700 h-10">
-                신청
-              </Button>
-            ) : <div className="h-10"></div>}
+
+            <div className="flex items-center gap-3">
+              {/* If teacher, show editable inputs + save button. Otherwise show read-only text. */}
+              {currentUserRole === "teacher" ? (
+                <div className="flex items-center gap-1">
+                  <label className="text-sm text-gray-700 mr-1 hidden sm:block">{/*기간 적었던 곳*/}</label>
+                  <input
+                    type="date"
+                    value={periodStart}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      setPeriodStart(v);
+                      if (periodEnd && new Date(v) > new Date(periodEnd)) {
+                        setPeriodEnd("");
+                      }
+                    }}
+                    max={periodEnd || undefined}
+                    className="px-2 py-1 border border-gray-200 rounded-md text-sm"
+                    aria-label="기간 시작일"
+                    title="기간 시작일"
+                  />
+                  <span className="text-sm text-gray-500">~</span>
+                  <input
+                    type="date"
+                    value={periodEnd}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      if (periodStart && new Date(v) < new Date(periodStart)) {
+                        setPeriodEnd(periodStart);
+                      } else {
+                        setPeriodEnd(v);
+                      }
+                    }}
+                    min={periodStart || undefined}
+                    className="px-2 py-1 border border-gray-200 rounded-md text-sm"
+                    aria-label="기간 종료일"
+                    title="기간 종료일"
+                  />
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        setPeriodLoading(true);
+                        const res = await fetch("/api/after-school/periods/student_requests", {
+                          method: "PUT",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ start: periodStart || null, end: periodEnd || null }),
+                        });
+                        const data = await res.json().catch(() => null);
+                        if (!res.ok) {
+                          alert(data?.error || "기간 저장에 실패했습니다.");
+                          return;
+                        }
+                        alert("기간이 저장되었습니다.");
+                      } catch (err) {
+                        console.error(err);
+                        alert("기간 저장 중 오류가 발생했습니다.");
+                      } finally {
+                        setPeriodLoading(false);
+                      }
+                    }}
+                    disabled={periodLoading || Boolean(periodStart && periodEnd && new Date(periodEnd) < new Date(periodStart))}
+                    className="inline-flex items-center px-3 py-1 rounded-md bg-green-600 hover:bg-green-700 text-white text-sm disabled:opacity-50"
+                  >
+                    {periodLoading ? "저장중..." : "저장"}
+                  </button>
+                </div>
+              ) : (
+                <span className="inline-flex items-center px-3 py-1 rounded-full bg-gray-100 border border-gray-200 shadow-sm">
+                  <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">신청 기간</span>
+                  <span className="mx-2 w-px h-3 bg-gray-300" /> {/* 수직 구분선 추가 (선택사항) */}
+                  <span className="text-sm font-medium text-gray-800">
+                    {periodStart || "미설정"}
+                    {periodEnd ? ` ~ ${periodEnd}` : ""}
+                  </span>
+                </span>
+              )}
+
+              {showApplyButton ? (
+                <Button
+                  onClick={handleOpen}
+                  className="bg-blue-600 hover:bg-blue-700 h-10"
+                  disabled={currentUserRole !== "teacher" && !isPeriodOpen}
+                  title={
+                    currentUserRole !== "teacher" && !isPeriodSet
+                      ? "교사가 신청 기간을 설정하지 않았습니다."
+                      : currentUserRole !== "teacher" && !isPeriodOpen
+                      ? "현재는 신청 기간이 아닙니다."
+                      : undefined
+                  }
+                >
+                  신청
+                </Button>
+              ) : (
+                <div className="h-10" />
+              )}
+            </div>
           </div>
           <p className="text-sm text-gray-600">원하는 강의를 신청할 수 있습니다.(수강 신청은 별개로 진행됩니다.)</p>
         </div>
@@ -531,8 +679,13 @@ export default function StudentCourseRequestSection({ showApplyButton = true }: 
                           request.studentId !== currentUserId ? (
                             <button
                             type="button"
+                            disabled={!isPeriodOpen}
                             onClick={async (e) => {
                               e.stopPropagation();
+                              if (!isPeriodOpen) {
+                                alert(!isPeriodSet ? "교사가 신청 기간을 설정하지 않았습니다." : "현재는 신청 기간이 아닙니다.");
+                                return;
+                              }
                               const ids = Array.isArray(request.companionStudentUserIds) ? request.companionStudentUserIds : [];
                               const already = ids.includes(currentUserId);
                               if (already) {
@@ -567,8 +720,17 @@ export default function StudentCourseRequestSection({ showApplyButton = true }: 
                                 }
                               }
                             }}
+                            title={
+                              !isPeriodSet
+                                ? "교사가 신청 기간을 설정하지 않았습니다."
+                                : !isPeriodOpen
+                                ? "현재는 신청 기간이 아닙니다."
+                                : undefined
+                            }
                             className={`text-xs px-2.5 py-0.5 rounded-full font-medium transition-colors whitespace-nowrap border ${
-                              (Array.isArray(request.companionStudentUserIds) ? request.companionStudentUserIds : []).includes(currentUserId)
+                              !isPeriodOpen
+                                ? "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed" // period closed
+                                : (Array.isArray(request.companionStudentUserIds) ? request.companionStudentUserIds : []).includes(currentUserId)
                                 ? "bg-gray-100 text-gray-400 border-gray-200" // already added
                                 : "bg-blue-100 text-blue-700 border-blue-200 hover:bg-blue-200" // can add
                             }`}
