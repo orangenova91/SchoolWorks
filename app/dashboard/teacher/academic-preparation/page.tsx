@@ -14,6 +14,11 @@ const VolunteerClient = dynamic(() => import("@/components/dashboard/Volunteer")
   loading: () => <div className="rounded-2xl border border-gray-200 bg-white p-6">로딩 중...</div>,
 });
 
+const ClubClient = dynamic(() => import("@/components/dashboard/Club"), {
+  ssr: false,
+  loading: () => <div className="rounded-2xl border border-gray-200 bg-white p-6">로딩 중...</div>,
+});
+
 export default async function AcademicPreparationPage() {
   const session = await getServerSession(authOptions);
   if (!session) redirect("/login");
@@ -56,10 +61,7 @@ export default async function AcademicPreparationPage() {
             </article>,
 
             <article key="club" className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">동아리</h2>
-              <div className="text-center py-12">
-                <p className="text-gray-500">내용이 준비 중입니다.</p>
-              </div>
+              <ClubClient />
             </article>,
 
             <article key="organization" className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
