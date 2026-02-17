@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from "react";
-import { Edit2, Trash2, Download } from "lucide-react";
+import { Edit2, Trash2, Download, HelpCircle } from "lucide-react";
 
 interface Teacher {
   id: string;
@@ -54,6 +54,7 @@ export default function Club() {
   // 미배정 학생/교사 표시용 상태
   const [showUnassignedStudents, setShowUnassignedStudents] = useState(false);
   const [showUnassignedTeachers, setShowUnassignedTeachers] = useState(false);
+  const [showClubHelpTooltip, setShowClubHelpTooltip] = useState(false);
   
   const [creativeForm, setCreativeForm] = useState({
     clubName: "",
@@ -1096,9 +1097,26 @@ export default function Club() {
     <div className="space-y-6">
       <div className="mb-4">
         <h2 className="text-lg font-semibold text-gray-900">동아리</h2>
-        <p className="text-sm text-gray-500 mt-1">
+        <div className="flex items-center gap-1 mt-1">
+          <p className="text-sm text-gray-500">
             동아리를 생성하고 학생 명단을 입력합니다.
-        </p>
+          </p>
+          <div 
+            className="relative cursor-help"
+            onMouseEnter={() => setShowClubHelpTooltip(true)}
+            onMouseLeave={() => setShowClubHelpTooltip(false)}
+          >
+            <HelpCircle className="w-4 h-4 text-gray-400" />
+            {showClubHelpTooltip && (
+              <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 z-50 bg-gray-800 text-white text-xs rounded-lg py-2 px-3 whitespace-nowrap shadow-lg">
+                목록을 클릭하면 학생 입력 모달이 뜹니다.
+                <div className="absolute top-full left-1/2 transform -translate-x-1/2 -mt-1">
+                  <div className="border-4 border-transparent border-t-gray-800"></div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* 창체 동아리 섹션 */}
