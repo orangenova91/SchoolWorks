@@ -565,3 +565,23 @@ model Volunteer {
   @@index([teacher])
   @@map("volunteers")
 }
+
+model Club {
+  id                String   @id @default(auto()) @map("_id") @db.ObjectId
+  clubName          String   // 동아리명
+  teacher           String   // 담당교사
+  category          String?  // 구분: 인문, 사회, 수학, 과학, 어학, 독서*토론, 음악, 미술, 체육, 댄스, 기타
+  clubType          String   // "creative" | "autonomous" (창체 동아리 | 자율 동아리)
+  description       String?  // 설명
+  maxMembers        Int?     // 정원
+  location          String?  // 활동 장소
+  studentSelections String?  // 학반별 학생 선택 정보 (JSON 문자열: { "classLabel": ["studentId1", "studentId2", ...] })
+  school            String?  // 학교
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([school])
+  @@index([clubType])
+  @@index([teacher])
+  @@map("clubs")
+}

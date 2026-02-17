@@ -519,18 +519,15 @@ export default function CleaningArea() {
     
     // CSV 데이터 생성 (Excel 날짜 변환 방지)
     const escapeCSV = (value: string | number | null | undefined, preventDateConversion = false) => {
-      if (value === null || value === undefined || value === "") return '""';
+      if (value === null || value === undefined || value === "") return "";
       const stringValue = String(value);
-      
-      // Excel이 날짜로 변환할 수 있는 패턴 감지
-      const mightBeDate = /^\d+[-/]\d+/.test(stringValue.trim());
       
       // 특수문자 이스케이프
       let escaped = stringValue.replace(/"/g, '""');
       
-      // 날짜 변환 방지가 필요한 경우 탭 문자 추가 (Excel이 텍스트로 인식)
-      if (preventDateConversion || mightBeDate) {
-        escaped = `\t${escaped}`;
+      // 날짜 변환 방지가 필요한 경우 작은따옴표 추가 (Excel이 텍스트로 인식)
+      if (preventDateConversion) {
+        escaped = `'${escaped}`;
       }
       
       return `"${escaped}"`;
@@ -579,16 +576,12 @@ export default function CleaningArea() {
     <div>
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-3">
-          <h3 className="text-lg font-semibold text-gray-900">청소구역</h3>
-          <button
-            type="button"
-            onClick={handleDownloadCSV}
-            className="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-            disabled={cleaningAreas.length === 0}
-          >
-            <Download className="w-4 h-4" />
-            청소구역 CSV 다운로드
-          </button>
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900">청소 구역</h3>
+            <p className="text-sm text-gray-500 mt-1">
+              청소 구역을 배정합니다.
+            </p>
+          </div>
         </div>
         <div className="flex items-center gap-3">
           {unassignedStudents.length > 0 && (
@@ -649,6 +642,15 @@ export default function CleaningArea() {
               )}
             </div>
           )}
+          <button
+            type="button"
+            onClick={handleDownloadCSV}
+            className="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            disabled={cleaningAreas.length === 0}
+          >
+            <Download className="w-4 h-4" />
+            CSV 다운로드
+          </button>
           <button
             type="button"
             onClick={() => setIsOpen((v) => !v)}
@@ -718,7 +720,7 @@ export default function CleaningArea() {
                   <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700" style={{ minWidth: "250px" }}>
                     학생 명단
                   </th>
-                  <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700" style={{ minWidth: "200px" }}>
+                  <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 w-36">
                     비고
                   </th>
                   <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 w-32">
@@ -861,7 +863,7 @@ export default function CleaningArea() {
                           <span className="text-sm text-gray-400">학생수를 입력하면 드롭다운이 표시됩니다.</span>
                         )}
                       </td>
-                      <td className="py-3 px-4" style={{ minWidth: "200px" }}>
+                      <td className="py-3 px-4 w-36">
                         <input
                           name="notes"
                           value={editForm.notes}
@@ -901,7 +903,7 @@ export default function CleaningArea() {
                       <td className="py-3 px-4 text-sm text-gray-600" style={{ minWidth: "250px" }}>
                         {getStudentNames(item.studentIds || [])}
                       </td>
-                      <td className="py-3 px-4 text-sm text-gray-600" style={{ minWidth: "200px" }}>
+                      <td className="py-3 px-4 text-sm text-gray-600 w-36">
                         {item.notes || "-"}
                       </td>
                       <td className="py-3 px-4 w-32">
@@ -1057,7 +1059,7 @@ export default function CleaningArea() {
                         <span className="text-sm text-gray-400">학생수를 입력하면 드롭다운이 표시됩니다.</span>
                       )}
                     </td>
-                    <td className="py-3 px-4" style={{ minWidth: "200px" }}>
+                    <td className="py-3 px-4 w-24">
                       <input
                         name="notes"
                         value={form.notes}
