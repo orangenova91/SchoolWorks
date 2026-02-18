@@ -2,6 +2,7 @@
 
 import { useMemo, useState, useCallback, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { Calendar, Sparkles, ChevronLeft, ChevronRight } from "lucide-react";
 import CalendarView, { CalendarEvent, CalendarViewHandle } from "./CalendarView";
 import { Button } from "@/components/ui/Button";
 import BulkUploadButton from "@/components/dashboard/BulkUploadButton";
@@ -162,6 +163,64 @@ export default function TeacherScheduleClient({
   }, [currentMonthEvents]);
 
   const [showStats, setShowStats] = useState<boolean>(true);
+  const [activeTab, setActiveTab] = useState<"academic" | "creative">("academic");
+
+  // 학년도 계산 함수 (3월 1일부터 다음해 2월 말까지)
+  const getAcademicYear = useCallback((date: Date): number => {
+    const month = date.getMonth(); // 0-11 (0=1월, 2=3월)
+    return month >= 2 ? date.getFullYear() : date.getFullYear() - 1;
+  }, []);
+
+  // 현재 학년도로 초기화
+  const [selectedAcademicYear, setSelectedAcademicYear] = useState<number>(getAcademicYear(new Date()));
+  // 학년 필터 (null = 전체)
+  const [selectedGrade, setSelectedGrade] = useState<string | null>(null);
+  // 일정 유형 필터 (null = 전체)
+  const [selectedEventType, setSelectedEventType] = useState<string | null>(null);
+
+  // 창의적 체험활동 이벤트 필터링 (학년도 기준: 3월 1일 ~ 다음해 2월 말, 학년 필터 포함)
+  const creativeEvents = useMemo<CalendarEventWithDate[]>(() => {
+    // 선택된 학년도의 시작일 (3월 1일)
+    const academicYearStart = new Date(selectedAcademicYear, 2, 1);
+    // 선택된 학년도의 종료일 (다음해 2월 마지막 날)
+    const academicYearEnd = new Date(selectedAcademicYear + 1, 1, 28, 23, 59, 59);
+    // 2월이 29일까지 있는 경우 처리
+    const isLeapYear = (year: number) => (year % 4 === 0 && year % 100 !== 0) || (year % 400 === 0);
+    if (isLeapYear(selectedAcademicYear + 1)) {
+      academicYearEnd.setDate(29);
+    }
+
+    return events
+      .map<CalendarEventWithDate>((event) => ({
+        ...event,
+        startDate: new Date(event.start),
+      }))
+      .filter(
+        (event) => {
+          // 일정 구분 필터링
+          const isCreativeActivity = 
+            event.extendedProps.scheduleArea === "창의적 체험활동";
+          
+          // 학년도 필터링
+          const isInAcademicYear = 
+            event.startDate >= academicYearStart &&
+            event.startDate <= academicYearEnd;
+          
+          // 학년 필터링 (선택된 경우)
+          const gradeLevels = event.extendedProps.gradeLevels || [];
+          const matchesGrade = selectedGrade === null || 
+            gradeLevels.includes(selectedGrade);
+          
+          // 일정 유형 필터링 (선택된 경우)
+          const eventType = event.extendedProps.eventType;
+          const matchesEventType = selectedEventType === null || 
+            eventType === selectedEventType;
+          
+          return isCreativeActivity && isInAcademicYear && matchesGrade && matchesEventType;
+        }
+      )
+      .sort((a, b) => a.startDate.getTime() - b.startDate.getTime());
+  }, [events, selectedAcademicYear, selectedGrade, selectedEventType]);
 
   return (
     <div className="space-y-6">
@@ -170,6 +229,32 @@ export default function TeacherScheduleClient({
           <div>
             <h1 className="text-2xl font-bold text-gray-900">{title}</h1>
             <p className="mt-2 text-sm text-gray-600">{description}</p>
+            <div className="mt-4">
+              <div className="inline-flex rounded-lg border border-gray-300 bg-white p-1">
+                <button
+                  onClick={() => setActiveTab("academic")}
+                  className={`inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                    activeTab === "academic"
+                      ? "text-white bg-blue-600"
+                      : "text-gray-700 hover:text-gray-900"
+                  }`}
+                >
+                  <Calendar className="w-4 h-4" />
+                  학사 일정
+                </button>
+                <button
+                  onClick={() => setActiveTab("creative")}
+                  className={`inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                    activeTab === "creative"
+                      ? "text-white bg-blue-600"
+                      : "text-gray-700 hover:text-gray-900"
+                  }`}
+                >
+                  <Sparkles className="w-4 h-4" />
+                  창의적 체험활동
+                </button>
+              </div>
+            </div>
           </div>
           {showAddButton && (
             <div className="flex flex-col items-start gap-2">
@@ -187,7 +272,9 @@ export default function TeacherScheduleClient({
         </div>
       </header>
 
-      <div className="flex flex-col gap-6 lg:flex-row items-stretch">
+      {/* CalendarView는 항상 렌더링하되, 창의적 체험활동 탭에서는 숨김 (ref를 사용하기 위해) */}
+      <div className={activeTab === "academic" ? "" : "hidden"}>
+        <div className="flex flex-col gap-6 lg:flex-row items-stretch">
         <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm w-full lg:w-1/2">
           <CalendarView
             ref={calendarRef}
@@ -356,6 +443,224 @@ export default function TeacherScheduleClient({
           )}
         </div>
       </div>
+      </div>
+      
+      {activeTab === "creative" && (
+        <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setSelectedAcademicYear(prev => prev - 1)}
+                  className="p-1 rounded-md hover:bg-gray-100 transition-colors"
+                  aria-label="이전 학년도"
+                >
+                  <ChevronLeft className="w-5 h-5 text-gray-600" />
+                </button>
+                <span className="text-sm font-medium text-gray-700 min-w-[90px] text-center">
+                  {selectedAcademicYear}학년도
+                </span>
+                <button
+                  onClick={() => setSelectedAcademicYear(prev => prev + 1)}
+                  className="p-1 rounded-md hover:bg-gray-100 transition-colors"
+                  aria-label="다음 학년도"
+                >
+                  <ChevronRight className="w-5 h-5 text-gray-600" />
+                </button>
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900">
+                창의적 체험활동 일정
+              </h3>
+            </div>
+            <div className="flex items-center gap-3">
+              {/* 학년 필터 */}
+              <div className="inline-flex rounded-lg border border-gray-300 bg-white p-1">
+                <button
+                  onClick={() => setSelectedGrade(null)}
+                  className={`inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                    selectedGrade === null
+                      ? "text-white bg-blue-600"
+                      : "text-gray-700 hover:text-gray-900"
+                  }`}
+                >
+                  전체
+                </button>
+                <button
+                  onClick={() => setSelectedGrade("1")}
+                  className={`inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                    selectedGrade === "1"
+                      ? "text-white bg-blue-600"
+                      : "text-gray-700 hover:text-gray-900"
+                  }`}
+                >
+                  1학년
+                </button>
+                <button
+                  onClick={() => setSelectedGrade("2")}
+                  className={`inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                    selectedGrade === "2"
+                      ? "text-white bg-blue-600"
+                      : "text-gray-700 hover:text-gray-900"
+                  }`}
+                >
+                  2학년
+                </button>
+                <button
+                  onClick={() => setSelectedGrade("3")}
+                  className={`inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                    selectedGrade === "3"
+                      ? "text-white bg-blue-600"
+                      : "text-gray-700 hover:text-gray-900"
+                  }`}
+                >
+                  3학년
+                </button>
+              </div>
+              {/* 일정 유형 필터 */}
+              <div className="inline-flex rounded-lg border border-gray-300 bg-white p-1">
+                <button
+                  onClick={() => setSelectedEventType(null)}
+                  className={`inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                    selectedEventType === null
+                      ? "text-white bg-blue-600"
+                      : "text-gray-700 hover:text-gray-900"
+                  }`}
+                >
+                  전체
+                </button>
+                <button
+                  onClick={() => setSelectedEventType("자율*자치")}
+                  className={`inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                    selectedEventType === "자율*자치"
+                      ? "text-white bg-blue-600"
+                      : "text-gray-700 hover:text-gray-900"
+                  }`}
+                >
+                  자율*자치
+                </button>
+                <button
+                  onClick={() => setSelectedEventType("동아리")}
+                  className={`inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                    selectedEventType === "동아리"
+                      ? "text-white bg-blue-600"
+                      : "text-gray-700 hover:text-gray-900"
+                  }`}
+                >
+                  동아리
+                </button>
+                <button
+                  onClick={() => setSelectedEventType("봉사")}
+                  className={`inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                    selectedEventType === "봉사"
+                      ? "text-white bg-blue-600"
+                      : "text-gray-700 hover:text-gray-900"
+                  }`}
+                >
+                  봉사
+                </button>
+                <button
+                  onClick={() => setSelectedEventType("진로")}
+                  className={`inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                    selectedEventType === "진로"
+                      ? "text-white bg-blue-600"
+                      : "text-gray-700 hover:text-gray-900"
+                  }`}
+                >
+                  진로
+                </button>
+              </div>
+            </div>
+          </div>
+          {creativeEvents.length === 0 ? (
+            <p className="text-sm text-gray-500">창의적 체험활동 일정이 없습니다.</p>
+          ) : (
+            <>
+              {/* 열 헤더 (sm 이상에서 표시) */}
+              <div className="hidden sm:flex items-center gap-3 text-xs text-gray-500 mt-4 mb-2 pl-3 pr-2">
+                <span className="flex items-center justify-center whitespace-nowrap w-[80px] shrink-0">날짜</span>
+                <span className="flex items-center justify-center min-w-[80px] shrink-0 text-center">교시</span>
+                <span className="flex items-center justify-center flex-1 min-w-0">제목</span>
+                <span className="flex items-center justify-center w-[70px] shrink-0 text-right">부서</span>
+                <span className="flex items-center justify-center w-[70px] shrink-0 text-right">담당자</span>
+                <span className="flex items-center justify-center w-[70px] shrink-0 text-center">학년</span>
+                <span className="flex items-center justify-center w-[70px] shrink-0 text-center">구분</span>
+              </div>
+
+              {/* 모바일(작은 화면)에서는 간단한 레이블만 표시 */}
+              <div className="sm:hidden text-xs text-gray-500 mb-2 pl-3 pr-2">
+                <span>창의적 체험활동 일정 목록</span>
+              </div>
+
+              <ul className="space-y-3 flex-1 overflow-y-auto pr-2 max-h-[600px]">
+                {creativeEvents.map((event) => {
+                  const { startDate, ...eventData } = event;
+                  return (
+                    <li
+                      key={event.id}
+                      className="rounded-md border border-gray-100 p-3 hover:bg-gray-50 transition cursor-pointer"
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => calendarRef.current?.openEventModal(eventData)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          calendarRef.current?.openEventModal(eventData);
+                        }
+                      }}
+                    >
+                      <div className="flex items-center gap-3 text-sm text-gray-600 min-w-0">
+                        {(() => {
+                          const eventType = event.extendedProps.eventType || "교과";
+                          const colors: Record<string, string> = {
+                            "자율*자치": "#dc2626",
+                            "동아리": "#2563eb",
+                            "진로": "#16a34a",
+                            "봉사": "#ca8a04",
+                            "학사행사": "#9333ea",
+                            "개인 일정": "#0d9488",
+                          };
+                          const eventColor = eventType in colors ? colors[eventType] : "#6b7280";
+
+                          return (
+                            <>
+                              <span className="whitespace-nowrap w-[80px] shrink-0">{formatDate(startDate)}</span>
+                              <span className="text-xs text-gray-500 whitespace-nowrap min-w-[80px] shrink-0">
+                                {event.extendedProps.periods?.length
+                                  ? `${event.extendedProps.periods.join(", ")}교시`
+                                  : "-"}
+                              </span>
+                              <span className="text-gray-900 font-medium flex-1 min-w-0 break-words">
+                                {event.title}
+                              </span>
+                              <span className="text-xs text-gray-500 truncate w-[70px] shrink-0 text-right">
+                                {event.extendedProps.department || "-"}
+                              </span>
+                              <span className="text-xs text-gray-500 truncate w-[70px] shrink-0 text-right">
+                                {event.extendedProps.responsiblePerson || "-"}
+                              </span>
+                              <span className="text-xs text-gray-500 whitespace-nowrap w-[70px] shrink-0 text-center">
+                                {event.extendedProps.gradeLevels?.length
+                                  ? `${event.extendedProps.gradeLevels.join(", ")}학년`
+                                  : "-"}
+                              </span>
+                              <span
+                                className="text-xs px-2 py-0.5 rounded-full whitespace-nowrap border w-[70px] shrink-0 text-center"
+                                style={{ backgroundColor: eventColor, borderColor: eventColor, color: "#ffffff" }}
+                              >
+                                {eventType}
+                              </span>
+                            </>
+                          );
+                        })()}
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 }

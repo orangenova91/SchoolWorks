@@ -34,6 +34,7 @@ export interface CalendarEvent {
     courseId?: string;
     department?: string;
     responsiblePerson?: string;
+    scheduleArea?: string;
     gradeLevels?: string[];
     periods?: string[];
     description?: string;
