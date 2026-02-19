@@ -13,6 +13,7 @@ import Link from "next/link";
 import { getTranslations } from "@/lib/i18n";
 import { AnimatedBackground } from "@/components/ui/AnimatedBackground";
 import { Eye, EyeOff } from "lucide-react";
+import Image from "next/image";
 
 const t = getTranslations("ko");
 const currentYear = new Date().getFullYear();
@@ -91,9 +92,18 @@ export default function LoginPage() {
                 />
               </svg>
             </div>
-            <h1 className="text-4xl font-extrabold text-gray-900 mb-2">
-              {t.auth.login}<span className="text-sm font-normal"> {t.app.version}</span>
-            </h1>
+            <div className="flex items-center justify-center gap-3 mb-2">
+              <Image
+                src="/logo/SchoolLogo.png"
+                alt="SchoolHub Logo"
+                width={48}
+                height={48}
+                className="object-contain"
+              />
+              <h1 className="text-4xl font-extrabold text-gray-900">
+                {t.auth.login}<span className="text-sm font-normal"> {t.app.version}</span>
+              </h1>
+            </div>
             <p className="text-gray-600 text-base">
               SchoolHub에 오신 것을 환영합니다
             </p>
