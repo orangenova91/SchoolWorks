@@ -1173,7 +1173,7 @@ export default function Volunteer() {
             className="relative cursor-help"
             onMouseEnter={() => setShowHelpTooltip(true)}
             onMouseLeave={() => setShowHelpTooltip(false)}
-          >
+            >
             <HelpCircle className="w-4 h-4 text-gray-400" />
             {showHelpTooltip && (
               <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 z-50 bg-gray-800 text-white text-xs rounded-lg py-2 px-3 whitespace-nowrap shadow-lg">

@@ -475,7 +475,7 @@ export default function EventModal({
               {...register("description")}
               rows={3}
               className="flex w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 ring-offset-white placeholder:text-gray-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
-              placeholder="일정에 대한 설명을 입력하세요"
+              placeholder="일정에 대한 설명을 입력하세요.(ex_1교시 담임 조례 후 09:00까지 강당으로 보내주세요.)"
               disabled={isReadOnlyEvent}
             />
             {errors.description && (

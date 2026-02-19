@@ -1056,7 +1056,7 @@ export default function CleaningArea() {
                           </div>
                         </div>
                       ) : (
-                        <span className="text-sm text-gray-400">학생수를 입력하면 드롭다운이 표시됩니다.</span>
+                        <span className="text-sm text-gray-400">학반 입력 후 학생수를 입력하면 드롭다운이 표시됩니다.</span>
                       )}
                     </td>
                     <td className="py-3 px-4 w-24">
