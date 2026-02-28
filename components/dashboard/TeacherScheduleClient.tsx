@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useCallback, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Calendar, Sparkles, ChevronLeft, ChevronRight } from "lucide-react";
+import { Calendar, Sparkles, ChevronLeft, ChevronRight, Download } from "lucide-react";
 import CalendarView, { CalendarEvent, CalendarViewHandle } from "./CalendarView";
 import { Button } from "@/components/ui/Button";
 import BulkUploadButton from "@/components/dashboard/BulkUploadButton";
@@ -280,6 +280,52 @@ export default function TeacherScheduleClient({
       .sort((a, b) => a.startDate.getTime() - b.startDate.getTime());
   }, [creativeTabEvents, selectedGrade, selectedEventType]);
 
+  const handleDownloadCreativeCSV = useCallback(() => {
+    const headers = ["날짜", "교시", "제목", "부서", "담당자", "학년", "구분", "활동"];
+    const escape = (val: string) => {
+      const s = String(val ?? "");
+      if (s.includes(",") || s.includes('"') || s.includes("\n")) {
+        return `"${s.replace(/"/g, '""')}"`;
+      }
+      return s;
+    };
+    const rows = creativeEvents.map((e) => {
+      const dateStr = new Intl.DateTimeFormat("ko-KR", {
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        weekday: "short",
+      }).format(e.startDate);
+      const periods = e.extendedProps.periods?.length
+        ? e.extendedProps.periods.join(", ")
+        : "-";
+      const grades = e.extendedProps.gradeLevels?.length
+        ? e.extendedProps.gradeLevels.join(", ")
+        : "-";
+      const eventType = e.extendedProps.eventType || "-";
+      const activity = (e.extendedProps as { activityContent?: string }).activityContent ?? "";
+      return [
+        escape(dateStr),
+        escape(periods),
+        escape(e.title),
+        escape(e.extendedProps.department ?? ""),
+        escape(e.extendedProps.responsiblePerson ?? ""),
+        escape(grades),
+        escape(eventType),
+        escape(activity),
+      ].join(",");
+    });
+    const bom = "\uFEFF";
+    const csv = bom + [headers.join(","), ...rows].join("\r\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `창의적체험활동_${selectedAcademicYear}학년도_일정.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [creativeEvents, selectedAcademicYear]);
+
   return (
     <div className="space-y-6">
       <header className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm space-y-4">
@@ -429,7 +475,6 @@ export default function TeacherScheduleClient({
               <span className="flex items-center justify-center w-[70px] shrink-0 text-right">부서</span>
               <span className="flex items-center justify-center w-[70px] shrink-0 text-center">학년</span>
               <span className="flex items-center justify-center w-[70px] shrink-0 text-center">구분</span>
-              <span className="flex items-center justify-center flex-1 min-w-[100px] shrink-0 text-center">활동</span>
             </div>
 
             {/* 모바일(작은 화면)에서는 간단한 레이블만 표시 */}
@@ -492,32 +537,6 @@ export default function TeacherScheduleClient({
                       >
                         {eventType}
                       </span>
-                      <span
-                        className="text-xs flex-1 min-w-[100px] shrink-0 line-clamp-2 flex items-center"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setActivityModalEvent({
-                            id: event.id,
-                            title: event.title,
-                            activityContent: (event.extendedProps as any).activityContent || "",
-                          });
-                        }}
-                      >
-                        {(event.extendedProps as any).activityContent ? (
-                          <span className="text-gray-600 cursor-pointer hover:text-blue-600 flex justify-center w-full text-center">
-                            {(event.extendedProps as any).activityContent}
-                          </span>
-                        ) : (
-                          <span className="flex justify-center w-full">
-                            <button
-                              type="button"
-                              className="text-blue-600 hover:text-blue-700 text-xs font-medium cursor-pointer"
-                            >
-                              활동 입력
-                            </button>
-                          </span>
-                        )}
-                      </span>
                           </>
                         );
                       })()}
@@ -560,6 +579,16 @@ export default function TeacherScheduleClient({
               </h3>
             </div>
             <div className="flex items-center gap-3">
+              {/* CSV 다운로드 */}
+              <button
+                type="button"
+                onClick={handleDownloadCreativeCSV}
+                disabled={creativeEvents.length === 0}
+                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg border border-emerald-600 bg-emerald-600 text-white hover:bg-emerald-700 hover:border-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+              >
+                <Download className="w-4 h-4" />
+                CSV 다운로드
+              </button>
               {/* 학년 필터 */}
               <div className="inline-flex rounded-lg border border-gray-300 bg-white p-1">
                 <button

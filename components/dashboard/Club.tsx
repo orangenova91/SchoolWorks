@@ -914,7 +914,7 @@ export default function Club() {
   const handleCreativeDownloadCSV = () => {
     // CSV 헤더 (테이블 헤더 순서와 일치)
     const headers = [
-      "번호", 
+      "순", 
       "동아리명", 
       "구분", 
       "설명", 
@@ -1006,7 +1006,7 @@ export default function Club() {
   const handleAutonomousDownloadCSV = () => {
     // CSV 헤더 (테이블 헤더 순서와 일치)
     const headers = [
-      "번호", 
+      "순", 
       "동아리명", 
       "구분", 
       "설명", 
@@ -1186,8 +1186,8 @@ export default function Club() {
             <button
               type="button"
               onClick={handleCreativeDownloadCSV}
-              className="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
               disabled={creativeClubs.length === 0}
+              className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg border border-emerald-600 bg-emerald-600 text-white hover:bg-emerald-700 hover:border-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
             >
               <Download className="w-4 h-4" />
               CSV 다운로드
@@ -1209,7 +1209,7 @@ export default function Club() {
               <table className="w-full" style={{ tableLayout: "fixed" }}>
                 <thead>
                   <tr className="border-b border-gray-200">
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 w-12">번호</th>
+                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 w-12">순</th>
                     <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 w-32">동아리명</th>
                     <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 w-24">구분</th>
                     <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700" style={{ minWidth: "200px" }}>설명</th>
@@ -1560,8 +1560,8 @@ export default function Club() {
             <button
               type="button"
               onClick={handleAutonomousDownloadCSV}
-              className="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
               disabled={autonomousClubs.length === 0}
+              className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg border border-emerald-600 bg-emerald-600 text-white hover:bg-emerald-700 hover:border-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
             >
               <Download className="w-4 h-4" />
               CSV 다운로드
@@ -1583,7 +1583,7 @@ export default function Club() {
               <table className="w-full" style={{ tableLayout: "fixed" }}>
                 <thead>
                   <tr className="border-b border-gray-200">
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 w-12">번호</th>
+                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 w-12">순</th>
                     <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 w-32">동아리명</th>
                     <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 w-24">구분</th>
                     <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700" style={{ minWidth: "200px" }}>설명</th>

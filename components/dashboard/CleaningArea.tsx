@@ -537,7 +537,7 @@ export default function CleaningArea() {
   // CSV 다운로드 함수
   const handleDownloadCSV = () => {
     // CSV 헤더
-    const headers = ["번호", "학반", "담당구역", "지도교사", "학생수(권장)", "학생 명단", "비고"];
+    const headers = ["순", "학반", "담당구역", "지도교사", "학생수(권장)", "학생 명단", "비고"];
     
     // CSV 데이터 생성 (Excel 날짜 변환 방지)
     const escapeCSV = (value: string | number | null | undefined, preventDateConversion = false) => {
@@ -698,6 +698,31 @@ export default function CleaningArea() {
     }
   };
 
+  const handleMapDownload = async () => {
+    if (!mapImageUrl) return;
+    try {
+      const res = await fetch(mapImageUrl, { mode: "cors" });
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "청소구역_배치도.png";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch {
+      // data URL 또는 same-origin인 경우 fetch 실패 시 링크로 시도
+      const a = document.createElement("a");
+      a.href = mapImageUrl;
+      a.download = "청소구역_배치도.png";
+      a.target = "_blank";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    }
+  };
+
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
@@ -720,12 +745,22 @@ export default function CleaningArea() {
                 </button>
                 {showLocationTooltip && mapImageUrl && (
                   <div className="absolute top-full left-0 pt-1 z-50">
-                    <div className="bg-white border border-gray-300 rounded-lg shadow-lg p-2 min-w-[700px] min-h-[550px] overflow-hidden">
+                    <div className="bg-white border border-gray-300 rounded-lg shadow-lg p-2 min-w-[800px] min-h-[80px] overflow-hidden">
                       <img
                         src={mapImageUrl}
                         alt="청소구역 배치도"
-                        className="w-full h-auto max-h-[500px] object-contain"
+                        className="w-full h-auto max-h-[800px] object-contain"
                       />
+                      <div className="mt-2 flex justify-end">
+                        <button
+                          type="button"
+                          onClick={handleMapDownload}
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 text-sm font-medium text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
+                        >
+                          <Download className="w-4 h-4" />
+                          다운로드
+                        </button>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -819,8 +854,8 @@ export default function CleaningArea() {
           <button
             type="button"
             onClick={handleDownloadCSV}
-            className="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
             disabled={cleaningAreas.length === 0}
+            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg border border-emerald-600 bg-emerald-600 text-white hover:bg-emerald-700 hover:border-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
           >
             <Download className="w-4 h-4" />
             CSV 다운로드
@@ -843,7 +878,7 @@ export default function CleaningArea() {
             <table className="w-full" style={{ tableLayout: "fixed" }}>
               <thead>
                 <tr className="border-b border-gray-200">
-                  <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 w-16">번호</th>
+                  <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 w-16">순</th>
                   <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 w-24">
                     <button
                       type="button"
@@ -1302,7 +1337,15 @@ export default function CleaningArea() {
                     alt="청소구역 배치도"
                     className="w-full h-auto max-h-[60vh] object-contain rounded-lg border border-gray-200"
                   />
-                  <div className="flex justify-end">
+                  <div className="flex justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={handleMapDownload}
+                      className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"
+                    >
+                      <Download className="w-4 h-4" />
+                      다운로드
+                    </button>
                     <label className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md cursor-pointer transition-colors disabled:opacity-50">
                       <input
                         type="file"

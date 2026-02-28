@@ -1,8 +1,9 @@
- "use client";
+"use client";
 
 import { useState } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
+import { Moon, UtensilsCrossed } from "lucide-react";
 
 type WeeklyScheduleEvent = {
   id: string;
@@ -18,10 +19,16 @@ type WeeklyScheduleEvent = {
   dateLabel: string;
 };
 
+type SupervisionMealInfo = {
+  eveningSupervision: string[];
+  mealGuidance: string[];
+};
+
 type WeeklyScheduleDay = {
   dateLabel: string;
   isoDate: string;
   events: WeeklyScheduleEvent[];
+  supervisionMeal?: SupervisionMealInfo;
 };
 
 type WeeklyScheduleSectionProps = {
@@ -146,18 +153,24 @@ export default function WeeklyScheduleSection({
               bodyBgClass = "bg-blue-50/30";
             }
             
+            const hasSupervisionMeal =
+              day.supervisionMeal &&
+              ((day.supervisionMeal.eveningSupervision?.length || 0) > 0 ||
+                (day.supervisionMeal.mealGuidance?.length || 0) > 0);
+
             return (
               <div
                 key={`${day.dateLabel}-body`}
-                className={`p-4 space-y-3 max-h-[240px] overflow-y-auto md:min-h-0 ${bodyBgClass}`}
+                className={`p-4 flex flex-col max-h-[240px] md:min-h-0 ${bodyBgClass}`}
               >
-                <p className="md:hidden text-sm font-semibold text-gray-900">
+                <p className="md:hidden text-sm font-semibold text-gray-900 mb-2">
                   {day.dateLabel}
                 </p>
-                {day.events.length === 0 ? (
-                  <p className="text-xs text-gray-400">등록된 일정이 없습니다.</p>
-                ) : (
-                  day.events.map((event) => {
+                <div className="flex-1 min-h-0 overflow-y-auto space-y-3">
+                  {day.events.length === 0 && !hasSupervisionMeal ? (
+                    <p className="text-xs text-gray-400">등록된 일정이 없습니다.</p>
+                  ) : (
+                    day.events.map((event) => {
                     return (
                       <div
                         key={event.id}
@@ -182,8 +195,31 @@ export default function WeeklyScheduleSection({
                         </button>
                       </div>
                     );
-                  })
-                )}
+                    })
+                  )}
+                </div>
+                <div className="mt-auto pt-2 border-t border-gray-100 min-h-[2.5rem] flex-shrink-0 text-xs text-gray-600 space-y-1">
+                  {hasSupervisionMeal && day.supervisionMeal && (
+                    <>
+                      {(day.supervisionMeal.mealGuidance || []).filter(Boolean).length > 0 && (
+                        <div className="flex items-start gap-1.5">
+                          <UtensilsCrossed className="w-3.5 h-3.5 flex-shrink-0 mt-0.5 text-gray-500" />
+                          <span>
+                            {(day.supervisionMeal.mealGuidance || []).filter(Boolean).join(", ")}
+                          </span>
+                        </div>
+                      )}
+                      {(day.supervisionMeal.eveningSupervision || []).filter(Boolean).length > 0 && (
+                        <div className="flex items-start gap-1.5">
+                          <Moon className="w-3.5 h-3.5 flex-shrink-0 mt-0.5 text-gray-500" />
+                          <span>
+                            {(day.supervisionMeal.eveningSupervision || []).filter(Boolean).join(", ")}
+                          </span>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
               </div>
             );
           })}

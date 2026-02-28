@@ -4,7 +4,6 @@ import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
-import { Button } from "@/components/ui/Button";
 import { Download, Edit2, ArrowUp, ArrowDown } from "lucide-react";
 import { EditStaffModal, type StaffWithProfile } from "./EditStaffModal";
 
@@ -423,17 +422,15 @@ export default function StaffListTable({
               )}
             </div>
           )}
-          {filteredStaff.length > 0 && (
-            <Button
-              onClick={handleDownloadCSV}
-              variant="outline"
-              size="sm"
-              className="flex items-center gap-2"
-            >
-              <Download className="w-4 h-4" />
-              CSV 다운로드
-            </Button>
-          )}
+          <button
+            type="button"
+            onClick={handleDownloadCSV}
+            disabled={filteredStaff.length === 0}
+            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg border border-emerald-600 bg-emerald-600 text-white hover:bg-emerald-700 hover:border-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+          >
+            <Download className="w-4 h-4" />
+            CSV 다운로드
+          </button>
         </div>
       </div>
 

@@ -1091,7 +1091,7 @@ export default function Volunteer() {
   const handleHomeroomDownloadCSV = () => {
     // CSV 헤더 (테이블 헤더 순서와 일치)
     const headers = [
-      "번호", 
+      "순", 
       "부서명", 
       "담당교사", 
       "봉사활동명", 
@@ -1193,7 +1193,7 @@ export default function Volunteer() {
   const handleManagerDownloadCSV = () => {
     // CSV 헤더 (테이블 헤더 순서와 일치)
     const headers = [
-      "번호", 
+      "순", 
       "부서명", 
       "담당교사", 
       "봉사활동명", 
@@ -1332,8 +1332,8 @@ export default function Volunteer() {
           <button
             type="button"
             onClick={handleHomeroomDownloadCSV}
-            className="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
             disabled={volunteers.length === 0}
+            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg border border-emerald-600 bg-emerald-600 text-white hover:bg-emerald-700 hover:border-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
           >
             <Download className="w-4 h-4" />
             CSV 다운로드
@@ -1355,7 +1355,7 @@ export default function Volunteer() {
               <table className="w-full" style={{ tableLayout: "fixed" }}>
                 <thead>
                   <tr className="border-b border-gray-200">
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 w-12">번호</th>
+                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 w-12">순</th>
                     <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 w-20">부서명</th>
                     <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 w-24">담당교사</th>
                     <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 w-24">봉사활동명</th>
@@ -1845,8 +1845,8 @@ export default function Volunteer() {
             <button
               type="button"
               onClick={handleManagerDownloadCSV}
-              className="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
               disabled={managerVolunteers.length === 0}
+              className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg border border-emerald-600 bg-emerald-600 text-white hover:bg-emerald-700 hover:border-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
             >
               <Download className="w-4 h-4" />
               CSV 다운로드
@@ -1868,7 +1868,7 @@ export default function Volunteer() {
               <table className="w-full" style={{ tableLayout: "fixed" }}>
                 <thead>
                   <tr className="border-b border-gray-200">
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 w-12">번호</th>
+                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 w-12">순</th>
                     <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 w-20">부서명</th>
                     <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 w-24">담당교사</th>
                     <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 w-24">봉사활동명</th>

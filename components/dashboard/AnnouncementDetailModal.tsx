@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { X, User, Calendar, Edit, Trash2, Users } from "lucide-react";
+import { X, User, Calendar, Edit, Trash2, Users, Download } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToastContext } from "@/components/providers/ToastProvider";
 import { useSession } from "next-auth/react";
@@ -1288,11 +1288,9 @@ export function AnnouncementDetailModal({
                     type="button"
                     onClick={handleDownloadCSV}
                     disabled={surveyResponses.length === 0}
-                    className={cn(
-                      "inline-flex items-center rounded px-3 py-1.5 text-sm text-white bg-green-600 hover:bg-green-700",
-                      surveyResponses.length === 0 ? "opacity-60 cursor-not-allowed bg-green-400" : ""
-                    )}
+                    className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg border border-emerald-600 bg-emerald-600 text-white hover:bg-emerald-700 hover:border-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
                   >
+                    <Download className="w-4 h-4" />
                     CSV 다운로드
                   </button>
                 </div>

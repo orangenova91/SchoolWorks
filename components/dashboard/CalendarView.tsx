@@ -42,6 +42,11 @@ export interface CalendarEvent {
   };
 }
 
+export type DateExtraInfo = Record<
+  string,
+  { eveningSupervision: string[]; mealGuidance: string[] }
+>;
+
 type CalendarViewProps = {
   initialEvents?: CalendarEvent[];
   onEventsChange?: (events: CalendarEvent[]) => void;
@@ -51,11 +56,25 @@ type CalendarViewProps = {
   onViewChange?: (viewDate: Date, viewType: string) => void;
   allowedScheduleAreas?: string[];
   editableScopes?: string[];
+  /** 급식지도/야자감독 명단 - 해당 날짜 셀에 표시 (날짜 문자열 YYYY-MM-DD 키) */
+  dateExtraInfo?: DateExtraInfo;
 };
 
 export type CalendarViewHandle = {
   openEventModal: (event: CalendarEvent) => void;
 };
+
+const MOON_ICON =
+  '<span class="fc-sm-icon" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401"/></svg></span>';
+const MEAL_ICON =
+  '<span class="fc-sm-icon" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 2-2.3 2.3a3 3 0 0 0 0 4.2l1.8 1.8a3 3 0 0 0 4.2 0L22 8"/><path d="M15 15 3.3 3.3a4.2 4.2 0 0 0 0 6l7.3 7.3c.7.7 2 .7 2.8 0L15 15Zm0 0 7 7"/><path d="m2.1 21.8 6.4-6.3"/><path d="m19 5-7 7"/></svg></span>';
+
+function toDateStr(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
 
 const CalendarView = forwardRef<CalendarViewHandle, CalendarViewProps>(
   (
@@ -68,6 +87,7 @@ const CalendarView = forwardRef<CalendarViewHandle, CalendarViewProps>(
       onViewChange,
       allowedScheduleAreas,
       editableScopes,
+      dateExtraInfo,
     },
     ref
   ) => {
@@ -266,6 +286,71 @@ const CalendarView = forwardRef<CalendarViewHandle, CalendarViewProps>(
     onEventsChange?.(events);
   }, [events, onEventsChange]);
 
+  const dayCellDidMount = useCallback(
+    (arg: { el: HTMLElement; date: Date }) => {
+      if (!dateExtraInfo) return;
+      const dateStr = toDateStr(arg.date);
+      const row = dateExtraInfo[dateStr];
+      if (!row) return;
+      const ev = (row.eveningSupervision || []).filter(Boolean);
+      const mg = (row.mealGuidance || []).filter(Boolean);
+      if (ev.length === 0 && mg.length === 0) return;
+
+      const wrap = document.createElement("div");
+      wrap.className = "fc-supervision-meal-cell";
+      wrap.dataset.dateKey = dateStr;
+      const parts: string[] = [];
+      if (mg.length) parts.push(`${MEAL_ICON} ${mg.join(", ")}`);
+      if (ev.length) parts.push(`${MOON_ICON} ${ev.join(", ")}`);
+      wrap.innerHTML = parts.join("<br>");
+
+      const frame = arg.el.querySelector(".fc-daygrid-day-frame");
+      if (frame) {
+        frame.appendChild(wrap);
+      } else {
+        arg.el.appendChild(wrap);
+      }
+    },
+    [dateExtraInfo]
+  );
+
+  const dayCellWillUnmount = useCallback((arg: { el: HTMLElement }) => {
+    const wrap = arg.el.querySelector(".fc-supervision-meal-cell");
+    wrap?.remove();
+  }, []);
+
+  // dateExtraInfo 변경 시(저장 후, fetch 후) 기존 셀 내용 갱신
+  useEffect(() => {
+    if (!dateExtraInfo || !calendarContainerRef.current) return;
+    const container = calendarContainerRef.current;
+    const dayCells = container.querySelectorAll(".fc-daygrid-day");
+    dayCells.forEach((td) => {
+      const frame = td.querySelector(".fc-daygrid-day-frame");
+      if (!frame) return;
+      const dateStr = (td as HTMLElement).getAttribute("data-date") || "";
+      const row = dateStr ? dateExtraInfo[dateStr] : null;
+      const existing = td.querySelector(".fc-supervision-meal-cell");
+      const ev = row ? (row.eveningSupervision || []).filter(Boolean) : [];
+      const mg = row ? (row.mealGuidance || []).filter(Boolean) : [];
+      if (ev.length === 0 && mg.length === 0) {
+        existing?.remove();
+        return;
+      }
+      const parts: string[] = [];
+      if (mg.length) parts.push(`${MEAL_ICON} ${mg.join(", ")}`);
+      if (ev.length) parts.push(`${MOON_ICON} ${ev.join(", ")}`);
+      const html = parts.join("<br>");
+      if (existing) {
+        existing.innerHTML = html;
+      } else {
+        const wrap = document.createElement("div");
+        wrap.className = "fc-supervision-meal-cell";
+        wrap.innerHTML = html;
+        frame.appendChild(wrap);
+      }
+    });
+  }, [dateExtraInfo]);
+
   const getSemesterStartDate = (type: "first" | "second", baseDate: Date) => {
     // Use the current year so semester buttons always jump to the academic semester
     // for the current year: 1학기 -> Mar 1 ~ Jul, 2학기 -> Aug 1 ~ next Feb
@@ -401,7 +486,9 @@ const CalendarView = forwardRef<CalendarViewHandle, CalendarViewProps>(
             editable={true}
             selectable={true}
             selectMirror={true}
-            dayMaxEvents={true}
+            dayMaxEvents={false}
+            dayMaxEventRows={false}
+            expandRows={false}
             weekends={true}
             events={calendarEvents}
             eventClick={handleEventClick}
@@ -410,6 +497,8 @@ const CalendarView = forwardRef<CalendarViewHandle, CalendarViewProps>(
             height="auto"
             eventDisplay="block"
             dayHeaderFormat={{ weekday: "short" }}
+            dayCellDidMount={dayCellDidMount}
+            dayCellWillUnmount={dayCellWillUnmount}
             buttonText={{
               today: "오늘",
               month: "월",
