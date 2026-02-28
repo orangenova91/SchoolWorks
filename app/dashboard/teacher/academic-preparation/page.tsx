@@ -19,6 +19,11 @@ const ClubClient = dynamic(() => import("@/components/dashboard/Club"), {
   loading: () => <div className="rounded-2xl border border-gray-200 bg-white p-6">로딩 중...</div>,
 });
 
+const AnnouncementPageClient = dynamic(
+  () => import("../announcements/AnnouncementPageClient").then((mod) => mod.AnnouncementPageClient),
+  { ssr: false, loading: () => <div className="rounded-2xl border border-gray-200 bg-white p-6">로딩 중...</div> }
+);
+
 export default async function AcademicPreparationPage() {
   const session = await getServerSession(authOptions);
   if (!session) redirect("/login");
@@ -46,11 +51,15 @@ export default async function AcademicPreparationPage() {
         >
           {[
             <article key="work-guide" className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">업무 안내</h2>
-            <div className="text-center py-12">
-              <p className="text-gray-500">내용이 준비 중입니다.</p>
-            </div>
-          </article>,
+              <AnnouncementPageClient
+                title="업무 안내"
+                description="교직원 업무 안내 사항을 작성하고 확인하세요."
+                authorName={session.user.name || session.user.email || "담당 교사"}
+                includeScheduled={true}
+                audience="teacher"
+                boardType="board_work_guide"
+              />
+            </article>,
           
             <article key="cleaning-area" className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
               <CleaningAreaClient />
