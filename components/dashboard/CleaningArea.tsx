@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { ChevronUp, ChevronDown, Edit2, Trash2, Download } from "lucide-react";
+import { ChevronUp, ChevronDown, Edit2, Trash2, Download, MapPin, X, FileText } from "lucide-react";
 
 interface CleaningAreaItem {
   id: string;
@@ -60,11 +60,26 @@ export default function CleaningArea() {
     studentCount: "",
     notes: "",
   });
+  const [showLocationViewer, setShowLocationViewer] = useState(false);
+  const [mapImageUrl, setMapImageUrl] = useState<string | null>(null);
+  const [isMapLoading, setIsMapLoading] = useState(false);
+  const [isMapUploading, setIsMapUploading] = useState(false);
+  const [showGuideViewer, setShowGuideViewer] = useState(false);
+  const [guideContent, setGuideContent] = useState<string | null>(null);
+  const [guideEditContent, setGuideEditContent] = useState("");
+  const [isGuideLoading, setIsGuideLoading] = useState(false);
+  const [isGuideSaving, setIsGuideSaving] = useState(false);
+  const [isGuideEditing, setIsGuideEditing] = useState(false);
+  const [showGuideTooltip, setShowGuideTooltip] = useState(false);
 
   useEffect(() => {
     fetchCleaningAreas();
     fetchStudents();
     fetchTeachers();
+    fetch("/api/academic-preparation/cleaning-area-map")
+      .then((res) => res.json())
+      .then((data) => setGuideContent(data.guideContent ?? null))
+      .catch(() => setGuideContent(null));
   }, []);
 
   // 학생수 변경 시 드롭다운 필드 개수 조정 (새 항목 추가용)
@@ -572,12 +587,147 @@ export default function CleaningArea() {
     URL.revokeObjectURL(url);
   };
 
+  const fetchMapData = async () => {
+    setIsMapLoading(true);
+    try {
+      const res = await fetch("/api/academic-preparation/cleaning-area-map");
+      const data = await res.json();
+      setMapImageUrl(data.imageUrl ?? null);
+      setGuideContent(data.guideContent ?? null);
+    } catch {
+      setMapImageUrl(null);
+      setGuideContent(null);
+    } finally {
+      setIsMapLoading(false);
+    }
+  };
+
+  const handleMapUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      alert("이미지 파일만 업로드할 수 있습니다.");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      alert("이미지 크기는 5MB 이하여야 합니다.");
+      return;
+    }
+    setIsMapUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const uploadRes = await fetch("/api/announcements/images", {
+        method: "POST",
+        body: formData,
+      });
+      if (!uploadRes.ok) {
+        const err = await uploadRes.json();
+        throw new Error(err.error || "업로드 실패");
+      }
+      const { url } = await uploadRes.json();
+      const saveRes = await fetch("/api/academic-preparation/cleaning-area-map", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ imageUrl: url }),
+      });
+      if (!saveRes.ok) {
+        const err = await saveRes.json();
+        throw new Error(err.error || "저장 실패");
+      }
+      const saveData = await saveRes.json();
+      setMapImageUrl(saveData.imageUrl ?? url);
+      setGuideContent(saveData.guideContent ?? guideContent);
+      alert("배치도가 등록되었습니다.");
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "배치도 등록에 실패했습니다.");
+    } finally {
+      setIsMapUploading(false);
+      e.target.value = "";
+    }
+  };
+
+  const openLocationViewer = () => {
+    setShowLocationViewer(true);
+    fetchMapData();
+  };
+
+  const openGuideViewer = () => {
+    setShowGuideViewer(true);
+    setIsGuideEditing(false);
+    setIsGuideLoading(true);
+    fetch("/api/academic-preparation/cleaning-area-map")
+      .then((res) => res.json())
+      .then((data) => {
+        setGuideContent(data.guideContent ?? null);
+        setGuideEditContent(data.guideContent ?? "");
+      })
+      .catch(() => {
+        setGuideContent(null);
+        setGuideEditContent("");
+      })
+      .finally(() => setIsGuideLoading(false));
+  };
+
+  const handleGuideSave = async () => {
+    setIsGuideSaving(true);
+    try {
+      const res = await fetch("/api/academic-preparation/cleaning-area-map", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ guideContent: guideEditContent || null }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "저장 실패");
+      }
+      setGuideContent(guideEditContent || null);
+      setIsGuideEditing(false);
+      alert("청소안내가 저장되었습니다.");
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "청소안내 저장에 실패했습니다.");
+    } finally {
+      setIsGuideSaving(false);
+    }
+  };
+
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-3">
           <div>
-            <h3 className="text-lg font-semibold text-gray-900">청소 구역</h3>
+            <div className="flex items-center gap-2">
+              <h3 className="text-lg font-semibold text-gray-900">청소 구역</h3>
+              <button
+                type="button"
+                onClick={openLocationViewer}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 text-sm font-medium text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
+              >
+                <MapPin className="w-4 h-4" />
+                청소구역 위치 보기
+              </button>
+              <div
+                className="relative"
+                onMouseEnter={() => guideContent && setShowGuideTooltip(true)}
+                onMouseLeave={() => setShowGuideTooltip(false)}
+              >
+                <button
+                  type="button"
+                  onClick={openGuideViewer}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 text-sm font-medium text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
+                >
+                  <FileText className="w-4 h-4" />
+                  청소안내
+                </button>
+                {showGuideTooltip && guideContent && (
+                  <div className="absolute top-full left-0 mt-1 z-50 bg-white border border-gray-300 rounded-lg shadow-lg p-3 min-w-[600px] max-w-[800px] max-h-[800px] overflow-y-auto">
+                    <div className="whitespace-pre-wrap text-sm text-gray-700">
+                      {guideContent}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
             <p className="text-sm text-gray-500 mt-1">
               청소 구역을 배정합니다.
             </p>
@@ -1101,6 +1251,155 @@ export default function CleaningArea() {
             </div>
           )}
         </div>
+
+      {/* 청소구역 위치 보기 모달 */}
+      {showLocationViewer && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 py-6">
+          <div className="bg-white rounded-xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+              <h4 className="text-lg font-semibold text-gray-900">청소구역 배치도</h4>
+              <button
+                type="button"
+                onClick={() => setShowLocationViewer(false)}
+                className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-auto p-6">
+              {isMapLoading ? (
+                <div className="flex items-center justify-center py-16 text-gray-500">
+                  로딩 중...
+                </div>
+              ) : mapImageUrl ? (
+                <div className="space-y-4">
+                  <img
+                    src={mapImageUrl}
+                    alt="청소구역 배치도"
+                    className="w-full h-auto max-h-[60vh] object-contain rounded-lg border border-gray-200"
+                  />
+                  <div className="flex justify-end">
+                    <label className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md cursor-pointer transition-colors disabled:opacity-50">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleMapUpload}
+                        disabled={isMapUploading}
+                        className="sr-only"
+                      />
+                      {isMapUploading ? "업로드 중..." : "배치도 변경"}
+                    </label>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center py-16 text-center">
+                  <p className="text-gray-500 mb-4">등록된 배치도가 없습니다.</p>
+                  <label className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md cursor-pointer transition-colors disabled:opacity-50">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleMapUpload}
+                      disabled={isMapUploading}
+                      className="sr-only"
+                    />
+                    {isMapUploading ? "업로드 중..." : "배치도 등록"}
+                  </label>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 청소안내 모달 */}
+      {showGuideViewer && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 py-6">
+          <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+              <h4 className="text-lg font-semibold text-gray-900">청소안내</h4>
+              <button
+                type="button"
+                onClick={() => setShowGuideViewer(false)}
+                className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-auto p-6">
+              {isGuideLoading ? (
+                <div className="flex items-center justify-center py-16 text-gray-500">
+                  로딩 중...
+                </div>
+              ) : isGuideEditing ? (
+                <div className="space-y-4">
+                  <textarea
+                    value={guideEditContent}
+                    onChange={(e) => setGuideEditContent(e.target.value)}
+                    placeholder="청소 안내 내용을 입력하세요."
+                    rows={12}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-y"
+                  />
+                  <div className="flex justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsGuideEditing(false);
+                        setGuideEditContent(guideContent ?? "");
+                      }}
+                      disabled={isGuideSaving}
+                      className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md disabled:opacity-50"
+                    >
+                      취소
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleGuideSave}
+                      disabled={isGuideSaving}
+                      className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md disabled:opacity-50"
+                    >
+                      {isGuideSaving ? "저장 중..." : "저장"}
+                    </button>
+                  </div>
+                </div>
+              ) : guideContent ? (
+                <div className="space-y-4">
+                  <div
+                    className="whitespace-pre-wrap text-sm text-gray-700 bg-gray-50 rounded-lg p-4 border border-gray-200 min-h-[200px]"
+                  >
+                    {guideContent}
+                  </div>
+                  <div className="flex justify-end">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsGuideEditing(true);
+                        setGuideEditContent(guideContent);
+                      }}
+                      className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md"
+                    >
+                      수정
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center py-16 text-center">
+                  <p className="text-gray-500 mb-4">등록된 청소안내가 없습니다.</p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsGuideEditing(true);
+                      setGuideEditContent("");
+                    }}
+                    className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md"
+                  >
+                    청소안내 등록
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

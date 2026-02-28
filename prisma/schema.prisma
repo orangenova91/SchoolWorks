@@ -541,6 +541,17 @@ model CleaningArea {
   @@map("cleaning_areas")
 }
 
+model CleaningAreaMap {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  school       String   @unique // 학교별 청소구역 배치도 1장
+  imageUrl     String?  // Vercel Blob Storage URL (선택)
+  guideContent String?  // 청소안내 내용 (일반 텍스트)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("cleaning_area_maps")
+}
+
 model Volunteer {
   id                String   @id @default(auto()) @map("_id") @db.ObjectId
   type              String   // "homeroom" | "manager" (담임 선발 | 담당자 선발)
