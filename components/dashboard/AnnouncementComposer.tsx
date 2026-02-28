@@ -488,6 +488,7 @@ function AnnouncementComposerForm({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const colorPickerRef = useRef<HTMLDivElement>(null);
   const isCourseAudienceLocked = Boolean(courseId);
+  const isNoticeOnly = boardType === "board_work_guide";
 
   const editor = useEditor({
     onUpdate: () => {
@@ -821,6 +822,13 @@ function AnnouncementComposerForm({
       setShowSignaturePanel(true);
     }
   }, [category]);
+
+  // 업무 안내 게시판은 단순 알림만
+  useEffect(() => {
+    if (isNoticeOnly && category !== "notice") {
+      setCategory("notice");
+    }
+  }, [isNoticeOnly, category]);
 
   // restrictedAudience가 "teacher"일 때 초기값 설정
   useEffect(() => {
@@ -1681,7 +1689,7 @@ function AnnouncementComposerForm({
 
     const payload: AnnouncementComposerPayload = {
       title: title.trim(),
-      category: category || undefined,
+      category: isNoticeOnly ? "notice" : (category || undefined),
       courseId: courseId || undefined,
       boardType: boardType || undefined,
       audience,
@@ -2162,6 +2170,9 @@ function AnnouncementComposerForm({
     if (boardType === "board_teachers") {
       return "교직원에게 필요한 공지사항을 작성하세요.";
     }
+    if (boardType === "board_work_guide") {
+      return "교직원 업무 안내 사항을 작성하세요. (단순 알림만 가능)";
+    }
     if (boardType === "board_students") {
       return "학생 대상 공지사항을 작성하세요.";
     }
@@ -2205,7 +2216,7 @@ function AnnouncementComposerForm({
       <div className="space-y-4">
         <div className="flex items-end gap-3">
           <div className="w-32">
-            {isCourseAudienceLocked ? (
+            {(isCourseAudienceLocked || isNoticeOnly) ? (
               <Input label="구분" value="단순 알림" readOnly />
             ) : (
               <Select

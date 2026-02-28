@@ -13,6 +13,7 @@ const BOARD_TYPES = [
   "board_parents",
   "board_class",
   "board_after_school",
+  "board_work_guide",
 ] as const;
 
 const selectedClassSchema = z.object({

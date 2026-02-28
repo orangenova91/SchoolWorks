@@ -13,6 +13,7 @@ const BOARD_TYPES = [
   "board_parents",
   "board_class",
   "board_after_school",
+  "board_work_guide",
 ] as const;
 
 const selectedClassSchema = z.object({
@@ -380,6 +381,10 @@ export async function GET(request: NextRequest) {
     }
     if (boardType) {
       where.boardType = boardType;
+      // 업무 안내 게시판은 교직원 전용
+      if (boardType === "board_work_guide" && session.user.role !== "teacher") {
+        return NextResponse.json({ announcements: [] });
+      }
     }
 
     // 학교 필터 (같은 학교의 공지사항만)

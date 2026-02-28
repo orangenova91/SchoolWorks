@@ -324,7 +324,8 @@ export function AnnouncementDetailModal({
     session?.user?.role === "student" ||
     (session?.user?.role === "teacher" &&
       (teacherAllowedAudiences.has(announcement?.audience || "") ||
-        announcement?.boardType === "board_teachers"));
+        announcement?.boardType === "board_teachers" ||
+        announcement?.boardType === "board_work_guide"));
 
   const clearSignature = () => {
     const canvas = canvasRef.current;
@@ -971,7 +972,8 @@ export function AnnouncementDetailModal({
   const canRespond = (
     !isTeacher ||
     teacherAllowedAudiences.has(announcement?.audience || "") ||
-    announcement?.boardType === "board_teachers"
+    announcement?.boardType === "board_teachers" ||
+    announcement?.boardType === "board_work_guide"
   );
   const canReviewConsents = isTeacher && isAuthor && shouldShowSignature;
 
@@ -1118,7 +1120,7 @@ export function AnnouncementDetailModal({
 
           {/* 본문 내용 */}
           <div
-            className="prose prose-sm max-w-none text-gray-700 mb-6"
+            className="announcement-content prose prose-sm max-w-none text-gray-700 mb-6"
             dangerouslySetInnerHTML={{ __html: announcement.content }}
           />
 

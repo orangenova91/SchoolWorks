@@ -150,6 +150,49 @@ body {
   margin-bottom: 0.25rem;
 }
 
+/* 공지사항/게시판 본문 표시 영역 - 문단/줄바꿈 스타일 */
+.announcement-content p {
+  margin: 0 0 0.75em 0;
+}
+
+.announcement-content p:last-child {
+  margin-bottom: 0;
+}
+
+/* 빈 문단(Enter 두 번) 높이 보존 - 두 칸 줄바꿈 정상 표현 */
+.announcement-content p:empty,
+.announcement-content p:has(> br:only-child) {
+  min-height: 1.5em;
+}
+
+/* 공지사항/게시판 본문 표시 영역 리스트 스타일 (글머리, 번호 매기기) */
+.announcement-content ul,
+.announcement-content ol {
+  padding-left: 1.5rem;
+  margin: 0.5rem 0;
+}
+
+.announcement-content ul {
+  list-style-type: disc;
+}
+
+.announcement-content ol {
+  list-style-type: decimal;
+}
+
+.announcement-content li {
+  margin: 0.25rem 0;
+  padding-left: 0.25rem;
+}
+
+.announcement-content ul ul,
+.announcement-content ol ol,
+.announcement-content ul ol,
+.announcement-content ol ul {
+  margin-top: 0.25rem;
+  margin-bottom: 0.25rem;
+}
+
 /* TipTap 에디터 링크 스타일 */
 .ProseMirror a {
   color: #2563eb;

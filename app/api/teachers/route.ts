@@ -48,7 +48,6 @@ export async function GET(request: NextRequest) {
         },
       },
       orderBy: { name: "asc" },
-      ...(ids ? {} : { take: 50 }), // ID로 검색할 때는 제한 없음
     });
 
     // roleLabel을 평탄화하여 반환
