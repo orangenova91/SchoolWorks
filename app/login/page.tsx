@@ -92,6 +92,7 @@ export default function LoginPage() {
                 />
               </svg>
             </div>
+          {/* 로그인 화면 이미지 */}
             <div className="flex items-center justify-center gap-3 mb-2">
               <Image
                 src="/logo/SchoolLogo.png"

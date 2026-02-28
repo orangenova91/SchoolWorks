@@ -1,7 +1,8 @@
 "use client";
 
 import { useMemo, useState, useImperativeHandle, forwardRef } from "react";
-import { ChevronDown, ChevronUp, Filter, X, Edit, UserPlus } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { ChevronDown, ChevronUp, Filter, X, Edit, Trash2 } from "lucide-react";
 import { EditUserModal } from "./EditUserModal";
 
 type SortKey = "name" | "school" | "role" | "studentId" | "createdAt" | "email" | "grade" | "className";
@@ -12,6 +13,7 @@ export type UsersTableRow = {
   school: string;
   role: string;
   studentId: string;
+  roleLabel?: string;
   grade: string;
   className: string;
   createdAt: string; // ISO string
@@ -31,9 +33,9 @@ const columnConfig: Array<{
   align?: "left" | "center";
 }> = [
   { key: "school", label: "학교/조직" },
-  { key: "studentId", label: "학번" },
-  { key: "name", label: "이름" },
   { key: "role", label: "역할", align: "center" },
+  { key: "studentId", label: "학번/직책" },
+  { key: "name", label: "이름" },
   { key: "createdAt", label: "가입일" },
   { key: "email", label: "이메일" },
 ];
@@ -60,13 +62,14 @@ export const UsersTable = forwardRef<
   { openAddUserModal: () => void },
   UsersTableProps
 >(({ rows, initialPageSize = 20, pageSizeOptions = [10, 20, 50], adminSchool }, ref) => {
+  const router = useRouter();
   const [sortConfig, setSortConfig] = useState<{ key: SortKey; direction: "asc" | "desc" }>({
     key: "name",
     direction: "asc",
   });
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState<number | "all">(initialPageSize);
-  const [showFilters, setShowFilters] = useState(false);
+  const [showFilters, setShowFilters] = useState(true);
   const [filters, setFilters] = useState<FilterState>({
     role: "",
     grade: "",
@@ -75,6 +78,9 @@ export const UsersTable = forwardRef<
   });
   const [editingUser, setEditingUser] = useState<UsersTableRow | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+  const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
 
   const normalizedOptions = Array.from(new Set(pageSizeOptions.concat(initialPageSize))).sort(
     (a, b) => a - b,
@@ -239,6 +245,60 @@ export const UsersTable = forwardRef<
     setIsEditModalOpen(true);
   };
 
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    const pageIds = new Set(paginatedRows.map((r) => r.id));
+    const allSelected = pageIds.size > 0 && pageIds.every((id) => selectedIds.has(id));
+    if (allSelected) {
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        pageIds.forEach((id) => next.delete(id));
+        return next;
+      });
+    } else {
+      setSelectedIds((prev) => new Set([...prev, ...pageIds]));
+    }
+  };
+
+  const clearSelection = () => setSelectedIds(new Set());
+
+  const selectedCount = selectedIds.size;
+  const isAllPageSelected =
+    paginatedRows.length > 0 &&
+    paginatedRows.every((r) => selectedIds.has(r.id));
+
+  const handleBulkDelete = async () => {
+    if (selectedCount === 0) return;
+    setIsBulkDeleting(true);
+    try {
+      const res = await fetch("/api/admin/users/bulk-delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userIds: Array.from(selectedIds) }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        clearSelection();
+        setShowBulkDeleteConfirm(false);
+        router.refresh();
+      } else {
+        alert(data.error || "일괄 삭제에 실패했습니다.");
+      }
+    } catch {
+      alert("일괄 삭제 중 오류가 발생했습니다.");
+    } finally {
+      setIsBulkDeleting(false);
+    }
+  };
+
   useImperativeHandle(ref, () => ({
     openAddUserModal: handleAddUser,
   }));
@@ -350,6 +410,16 @@ export const UsersTable = forwardRef<
             >
               CSV 다운로드
             </button>
+            {selectedCount > 0 && (
+              <button
+                type="button"
+                onClick={() => setShowBulkDeleteConfirm(true)}
+                className="inline-flex items-center gap-1.5 rounded-md border border-red-300 bg-red-50 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-red-500"
+              >
+                <Trash2 className="w-4 h-4" />
+                선택 삭제 ({selectedCount}명)
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -357,6 +427,15 @@ export const UsersTable = forwardRef<
       <table className="min-w-full divide-y divide-gray-200 text-sm">
         <thead>
           <tr className="bg-gray-50 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+            <th className="w-10 px-4 py-3 text-center">
+              <input
+                type="checkbox"
+                className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                checked={isAllPageSelected}
+                onChange={toggleSelectAll}
+                aria-label="현재 페이지 전체 선택"
+              />
+            </th>
             {columnConfig.map((column) => (
               <th key={column.key} className={headerClassName(column.align)}>
                 <button
@@ -375,9 +454,16 @@ export const UsersTable = forwardRef<
         <tbody className="divide-y divide-gray-100 bg-white">
           {paginatedRows.map((row) => (
             <tr key={row.id} className="hover:bg-gray-50">
+              <td className="w-10 px-4 py-3 text-center">
+                <input
+                  type="checkbox"
+                  className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  checked={selectedIds.has(row.id)}
+                  onChange={() => toggleSelect(row.id)}
+                  aria-label={`${row.name} 선택`}
+                />
+              </td>
               <td className="px-4 py-3 text-gray-600">{row.school}</td>
-              <td className="px-4 py-3 text-gray-600">{row.studentId}</td>
-              <td className="px-4 py-3 font-medium text-gray-900">{row.name}</td>
               <td className="px-4 py-3 text-center">
                 <span
                   className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getRoleBadgeStyle(
@@ -387,6 +473,14 @@ export const UsersTable = forwardRef<
                   {getRoleLabel(row.role)}
                 </span>
               </td>
+              <td className="px-4 py-3 text-gray-600">
+                {row.role === "student"
+                  ? row.studentId
+                  : row.role === "teacher"
+                  ? (row.roleLabel ?? "-")
+                  : "-"}
+              </td>
+              <td className="px-4 py-3 font-medium text-gray-900">{row.name}</td>
               <td className="px-4 py-3 text-gray-500">
                 {new Date(row.createdAt).toLocaleDateString("ko-KR")}
               </td>
@@ -408,7 +502,7 @@ export const UsersTable = forwardRef<
           ))}
           {paginatedRows.length === 0 && (
             <tr>
-              <td className="px-4 py-6 text-center text-gray-500" colSpan={columnConfig.length + 1}>
+              <td className="px-4 py-6 text-center text-gray-500" colSpan={columnConfig.length + 2}>
                 표시할 사용자가 없습니다.
               </td>
             </tr>
@@ -482,10 +576,39 @@ export const UsersTable = forwardRef<
           setEditingUser(null);
         }}
         onSuccess={() => {
-          window.location.reload();
+          router.refresh();
         }}
         adminSchool={adminSchool}
       />
+
+      {showBulkDeleteConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md m-4 p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">선택 사용자 삭제</h3>
+            <p className="text-sm text-gray-600 mb-6">
+              선택한 {selectedCount}명의 사용자를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.
+            </p>
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setShowBulkDeleteConfirm(false)}
+                disabled={isBulkDeleting}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 disabled:opacity-50"
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                onClick={handleBulkDelete}
+                disabled={isBulkDeleting}
+                className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 disabled:opacity-50"
+              >
+                {isBulkDeleting ? "삭제 중…" : "삭제"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 });
@@ -504,6 +627,17 @@ function compareValues(
     const aTime = new Date(a.createdAt).getTime();
     const bTime = new Date(b.createdAt).getTime();
     return (aTime - bTime) * multiplier;
+  }
+
+  // 학번/직책 컬럼: 학생은 studentId, 교사는 roleLabel로 정렬
+  if (key === "studentId") {
+    const valueA = (a.role === "student" ? a.studentId : a.role === "teacher" ? a.roleLabel : "-") ?? "";
+    const valueB = (b.role === "student" ? b.studentId : b.role === "teacher" ? b.roleLabel : "-") ?? "";
+    const strA = valueA.toString().toLowerCase();
+    const strB = valueB.toString().toLowerCase();
+    if (strA < strB) return -1 * multiplier;
+    if (strA > strB) return 1 * multiplier;
+    return 0;
   }
 
   const valueA = (a[key] ?? "").toString().toLowerCase();

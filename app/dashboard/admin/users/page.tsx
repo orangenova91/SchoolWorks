@@ -136,14 +136,28 @@ export default async function AdminUsersPage() {
   const studentProfileMap = new Map<string, StudentProfileSummary>(
     studentProfiles.map((profile) => [profile.userId, profile]),
   );
+
+  type TeacherProfileSummary = { userId: string; roleLabel: string | null };
+  const teacherProfiles = userIds.length > 0
+    ? ((await prismaAny.teacherProfile.findMany({
+        where: { userId: { in: userIds } },
+        select: { userId: true, roleLabel: true },
+      })) as TeacherProfileSummary[])
+    : [];
+  const teacherProfileMap = new Map<string, TeacherProfileSummary>(
+    teacherProfiles.map((profile) => [profile.userId, profile]),
+  );
+
   const tableRows = users.map((user) => {
     const studentProfile = studentProfileMap.get(user.id);
+    const teacherProfile = teacherProfileMap.get(user.id);
     return {
       id: user.id,
       name: user.name ?? "-",
       school: user.school ?? "-",
       role: user.role ?? "미지정",
       studentId: user.role === "student" ? studentProfile?.studentId ?? "-" : "-",
+      roleLabel: user.role === "teacher" ? teacherProfile?.roleLabel ?? "-" : "-",
       grade: user.role === "student" ? studentProfile?.grade ?? "-" : "-",
       className: user.role === "student" ? studentProfile?.classLabel ?? "-" : "-",
       createdAt: user.createdAt.toISOString(),

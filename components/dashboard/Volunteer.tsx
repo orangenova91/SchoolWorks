@@ -44,7 +44,7 @@ export default function Volunteer() {
   const [volunteers, setVolunteers] = useState<VolunteerItem[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [expandedIds, setExpandedIds] = useState<string[]>([]);
   // 각 봉사활동의 각 학반별 학생 선택 상태: { [volunteerId-classLabel]: string[] }
   const [studentSelectionsByClass, setStudentSelectionsByClass] = useState<Record<string, string[]>>({});
   const [showHelpTooltip, setShowHelpTooltip] = useState(false);
@@ -53,7 +53,7 @@ export default function Volunteer() {
   const [managerVolunteers, setManagerVolunteers] = useState<VolunteerItem[]>([]);
   const [managerEditingId, setManagerEditingId] = useState<string | null>(null);
   const [managerDeletingId, setManagerDeletingId] = useState<string | null>(null);
-  const [managerExpandedId, setManagerExpandedId] = useState<string | null>(null);
+  const [managerExpandedIds, setManagerExpandedIds] = useState<string[]>([]);
   const [managerStudentSelectionsByClass, setManagerStudentSelectionsByClass] = useState<Record<string, string[]>>({});
   
   const [homeroomForm, setHomeroomForm] = useState({
@@ -252,13 +252,38 @@ export default function Volunteer() {
 
   const handleManagerFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    setManagerForm((prev) => ({ ...prev, [name]: value }));
+    let next = value;
+    if (name === "selectionCount" || name === "volunteerHours") {
+      const n = value === "" ? NaN : parseInt(value, 10);
+      if (!isNaN(n) && n < 1) next = "1";
+    }
+    setManagerForm((prev) => ({ ...prev, [name]: next }));
   };
 
   const handleManagerSave = async () => {
-    // 필수 필드 검증
-    if (!managerForm.department.trim() || !managerForm.teacher.trim() || !managerForm.activityName.trim()) {
-      alert("부서명, 담당교사, 봉사활동명을 모두 입력해주세요.");
+    const f = managerForm;
+    const missing: string[] = [];
+    if (!f.department.trim()) missing.push("부서명");
+    if (!f.teacher.trim()) missing.push("담당교사");
+    if (!f.activityName.trim()) missing.push("봉사활동명");
+    if (!f.activityContent.trim()) missing.push("활동 내용");
+    if (!f.volunteerArea.trim()) missing.push("봉사 영역");
+    if (!f.startDate.trim()) missing.push("시작 날짜");
+    if (!f.endDate.trim()) missing.push("종료 날짜");
+    if (!f.grade.trim()) missing.push("활동 학년");
+    if (!f.location.trim()) missing.push("활동 장소");
+    if (missing.length) {
+      alert("다음 필드를 입력해주세요: " + missing.join(", "));
+      return;
+    }
+    const sc = f.selectionCount ? parseInt(f.selectionCount, 10) : null;
+    const vh = f.volunteerHours ? parseInt(f.volunteerHours, 10) : null;
+    if (sc === null || isNaN(sc) || sc < 1) {
+      alert("선발 인원은 1 이상의 숫자를 입력해주세요.");
+      return;
+    }
+    if (vh === null || isNaN(vh) || vh < 1) {
+      alert("봉사 시간은 1 이상의 숫자를 입력해주세요.");
       return;
     }
 
@@ -270,8 +295,8 @@ export default function Volunteer() {
         body: JSON.stringify({
           ...managerForm,
           type: "manager",
-          selectionCount: managerForm.selectionCount ? parseInt(managerForm.selectionCount, 10) : null,
-          volunteerHours: managerForm.volunteerHours ? parseInt(managerForm.volunteerHours, 10) : null,
+          selectionCount: sc,
+          volunteerHours: vh,
         }),
       });
 
@@ -357,13 +382,39 @@ export default function Volunteer() {
 
   const handleManagerEditFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    setManagerEditForm((prev) => ({ ...prev, [name]: value }));
+    let next = value;
+    if (name === "selectionCount" || name === "volunteerHours") {
+      const n = value === "" ? NaN : parseInt(value, 10);
+      if (!isNaN(n) && n < 1) next = "1";
+    }
+    setManagerEditForm((prev) => ({ ...prev, [name]: next }));
   };
 
   const handleManagerEditSave = async () => {
     if (!managerEditingId) return;
-    if (!managerEditForm.department.trim() || !managerEditForm.teacher.trim() || !managerEditForm.activityName.trim()) {
-      alert("부서명, 담당교사, 봉사활동명을 모두 입력해주세요.");
+    const f = managerEditForm;
+    const missing: string[] = [];
+    if (!f.department.trim()) missing.push("부서명");
+    if (!f.teacher.trim()) missing.push("담당교사");
+    if (!f.activityName.trim()) missing.push("봉사활동명");
+    if (!f.activityContent.trim()) missing.push("활동 내용");
+    if (!f.volunteerArea.trim()) missing.push("봉사 영역");
+    if (!f.startDate.trim()) missing.push("시작 날짜");
+    if (!f.endDate.trim()) missing.push("종료 날짜");
+    if (!f.grade.trim()) missing.push("활동 학년");
+    if (!f.location.trim()) missing.push("활동 장소");
+    if (missing.length) {
+      alert("다음 필드를 입력해주세요: " + missing.join(", "));
+      return;
+    }
+    const sc = f.selectionCount ? parseInt(f.selectionCount, 10) : null;
+    const vh = f.volunteerHours ? parseInt(f.volunteerHours, 10) : null;
+    if (sc === null || isNaN(sc) || sc < 1) {
+      alert("선발 인원은 1 이상의 숫자를 입력해주세요.");
+      return;
+    }
+    if (vh === null || isNaN(vh) || vh < 1) {
+      alert("봉사 시간은 1 이상의 숫자를 입력해주세요.");
       return;
     }
 
@@ -374,8 +425,8 @@ export default function Volunteer() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...managerEditForm,
-          selectionCount: managerEditForm.selectionCount ? parseInt(managerEditForm.selectionCount, 10) : null,
-          volunteerHours: managerEditForm.volunteerHours ? parseInt(managerEditForm.volunteerHours, 10) : null,
+          selectionCount: sc,
+          volunteerHours: vh,
         }),
       });
 
@@ -419,7 +470,7 @@ export default function Volunteer() {
     }
   };
 
-  // 담당자 선발 행 클릭 핸들러 (아코디언 확장/축소)
+  // 담당자 선발 행 클릭 핸들러 (아코디언 확장/축소, 여러 개 동시 확장 가능)
   const handleManagerRowClick = (id: string, e: React.MouseEvent) => {
     if (managerEditingId === id) return;
     
@@ -428,42 +479,45 @@ export default function Volunteer() {
       return;
     }
 
-    const newExpandedId = managerExpandedId === id ? null : id;
-    setManagerExpandedId(newExpandedId);
-    
-    if (newExpandedId) {
-      const volunteer = managerVolunteers.find(v => v.id === newExpandedId);
+    const isCurrentlyExpanded = managerExpandedIds.includes(id);
+    const newExpandedIds = isCurrentlyExpanded
+      ? managerExpandedIds.filter((x) => x !== id)
+      : [...managerExpandedIds, id];
+    setManagerExpandedIds(newExpandedIds);
+
+    if (!isCurrentlyExpanded) {
+      const volunteer = managerVolunteers.find((v) => v.id === id);
       if (volunteer) {
         const selectionCount = volunteer.selectionCount || 0;
         const classLabels = getClassLabelsByGrade(volunteer.grade);
         const newSelections: Record<string, string[]> = {};
-        
+
         if (volunteer.studentSelections) {
           try {
             const parsed = JSON.parse(volunteer.studentSelections);
-            classLabels.forEach(classLabel => {
-              const key = `${newExpandedId}-${classLabel}`;
+            classLabels.forEach((classLabel) => {
+              const key = `${id}-${classLabel}`;
               const savedSelections = parsed[classLabel] || [];
-              newSelections[key] = Array.from({ length: selectionCount }, (_, idx) => 
+              newSelections[key] = Array.from({ length: selectionCount }, (_, idx) =>
                 savedSelections[idx] || ""
               );
             });
           } catch (e) {
             console.error("Error parsing studentSelections:", e);
-            classLabels.forEach(classLabel => {
-              const key = `${newExpandedId}-${classLabel}`;
+            classLabels.forEach((classLabel) => {
+              const key = `${id}-${classLabel}`;
               newSelections[key] = Array(selectionCount).fill("");
             });
           }
         } else {
-          classLabels.forEach(classLabel => {
-            const key = `${newExpandedId}-${classLabel}`;
+          classLabels.forEach((classLabel) => {
+            const key = `${id}-${classLabel}`;
             newSelections[key] = Array(selectionCount).fill("");
           });
         }
-        
+
         if (Object.keys(newSelections).length > 0) {
-          setManagerStudentSelectionsByClass(prev => ({ ...prev, ...newSelections }));
+          setManagerStudentSelectionsByClass((prev) => ({ ...prev, ...newSelections }));
         }
       }
     }
@@ -553,13 +607,38 @@ export default function Volunteer() {
 
   const handleHomeroomFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    setHomeroomForm((prev) => ({ ...prev, [name]: value }));
+    let next = value;
+    if (name === "selectionCount" || name === "volunteerHours") {
+      const n = value === "" ? NaN : parseInt(value, 10);
+      if (!isNaN(n) && n < 1) next = "1";
+    }
+    setHomeroomForm((prev) => ({ ...prev, [name]: next }));
   };
 
   const handleHomeroomSave = async () => {
-    // 필수 필드 검증
-    if (!homeroomForm.department.trim() || !homeroomForm.teacher.trim() || !homeroomForm.activityName.trim()) {
-      alert("부서명, 담당교사, 봉사활동명을 모두 입력해주세요.");
+    const f = homeroomForm;
+    const missing: string[] = [];
+    if (!f.department.trim()) missing.push("부서명");
+    if (!f.teacher.trim()) missing.push("담당교사");
+    if (!f.activityName.trim()) missing.push("봉사활동명");
+    if (!f.activityContent.trim()) missing.push("활동 내용");
+    if (!f.volunteerArea.trim()) missing.push("봉사 영역");
+    if (!f.startDate.trim()) missing.push("시작 날짜");
+    if (!f.endDate.trim()) missing.push("종료 날짜");
+    if (!f.grade.trim()) missing.push("활동 학년");
+    if (!f.location.trim()) missing.push("활동 장소");
+    if (missing.length) {
+      alert("다음 필드를 입력해주세요: " + missing.join(", "));
+      return;
+    }
+    const sc = f.selectionCount ? parseInt(f.selectionCount, 10) : null;
+    const vh = f.volunteerHours ? parseInt(f.volunteerHours, 10) : null;
+    if (sc === null || isNaN(sc) || sc < 1) {
+      alert("선발 인원은 1 이상의 숫자를 입력해주세요.");
+      return;
+    }
+    if (vh === null || isNaN(vh) || vh < 1) {
+      alert("봉사 시간은 1 이상의 숫자를 입력해주세요.");
       return;
     }
 
@@ -571,8 +650,8 @@ export default function Volunteer() {
         body: JSON.stringify({
           ...homeroomForm,
           type: "homeroom",
-          selectionCount: homeroomForm.selectionCount ? parseInt(homeroomForm.selectionCount, 10) : null,
-          volunteerHours: homeroomForm.volunteerHours ? parseInt(homeroomForm.volunteerHours, 10) : null,
+          selectionCount: sc,
+          volunteerHours: vh,
         }),
       });
 
@@ -658,13 +737,39 @@ export default function Volunteer() {
 
   const handleEditFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    setEditForm((prev) => ({ ...prev, [name]: value }));
+    let next = value;
+    if (name === "selectionCount" || name === "volunteerHours") {
+      const n = value === "" ? NaN : parseInt(value, 10);
+      if (!isNaN(n) && n < 1) next = "1";
+    }
+    setEditForm((prev) => ({ ...prev, [name]: next }));
   };
 
   const handleEditSave = async () => {
     if (!editingId) return;
-    if (!editForm.department.trim() || !editForm.teacher.trim() || !editForm.activityName.trim()) {
-      alert("부서명, 담당교사, 봉사활동명을 모두 입력해주세요.");
+    const f = editForm;
+    const missing: string[] = [];
+    if (!f.department.trim()) missing.push("부서명");
+    if (!f.teacher.trim()) missing.push("담당교사");
+    if (!f.activityName.trim()) missing.push("봉사활동명");
+    if (!f.activityContent.trim()) missing.push("활동 내용");
+    if (!f.volunteerArea.trim()) missing.push("봉사 영역");
+    if (!f.startDate.trim()) missing.push("시작 날짜");
+    if (!f.endDate.trim()) missing.push("종료 날짜");
+    if (!f.grade.trim()) missing.push("활동 학년");
+    if (!f.location.trim()) missing.push("활동 장소");
+    if (missing.length) {
+      alert("다음 필드를 입력해주세요: " + missing.join(", "));
+      return;
+    }
+    const sc = f.selectionCount ? parseInt(f.selectionCount, 10) : null;
+    const vh = f.volunteerHours ? parseInt(f.volunteerHours, 10) : null;
+    if (sc === null || isNaN(sc) || sc < 1) {
+      alert("선발 인원은 1 이상의 숫자를 입력해주세요.");
+      return;
+    }
+    if (vh === null || isNaN(vh) || vh < 1) {
+      alert("봉사 시간은 1 이상의 숫자를 입력해주세요.");
       return;
     }
 
@@ -675,8 +780,8 @@ export default function Volunteer() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...editForm,
-          selectionCount: editForm.selectionCount ? parseInt(editForm.selectionCount, 10) : null,
-          volunteerHours: editForm.volunteerHours ? parseInt(editForm.volunteerHours, 10) : null,
+          selectionCount: sc,
+          volunteerHours: vh,
         }),
       });
 
@@ -794,58 +899,54 @@ export default function Volunteer() {
     return grouped;
   };
 
-  // 행 클릭 핸들러 (아코디언 확장/축소)
+  // 행 클릭 핸들러 (아코디언 확장/축소, 여러 개 동시 확장 가능)
   const handleRowClick = (id: string, e: React.MouseEvent) => {
-    // 편집 모드이거나 버튼 클릭 시에는 확장하지 않음
     if (editingId === id) return;
-    
-    // 버튼 클릭 이벤트는 확장하지 않음
+
     const target = e.target as HTMLElement;
     if (target.closest('button') || target.closest('svg')) {
       return;
     }
 
-    const newExpandedId = expandedId === id ? null : id;
-    setExpandedId(newExpandedId);
-    
-    // 확장 시 저장된 학생 선택 정보를 로드하거나 초기화
-    if (newExpandedId) {
-      const volunteer = volunteers.find(v => v.id === newExpandedId);
+    const isCurrentlyExpanded = expandedIds.includes(id);
+    const newExpandedIds = isCurrentlyExpanded
+      ? expandedIds.filter((x) => x !== id)
+      : [...expandedIds, id];
+    setExpandedIds(newExpandedIds);
+
+    if (!isCurrentlyExpanded) {
+      const volunteer = volunteers.find((v) => v.id === id);
       if (volunteer) {
         const selectionCount = volunteer.selectionCount || 0;
         const classLabels = getClassLabelsByGrade(volunteer.grade);
         const newSelections: Record<string, string[]> = {};
-        
-        // 저장된 학생 선택 정보가 있으면 로드
+
         if (volunteer.studentSelections) {
           try {
             const parsed = JSON.parse(volunteer.studentSelections);
-            classLabels.forEach(classLabel => {
-              const key = `${newExpandedId}-${classLabel}`;
+            classLabels.forEach((classLabel) => {
+              const key = `${id}-${classLabel}`;
               const savedSelections = parsed[classLabel] || [];
-              // 선발 인원 수만큼 배열 생성 (저장된 값이 있으면 사용, 없으면 빈 문자열)
-              newSelections[key] = Array.from({ length: selectionCount }, (_, idx) => 
+              newSelections[key] = Array.from({ length: selectionCount }, (_, idx) =>
                 savedSelections[idx] || ""
               );
             });
           } catch (e) {
             console.error("Error parsing studentSelections:", e);
-            // 파싱 실패 시 초기화
-            classLabels.forEach(classLabel => {
-              const key = `${newExpandedId}-${classLabel}`;
+            classLabels.forEach((classLabel) => {
+              const key = `${id}-${classLabel}`;
               newSelections[key] = Array(selectionCount).fill("");
             });
           }
         } else {
-          // 저장된 정보가 없으면 초기화
-          classLabels.forEach(classLabel => {
-            const key = `${newExpandedId}-${classLabel}`;
+          classLabels.forEach((classLabel) => {
+            const key = `${id}-${classLabel}`;
             newSelections[key] = Array(selectionCount).fill("");
           });
         }
-        
+
         if (Object.keys(newSelections).length > 0) {
-          setStudentSelectionsByClass(prev => ({ ...prev, ...newSelections }));
+          setStudentSelectionsByClass((prev) => ({ ...prev, ...newSelections }));
         }
       }
     }
@@ -967,6 +1068,25 @@ export default function Volunteer() {
     return grade;
   };
 
+  // 날짜 포맷: yyyy-mm-dd(요일)
+  const formatDateWithDay = (dateStr: string | null | undefined): string => {
+    if (!dateStr) return "";
+    const s = String(dateStr).trim();
+    const match = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    const dayNames = ["일", "월", "화", "수", "목", "금", "토"];
+    if (match) {
+      const [, y, m, d] = match;
+      const dObj = new Date(parseInt(y, 10), parseInt(m, 10) - 1, parseInt(d, 10));
+      return `${y}-${m}-${d}(${dayNames[dObj.getDay()]})`;
+    }
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return "";
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}(${dayNames[d.getDay()]})`;
+  };
+
   // 담임 선발 CSV 다운로드 함수
   const handleHomeroomDownloadCSV = () => {
     // CSV 헤더 (테이블 헤더 순서와 일치)
@@ -980,7 +1100,6 @@ export default function Volunteer() {
       "시작 날짜", 
       "종료 날짜", 
       "활동 학년", 
-      "선발 인원", 
       "봉사 시간", 
       "활동 장소", 
       "학생 명단"
@@ -1003,42 +1122,48 @@ export default function Volunteer() {
       return `"${escaped}"`;
     };
 
+    // 한 봉사활동당 학생 수만큼 행 생성 (학생 명단 열에는 한 명만, 번호는 행마다 1씩 증가)
+    const dataRows: string[] = [];
+    let rowNumber = 1;
+    volunteers.forEach((item) => {
+      let allStudentIds: string[] = [];
+      if (item.studentSelections) {
+        try {
+          const parsed = JSON.parse(item.studentSelections);
+          Object.values(parsed).forEach((studentIds: any) => {
+            if (Array.isArray(studentIds)) {
+              allStudentIds.push(...studentIds.filter((id: string) => id && id !== ""));
+            }
+          });
+        } catch (e) {
+          console.error("Error parsing studentSelections:", e);
+        }
+      }
+      const activityRow = [
+        escapeCSV(item.department),
+        escapeCSV(item.teacher),
+        escapeCSV(item.activityName),
+        escapeCSV(item.volunteerArea ?? ""),
+        escapeCSV(item.activityContent ?? ""),
+        escapeCSV(formatDateWithDay(item.startDate)),
+        escapeCSV(formatDateWithDay(item.endDate)),
+        escapeCSV(formatGradeForCSV(item.grade)),
+        escapeCSV(item.volunteerHours ?? ""),
+        escapeCSV(item.location ?? ""),
+      ];
+      if (allStudentIds.length === 0) {
+        dataRows.push([escapeCSV(rowNumber++), ...activityRow, escapeCSV("")].join(","));
+      } else {
+        allStudentIds.forEach((studentId) => {
+          const studentName = getStudentNames([studentId]);
+          dataRows.push([escapeCSV(rowNumber++), ...activityRow, escapeCSV(studentName)].join(","));
+        });
+      }
+    });
+
     const csvRows = [
       headers.map(h => `"${h}"`).join(","),
-      ...volunteers.map((item, index) => {
-        // 학생 선택 정보 파싱 및 이름 변환
-        let studentNames = "";
-        if (item.studentSelections) {
-          try {
-            const parsed = JSON.parse(item.studentSelections);
-            const allStudentIds: string[] = [];
-            Object.values(parsed).forEach((studentIds: any) => {
-              if (Array.isArray(studentIds)) {
-                allStudentIds.push(...studentIds.filter(id => id && id !== ""));
-              }
-            });
-            studentNames = getStudentNames(allStudentIds);
-          } catch (e) {
-            console.error("Error parsing studentSelections:", e);
-          }
-        }
-        
-        return [
-          escapeCSV(index + 1),
-          escapeCSV(item.department),
-          escapeCSV(item.teacher),
-          escapeCSV(item.activityName),
-          escapeCSV(item.volunteerArea ?? ""), // 봉사 영역
-          escapeCSV(item.activityContent ?? ""), // 활동 내용
-          escapeCSV(item.startDate ?? ""), // 시작 날짜
-          escapeCSV(item.endDate ?? ""), // 종료 날짜
-          escapeCSV(formatGradeForCSV(item.grade)), // 활동 학년
-          escapeCSV(item.selectionCount ?? ""),
-          escapeCSV(item.volunteerHours ?? ""),
-          escapeCSV(item.location ?? ""),
-          escapeCSV(studentNames),
-        ].join(",");
-      }),
+      ...dataRows,
     ];
 
     // UTF-8 BOM 추가 (Excel에서 한글 깨짐 방지)
@@ -1052,8 +1177,8 @@ export default function Volunteer() {
 
     // 파일명 생성
     const now = new Date();
-    const dateStr = now.toISOString().split("T")[0];
-    const filename = `봉사활동_담임선발_${dateStr}.csv`;
+    const csvDateStr = now.toISOString().split("T")[0];
+    const filename = `봉사활동_담임선발_${csvDateStr}.csv`;
 
     link.setAttribute("href", url);
     link.setAttribute("download", filename);
@@ -1077,7 +1202,6 @@ export default function Volunteer() {
       "시작 날짜", 
       "종료 날짜", 
       "활동 학년", 
-      "선발 인원", 
       "봉사 시간", 
       "활동 장소", 
       "학생 명단"
@@ -1100,42 +1224,48 @@ export default function Volunteer() {
       return `"${escaped}"`;
     };
 
+    // 한 봉사활동당 학생 수만큼 행 생성 (학생 명단 열에는 한 명만, 번호는 행마다 1씩 증가)
+    const dataRows: string[] = [];
+    let rowNumber = 1;
+    managerVolunteers.forEach((item) => {
+      let allStudentIds: string[] = [];
+      if (item.studentSelections) {
+        try {
+          const parsed = JSON.parse(item.studentSelections);
+          Object.values(parsed).forEach((studentIds: any) => {
+            if (Array.isArray(studentIds)) {
+              allStudentIds.push(...studentIds.filter((id: string) => id && id !== ""));
+            }
+          });
+        } catch (e) {
+          console.error("Error parsing studentSelections:", e);
+        }
+      }
+      const activityRow = [
+        escapeCSV(item.department),
+        escapeCSV(item.teacher),
+        escapeCSV(item.activityName),
+        escapeCSV(item.volunteerArea ?? ""),
+        escapeCSV(item.activityContent ?? ""),
+        escapeCSV(formatDateWithDay(item.startDate)),
+        escapeCSV(formatDateWithDay(item.endDate)),
+        escapeCSV(formatGradeForCSV(item.grade)),
+        escapeCSV(item.volunteerHours ?? ""),
+        escapeCSV(item.location ?? ""),
+      ];
+      if (allStudentIds.length === 0) {
+        dataRows.push([escapeCSV(rowNumber++), ...activityRow, escapeCSV("")].join(","));
+      } else {
+        allStudentIds.forEach((studentId) => {
+          const studentName = getStudentNames([studentId]);
+          dataRows.push([escapeCSV(rowNumber++), ...activityRow, escapeCSV(studentName)].join(","));
+        });
+      }
+    });
+
     const csvRows = [
       headers.map(h => `"${h}"`).join(","),
-      ...managerVolunteers.map((item, index) => {
-        // 학생 선택 정보 파싱 및 이름 변환
-        let studentNames = "";
-        if (item.studentSelections) {
-          try {
-            const parsed = JSON.parse(item.studentSelections);
-            const allStudentIds: string[] = [];
-            Object.values(parsed).forEach((studentIds: any) => {
-              if (Array.isArray(studentIds)) {
-                allStudentIds.push(...studentIds.filter(id => id && id !== ""));
-              }
-            });
-            studentNames = getStudentNames(allStudentIds);
-          } catch (e) {
-            console.error("Error parsing studentSelections:", e);
-          }
-        }
-        
-        return [
-          escapeCSV(index + 1),
-          escapeCSV(item.department),
-          escapeCSV(item.teacher),
-          escapeCSV(item.activityName),
-          escapeCSV(item.volunteerArea ?? ""), // 봉사 영역
-          escapeCSV(item.activityContent ?? ""), // 활동 내용
-          escapeCSV(item.startDate ?? ""), // 시작 날짜
-          escapeCSV(item.endDate ?? ""), // 종료 날짜
-          escapeCSV(formatGradeForCSV(item.grade)), // 활동 학년
-          escapeCSV(item.selectionCount ?? ""),
-          escapeCSV(item.volunteerHours ?? ""),
-          escapeCSV(item.location ?? ""),
-          escapeCSV(studentNames),
-        ].join(",");
-      }),
+      ...dataRows,
     ];
 
     // UTF-8 BOM 추가 (Excel에서 한글 깨짐 방지)
@@ -1149,8 +1279,8 @@ export default function Volunteer() {
 
     // 파일명 생성
     const now = new Date();
-    const dateStr = now.toISOString().split("T")[0];
-    const filename = `봉사활동_담당자선발_${dateStr}.csv`;
+    const csvDateStr = now.toISOString().split("T")[0];
+    const filename = `봉사활동_담당자선발_${csvDateStr}.csv`;
 
     link.setAttribute("href", url);
     link.setAttribute("download", filename);
@@ -1304,6 +1434,7 @@ export default function Volunteer() {
                             name="startDate"
                             type="date"
                             value={editForm.startDate}
+                            max={editForm.endDate || undefined}
                             onChange={handleEditFormChange}
                             className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                           />
@@ -1313,6 +1444,7 @@ export default function Volunteer() {
                             name="endDate"
                             type="date"
                             value={editForm.endDate}
+                            min={editForm.startDate || undefined}
                             onChange={handleEditFormChange}
                             className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                           />
@@ -1335,6 +1467,8 @@ export default function Volunteer() {
                           <input
                             name="selectionCount"
                             type="number"
+                            min={1}
+                            step={1}
                             value={editForm.selectionCount}
                             onChange={handleEditFormChange}
                             className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -1344,6 +1478,8 @@ export default function Volunteer() {
                           <input
                             name="volunteerHours"
                             type="number"
+                            min={1}
+                            step={1}
                             value={editForm.volunteerHours}
                             onChange={handleEditFormChange}
                             className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -1383,7 +1519,7 @@ export default function Volunteer() {
                         <tr 
                           onClick={(e) => handleRowClick(item.id, e)}
                           className={`border-b border-gray-100 hover:bg-gray-50 ${
-                            expandedId === item.id ? 'bg-blue-50' : ''
+                            expandedIds.includes(item.id) ? 'bg-blue-50' : ''
                           } cursor-pointer`}
                         >
                           <td className="py-3 px-4 text-sm text-gray-600 w-12">{idx + 1}</td>
@@ -1437,7 +1573,7 @@ export default function Volunteer() {
                             </div>
                           </td>
                         </tr>
-                        {expandedId === item.id && (
+                        {expandedIds.includes(item.id) && (
                           <tr className="bg-gray-50">
                             <td colSpan={13} className="py-6 px-4">
                               <div className="border-t border-gray-200 pt-4">
@@ -1602,6 +1738,7 @@ export default function Volunteer() {
                           name="startDate"
                           type="date"
                           value={homeroomForm.startDate}
+                          max={homeroomForm.endDate || undefined}
                           onChange={handleHomeroomFormChange}
                           className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
@@ -1611,6 +1748,7 @@ export default function Volunteer() {
                           name="endDate"
                           type="date"
                           value={homeroomForm.endDate}
+                          min={homeroomForm.startDate || undefined}
                           onChange={handleHomeroomFormChange}
                           className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
@@ -1633,6 +1771,8 @@ export default function Volunteer() {
                         <input
                           name="selectionCount"
                           type="number"
+                          min={1}
+                          step={1}
                           value={homeroomForm.selectionCount}
                           onChange={handleHomeroomFormChange}
                           className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -1643,6 +1783,8 @@ export default function Volunteer() {
                         <input
                           name="volunteerHours"
                           type="number"
+                          min={1}
+                          step={1}
                           value={homeroomForm.volunteerHours}
                           onChange={handleHomeroomFormChange}
                           className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -1805,6 +1947,7 @@ export default function Volunteer() {
                             name="startDate"
                             type="date"
                             value={managerEditForm.startDate}
+                            max={managerEditForm.endDate || undefined}
                             onChange={handleManagerEditFormChange}
                             className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                           />
@@ -1814,6 +1957,7 @@ export default function Volunteer() {
                             name="endDate"
                             type="date"
                             value={managerEditForm.endDate}
+                            min={managerEditForm.startDate || undefined}
                             onChange={handleManagerEditFormChange}
                             className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                           />
@@ -1836,6 +1980,8 @@ export default function Volunteer() {
                           <input
                             name="selectionCount"
                             type="number"
+                            min={1}
+                            step={1}
                             value={managerEditForm.selectionCount}
                             onChange={handleManagerEditFormChange}
                             className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -1845,6 +1991,8 @@ export default function Volunteer() {
                           <input
                             name="volunteerHours"
                             type="number"
+                            min={1}
+                            step={1}
                             value={managerEditForm.volunteerHours}
                             onChange={handleManagerEditFormChange}
                             className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -1884,7 +2032,7 @@ export default function Volunteer() {
                         <tr 
                           onClick={(e) => handleManagerRowClick(item.id, e)}
                           className={`border-b border-gray-100 hover:bg-gray-50 ${
-                            managerExpandedId === item.id ? 'bg-blue-50' : ''
+                            managerExpandedIds.includes(item.id) ? 'bg-blue-50' : ''
                           } cursor-pointer`}
                         >
                           <td className="py-3 px-4 text-sm text-gray-600 w-12">{idx + 1}</td>
@@ -1938,7 +2086,7 @@ export default function Volunteer() {
                             </div>
                           </td>
                         </tr>
-                        {managerExpandedId === item.id && (
+                        {managerExpandedIds.includes(item.id) && (
                           <tr className="bg-gray-50">
                             <td colSpan={13} className="py-6 px-4">
                               <div className="border-t border-gray-200 pt-4">
@@ -2097,6 +2245,7 @@ export default function Volunteer() {
                           name="startDate"
                           type="date"
                           value={managerForm.startDate}
+                          max={managerForm.endDate || undefined}
                           onChange={handleManagerFormChange}
                           className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
@@ -2106,6 +2255,7 @@ export default function Volunteer() {
                           name="endDate"
                           type="date"
                           value={managerForm.endDate}
+                          min={managerForm.startDate || undefined}
                           onChange={handleManagerFormChange}
                           className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
@@ -2128,6 +2278,8 @@ export default function Volunteer() {
                         <input
                           name="selectionCount"
                           type="number"
+                          min={1}
+                          step={1}
                           value={managerForm.selectionCount}
                           onChange={handleManagerFormChange}
                           className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -2138,6 +2290,8 @@ export default function Volunteer() {
                         <input
                           name="volunteerHours"
                           type="number"
+                          min={1}
+                          step={1}
                           value={managerForm.volunteerHours}
                           onChange={handleManagerFormChange}
                           className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
