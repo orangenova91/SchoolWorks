@@ -71,6 +71,7 @@ export default function CleaningArea() {
   const [isGuideSaving, setIsGuideSaving] = useState(false);
   const [isGuideEditing, setIsGuideEditing] = useState(false);
   const [showGuideTooltip, setShowGuideTooltip] = useState(false);
+  const [showLocationTooltip, setShowLocationTooltip] = useState(false);
 
   useEffect(() => {
     fetchCleaningAreas();
@@ -78,8 +79,14 @@ export default function CleaningArea() {
     fetchTeachers();
     fetch("/api/academic-preparation/cleaning-area-map")
       .then((res) => res.json())
-      .then((data) => setGuideContent(data.guideContent ?? null))
-      .catch(() => setGuideContent(null));
+      .then((data) => {
+        setMapImageUrl(data.imageUrl ?? null);
+        setGuideContent(data.guideContent ?? null);
+      })
+      .catch(() => {
+        setMapImageUrl(null);
+        setGuideContent(null);
+      });
   }, []);
 
   // 학생수 변경 시 드롭다운 필드 개수 조정 (새 항목 추가용)
@@ -698,14 +705,31 @@ export default function CleaningArea() {
           <div>
             <div className="flex items-center gap-2">
               <h3 className="text-lg font-semibold text-gray-900">청소 구역</h3>
-              <button
-                type="button"
-                onClick={openLocationViewer}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1 text-sm font-medium text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
+              <div
+                className="relative"
+                onMouseEnter={() => mapImageUrl && setShowLocationTooltip(true)}
+                onMouseLeave={() => setShowLocationTooltip(false)}
               >
-                <MapPin className="w-4 h-4" />
-                청소구역 위치 보기
-              </button>
+                <button
+                  type="button"
+                  onClick={openLocationViewer}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 text-sm font-medium text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
+                >
+                  <MapPin className="w-4 h-4" />
+                  청소구역 위치 보기
+                </button>
+                {showLocationTooltip && mapImageUrl && (
+                  <div className="absolute top-full left-0 pt-1 z-50">
+                    <div className="bg-white border border-gray-300 rounded-lg shadow-lg p-2 min-w-[700px] min-h-[550px] overflow-hidden">
+                      <img
+                        src={mapImageUrl}
+                        alt="청소구역 배치도"
+                        className="w-full h-auto max-h-[500px] object-contain"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
               <div
                 className="relative"
                 onMouseEnter={() => guideContent && setShowGuideTooltip(true)}
@@ -720,8 +744,8 @@ export default function CleaningArea() {
                   청소안내
                 </button>
                 {showGuideTooltip && guideContent && (
-                  <div className="absolute top-full left-0 mt-1 z-50 bg-white border border-gray-300 rounded-lg shadow-lg p-3 min-w-[600px] max-w-[800px] max-h-[800px] overflow-y-auto">
-                    <div className="whitespace-pre-wrap text-sm text-gray-700">
+                  <div className="absolute top-full left-0 mt-1 z-50 bg-white border border-gray-300 rounded-lg shadow-lg p-4 min-w-[700px] max-w-[900px] max-h-[70vh] overflow-y-auto">
+                    <div className="whitespace-pre-wrap text-base text-gray-700 leading-relaxed">
                       {guideContent}
                     </div>
                   </div>
