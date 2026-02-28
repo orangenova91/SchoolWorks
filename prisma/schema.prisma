@@ -597,3 +597,34 @@ model Club {
   @@index([teacher])
   @@map("clubs")
 }
+
+model SupervisionMealSchedule {
+  id                 String    @id @default(auto()) @map("_id") @db.ObjectId
+  date               DateTime  // 날짜 (시간은 00:00:00)
+  school             String    // 학교
+  eveningSupervision String[]  @default([]) // 야자감독 담당 교사 이름 배열
+  mealGuidance       String[]  @default([]) // 급식지도 담당 교사 이름 배열
+  remarks            String?   // 비고
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  @@unique([school, date])
+  @@index([school])
+  @@index([date])
+  @@map("supervision_meal_schedules")
+}
+
+model SupervisionMealConfig {
+  id             String   @id @default(auto()) @map("_id") @db.ObjectId
+  school         String   // 학교
+  year           Int      // 학년도/연도
+  month          Int      // 월 (1-12)
+  eveningCount   Int      @default(1) // 야자감독 슬롯 수 (1-5)
+  mealCount      Int      @default(1) // 급식지도 슬롯 수 (1-5)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([school, year, month])
+  @@index([school])
+  @@map("supervision_meal_configs")
+}

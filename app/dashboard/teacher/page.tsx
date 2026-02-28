@@ -292,7 +292,10 @@ export default async function TeacherDashboardPage() {
   // weekStart는 이미 한국 시간 기준의 UTC 변환된 값이므로, 7일을 더하면 다음 주 일요일이 됨
   const weekEnd = new Date(weekStart.getTime() + 7 * 24 * 60 * 60 * 1000);
 
-  const weeklyCalendarEvents = await prisma.calendarEvent.findMany({
+  const school = session.user.school;
+
+  const [weeklyCalendarEvents, supervisionMealSchedules] = await Promise.all([
+    prisma.calendarEvent.findMany({
     where: {
       AND: [
         {
@@ -342,7 +345,17 @@ export default async function TeacherDashboardPage() {
       ],
     },
     orderBy: { startDate: "asc" },
-  });
+  }),
+    school
+      ? (prisma as any).supervisionMealSchedule.findMany({
+          where: {
+            school,
+            date: { gte: weekStart, lt: weekEnd },
+          },
+          orderBy: { date: "asc" },
+        })
+      : Promise.resolve([]),
+  ]);
 
   const classes: TeacherCourse[] = teacherId
     ? await (
@@ -398,6 +411,31 @@ export default async function TeacherDashboardPage() {
     day: "2-digit",
   }).format(today);
 
+  const toIsoDate = (d: Date) =>
+    new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Asia/Seoul",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(d);
+
+  const supervisionMealMap: Record<
+    string,
+    { eveningSupervision: string[]; mealGuidance: string[] }
+  > = {};
+  (supervisionMealSchedules || []).forEach((s: any) => {
+    const key = s.date ? toIsoDate(new Date(s.date)) : "";
+    if (!key) return;
+    const ev = Array.isArray(s.eveningSupervision) ? s.eveningSupervision.filter((x: any) => typeof x === "string") : [];
+    const mg = Array.isArray(s.mealGuidance) ? s.mealGuidance.filter((x: any) => typeof x === "string") : [];
+    if (ev.length > 0 || mg.length > 0) {
+      supervisionMealMap[key] = {
+        eveningSupervision: ev,
+        mealGuidance: mg,
+      };
+    }
+  });
+
   const weeklySchedule = Array.from({ length: 7 }, (_, index) => {
     // 한국 시간 기준으로 해당 날짜의 시작(자정) 계산
     const dayStart = getKoreaDayStart(weekStart, index);
@@ -406,6 +444,7 @@ export default async function TeacherDashboardPage() {
 
     // 날짜 표시용 Date 객체 (한국 시간대로 포맷팅하기 위해 사용)
     const date = new Date(dayStart);
+    const isoDateStr = toIsoDate(date);
 
     const eventsForDay = weeklyCalendarEvents
       .filter((event) => {
@@ -434,13 +473,9 @@ export default async function TeacherDashboardPage() {
 
     return {
       dateLabel: dayFormatter.format(date),
-      isoDate: new Intl.DateTimeFormat("en-CA", {
-        timeZone: "Asia/Seoul",
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit",
-      }).format(date),
+      isoDate: isoDateStr,
       events: eventsForDay,
+      supervisionMeal: supervisionMealMap[isoDateStr],
     };
   });
 
@@ -700,6 +735,28 @@ export default async function TeacherDashboardPage() {
               {todaysGroupCount}개
             </span>{" "}
             입니다.
+            {(() => {
+              const todayDuty = supervisionMealMap[isoToday];
+              const teacherName = session.user.name?.trim() ?? "";
+              const teacherEmail = session.user.email?.trim() ?? "";
+              if (!todayDuty || (!teacherName && !teacherEmail)) return null;
+              const matches = (s: string) => {
+                const t = String(s).trim();
+                return t && (t === teacherName || t === teacherEmail);
+              };
+              const hasYa = (todayDuty.eveningSupervision || []).some(matches);
+              const hasMeal = (todayDuty.mealGuidance || []).some(matches);
+              if (!hasYa && !hasMeal) return null;
+              const parts: string[] = [];
+              if (hasMeal) parts.push("급식지도");
+              if (hasYa) parts.push("야자감독");
+              return (
+                <>
+                  {" "}
+                  오늘 <span className="font-semibold">{parts.join(", ")}</span> 담당입니다.
+                </>
+              );
+            })()}
           </div>
         </div>
       </header>

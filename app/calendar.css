@@ -100,6 +100,36 @@
 }
 
 .fc-daygrid-day-frame {
-  min-height: 100px;
+  min-height: 80px;
+  position: relative;
+}
+
+/* 날짜 셀 내용에 따라 위아래 확장 */
+.fc-daygrid-body-unbalanced .fc-daygrid-day-events {
+  overflow: visible;
+  min-height: 2em;
+}
+
+/* 급식지도/야자감독 날짜 셀 표시 (날짜 셀 하단 정렬) */
+.fc-supervision-meal-cell {
+  position: absolute;
+  bottom: 0.125rem;
+  padding: 0.125rem 0;
+  font-size: 0.6rem;
+  line-height: 1.2;
+  color: #374151;
+  white-space: normal;
+  word-break: break-all;
+  overflow-wrap: break-word;
+  max-width: 100%;
+}
+.fc-supervision-meal-cell .fc-sm-icon {
+  display: inline-flex;
+  align-items: center;
+  vertical-align: middle;
+  margin-right: 0.2rem;
+}
+.fc-supervision-meal-cell .fc-sm-icon svg {
+  stroke: currentColor;
 }
 

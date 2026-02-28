@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useImperativeHandle, forwardRef } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronDown, ChevronUp, Filter, X, Edit, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronUp, Filter, X, Edit, Trash2, Download } from "lucide-react";
 import { EditUserModal } from "./EditUserModal";
 
 type SortKey = "name" | "school" | "role" | "studentId" | "createdAt" | "email" | "grade" | "className";
@@ -406,8 +406,9 @@ export const UsersTable = forwardRef<
             <button
               type="button"
               onClick={handleDownloadCsv}
-              className="inline-flex items-center rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:border-blue-400 hover:text-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg border border-emerald-600 bg-emerald-600 text-white hover:bg-emerald-700 hover:border-emerald-700 transition-colors shadow-sm"
             >
+              <Download className="w-4 h-4" />
               CSV 다운로드
             </button>
             {selectedCount > 0 && (

@@ -51,43 +51,27 @@ export default function BulkUploadButton() {
   };
 
   const downloadTemplate = () => {
-    // Prefer public hosted template if available
+    const BOM = "\uFEFF";
+    const doDownload = (csv: string) => {
+      const blob = new Blob([BOM + csv], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "calendar_upload_template.csv";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    };
+
     const publicUrl = "/templates/calendar_upload_template.csv";
-    fetch(publicUrl, { method: "HEAD" })
+    fetch(publicUrl)
       .then((res) => {
-        if (res.ok) {
-          const a = document.createElement("a");
-          a.href = publicUrl;
-          a.download = "calendar_upload_template.csv";
-          document.body.appendChild(a);
-          a.click();
-          a.remove();
-        } else {
-          // fallback to generated template
-          const csv = generateTemplateCSV();
-          const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement("a");
-          a.href = url;
-          a.download = "calendar_upload_template.csv";
-          document.body.appendChild(a);
-          a.click();
-          a.remove();
-          URL.revokeObjectURL(url);
-        }
+        if (res.ok) return res.text();
+        return Promise.reject(new Error("Not found"));
       })
-      .catch(() => {
-        const csv = generateTemplateCSV();
-        const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = "calendar_upload_template.csv";
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        URL.revokeObjectURL(url);
-      });
+      .then((text) => doDownload(text))
+      .catch(() => doDownload(generateTemplateCSV()));
   };
 
   const handleFile = (file: File | null) => {

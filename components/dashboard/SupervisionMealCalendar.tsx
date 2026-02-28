@@ -1,0 +1,462 @@
+"use client";
+
+import { useState, useEffect, useMemo, useCallback } from "react";
+import { useRouter } from "next/navigation";
+import CalendarView, { CalendarEvent } from "./CalendarView";
+import { TeacherAutocomplete } from "./TeacherAutocomplete";
+import { useToastContext } from "@/components/providers/ToastProvider";
+import { Button } from "@/components/ui/Button";
+import { ChevronUp, ChevronDown } from "lucide-react";
+
+const WEEKDAY_LABELS: Record<number, string> = {
+  1: "월",
+  2: "화",
+  3: "수",
+  4: "목",
+  5: "금",
+};
+
+const SLOT_MIN = 1;
+const SLOT_MAX = 5;
+
+type Teacher = { id: string; name: string | null; email: string; roleLabel: string | null };
+type ScheduleRow = { date: string; eveningSupervision: string[]; mealGuidance: string[]; remarks: string | null };
+
+type SupervisionMealCalendarProps = {
+  initialEvents: CalendarEvent[];
+  title: string;
+  description: string;
+};
+
+/** 해당 월의 평일(월~금) 날짜 목록 반환 */
+function getWeekdaysOfMonth(year: number, month: number): Date[] {
+  const dates: Date[] = [];
+  const lastDay = new Date(year, month + 1, 0).getDate();
+  for (let d = 1; d <= lastDay; d++) {
+    const date = new Date(year, month, d);
+    const dayOfWeek = date.getDay();
+    if (dayOfWeek >= 1 && dayOfWeek <= 5) dates.push(date);
+  }
+  return dates;
+}
+
+/** 날짜 범위의 평일(월~금) 목록 반환 */
+function getWeekdaysInRange(start: Date, end: Date): Date[] {
+  const dates: Date[] = [];
+  const cur = new Date(start);
+  cur.setHours(0, 0, 0, 0);
+  const endTime = end.getTime();
+  while (cur.getTime() <= endTime) {
+    const dayOfWeek = cur.getDay();
+    if (dayOfWeek >= 1 && dayOfWeek <= 5) dates.push(new Date(cur));
+    cur.setDate(cur.getDate() + 1);
+  }
+  return dates;
+}
+
+/** 뷰 타입에 따른 표시할 날짜 목록 */
+function getWeekdaysForView(viewDate: Date, viewType: string): Date[] {
+  const y = viewDate.getFullYear();
+  if (viewType === "semester1") {
+    const start = new Date(y, 2, 1); // 3월 1일
+    const end = new Date(y, 6, 31); // 7월 31일
+    return getWeekdaysInRange(start, end);
+  }
+  if (viewType === "semester2") {
+    const start = new Date(y, 7, 1); // 8월 1일
+    const end = new Date(y + 1, 1, 28); // 다음해 2월 28일
+    const lastDay = new Date(y + 1, 2, 0).getDate();
+    end.setDate(lastDay);
+    return getWeekdaysInRange(start, end);
+  }
+  return getWeekdaysOfMonth(y, viewDate.getMonth());
+}
+
+function toDateString(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+export default function SupervisionMealCalendar({
+  initialEvents,
+  title,
+  description,
+}: SupervisionMealCalendarProps) {
+  const [events, setEvents] = useState<CalendarEvent[]>(initialEvents);
+  const [viewDate, setViewDate] = useState<Date>(() => new Date());
+  const [viewType, setViewType] = useState<string>("dayGridMonth");
+  const [teachers, setTeachers] = useState<Teacher[]>([]);
+  const [scheduleMap, setScheduleMap] = useState<Record<string, ScheduleRow>>({});
+  const [saving, setSaving] = useState(false);
+  const [eveningCount, setEveningCount] = useState(1);
+  const [mealCount, setMealCount] = useState(1);
+  const router = useRouter();
+  const { showToast } = useToastContext();
+
+  const handleViewChange = useCallback((date: Date, vt: string) => {
+    setViewDate(date);
+    setViewType(vt || "dayGridMonth");
+  }, []);
+
+  const weekdaysOfMonth = useMemo(() => {
+    return getWeekdaysForView(viewDate, viewType);
+  }, [viewDate, viewType]);
+
+  const year = viewDate.getFullYear();
+  const month = viewDate.getMonth() + 1;
+
+  /** 슬롯 설정/스케줄 fetch용 (학기 뷰일 때 해당 학기의 첫 달) */
+  const configYear = year;
+  const configMonth = viewType === "semester1" ? 3 : viewType === "semester2" ? 8 : month;
+
+  useEffect(() => {
+    fetch(`/api/academic-preparation/supervision-meal-config?year=${configYear}&month=${configMonth}`)
+      .then((res) => res.json())
+      .then((data) => {
+        const e = Math.min(SLOT_MAX, Math.max(SLOT_MIN, Number(data.eveningCount) || 1));
+        const m = Math.min(SLOT_MAX, Math.max(SLOT_MIN, Number(data.mealCount) || 1));
+        setEveningCount(e);
+        setMealCount(m);
+      })
+      .catch(() => {});
+  }, [configYear, configMonth]);
+
+  const saveSlotConfig = useCallback(
+    async (ev: number, mg: number) => {
+      try {
+        const res = await fetch("/api/academic-preparation/supervision-meal-config", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ year: configYear, month: configMonth, eveningCount: ev, mealCount: mg }),
+        });
+        if (!res.ok) throw new Error("저장 실패");
+      } catch {
+        showToast("슬롯 설정 저장에 실패했습니다.", "error");
+      }
+    },
+    [configYear, configMonth, showToast]
+  );
+
+  useEffect(() => {
+    setEvents(initialEvents);
+  }, [initialEvents]);
+
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        router.refresh();
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
+  }, [router]);
+
+  useEffect(() => {
+    fetch("/api/teachers")
+      .then((res) => res.json())
+      .then((data) => setTeachers(data.teachers || []))
+      .catch(() => setTeachers([]));
+  }, []);
+
+  useEffect(() => {
+    const fetchSchedules = async () => {
+      const pairs: { year: number; month: number }[] = [];
+      if (viewType === "semester1") {
+        for (let m = 3; m <= 7; m++) pairs.push({ year, month: m });
+      } else if (viewType === "semester2") {
+        for (let m = 8; m <= 12; m++) pairs.push({ year, month: m });
+        pairs.push({ year: year + 1, month: 1 });
+        pairs.push({ year: year + 1, month: 2 });
+      } else {
+        pairs.push({ year, month });
+      }
+      const results = await Promise.all(
+        pairs.map(({ year: y, month: m }) =>
+          fetch(`/api/academic-preparation/supervision-meal?year=${y}&month=${m}`).then((r) => r.json())
+        )
+      );
+      const map: Record<string, ScheduleRow> = {};
+      results.forEach((data) => {
+        (data.schedules || []).forEach((s: ScheduleRow & { id?: string }) => {
+          map[s.date] = {
+            date: s.date,
+            eveningSupervision: Array.isArray(s.eveningSupervision) ? s.eveningSupervision : [],
+            mealGuidance: Array.isArray(s.mealGuidance) ? s.mealGuidance : [],
+            remarks: s.remarks ?? null,
+          };
+        });
+      });
+      setScheduleMap(map);
+    };
+    fetchSchedules().catch(() => setScheduleMap({}));
+  }, [year, month, viewType]);
+
+  const handleTeacherChange = useCallback(
+    (dateStr: string, field: "eveningSupervision" | "mealGuidance", index: number, value: string) => {
+      const v = value === "" ? "" : value;
+      setScheduleMap((prev) => {
+        const row = prev[dateStr] || {
+          date: dateStr,
+          eveningSupervision: [],
+          mealGuidance: [],
+          remarks: null,
+        };
+        const ev = [...(row.eveningSupervision || [])];
+        const mg = [...(row.mealGuidance || [])];
+        while (ev.length <= index) ev.push("");
+        while (mg.length <= index) mg.push("");
+        if (field === "eveningSupervision") ev[index] = v;
+        else mg[index] = v;
+        return {
+          ...prev,
+          [dateStr]: { ...row, eveningSupervision: ev, mealGuidance: mg },
+        };
+      });
+    },
+    []
+  );
+
+  const handleRemarksChange = useCallback(
+    (dateStr: string, value: string) => {
+      setScheduleMap((prev) => ({
+        ...prev,
+        [dateStr]: {
+          ...(prev[dateStr] || {
+            date: dateStr,
+            eveningSupervision: [],
+            mealGuidance: [],
+            remarks: null,
+          }),
+          remarks: value || null,
+        },
+      }));
+    },
+    []
+  );
+
+  const dateExtraInfo = useMemo(() => {
+    const map: Record<string, { eveningSupervision: string[]; mealGuidance: string[] }> = {};
+    Object.entries(scheduleMap).forEach(([dateStr, row]) => {
+      const ev = (row.eveningSupervision ?? []).filter(Boolean);
+      const mg = (row.mealGuidance ?? []).filter(Boolean);
+      if (ev.length > 0 || mg.length > 0) {
+        map[dateStr] = { eveningSupervision: row.eveningSupervision ?? [], mealGuidance: row.mealGuidance ?? [] };
+      }
+    });
+    return map;
+  }, [scheduleMap]);
+
+  const handleSave = useCallback(async () => {
+    setSaving(true);
+    try {
+      const promises = weekdaysOfMonth.map((date) => {
+        const dateStr = toDateString(date);
+        const row = scheduleMap[dateStr];
+        const ev = row?.eveningSupervision ?? [];
+        const mg = row?.mealGuidance ?? [];
+        const pad = (arr: string[], len: number) =>
+          [...arr, ...Array(Math.max(0, len - arr.length)).fill("")].slice(0, len);
+        const payload = {
+          date: dateStr,
+          eveningSupervision: pad(ev, eveningCount),
+          mealGuidance: pad(mg, mealCount),
+          remarks: row?.remarks ?? null,
+        };
+        return fetch("/api/academic-preparation/supervision-meal", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+      });
+      const results = await Promise.all(promises);
+      const failed = results.find((r) => !r.ok);
+      if (failed) {
+        const data = await failed.json();
+        throw new Error(data.error || "저장 실패");
+      }
+      showToast("저장되었습니다.", "success");
+    } catch (err: any) {
+      showToast(err?.message || "저장에 실패했습니다.", "error");
+    } finally {
+      setSaving(false);
+    }
+  }, [weekdaysOfMonth, scheduleMap, eveningCount, mealCount, showToast]);
+
+  return (
+    <div className="space-y-6">
+      <header className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm space-y-4">
+        <h1 className="text-2xl font-bold text-gray-900">급식지도/야자감독</h1>
+        <p className="text-sm text-gray-600">{description}</p>
+      </header>
+
+      <div className="flex flex-col gap-6 lg:flex-row items-stretch">
+        <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm w-full lg:w-1/2">
+          <CalendarView
+            initialEvents={events}
+            onEventsChange={setEvents}
+            onViewChange={handleViewChange}
+            hideAddButton={true}
+            dateExtraInfo={dateExtraInfo}
+          />
+        </div>
+        <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm w-full lg:flex-1 min-h-[400px] flex flex-col">
+          <div className="flex items-center justify-between gap-4 mb-4 flex-wrap">
+            <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-3">
+              <span className="flex items-center gap-2">
+                급식지도
+                <div className="inline-flex items-center border border-gray-300 rounded-md bg-white overflow-hidden w-12">
+                  <span className="flex-1 text-sm text-center py-0.5">{mealCount}</span>
+                  <div className="flex flex-col border-l border-gray-300">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const next = Math.min(SLOT_MAX, mealCount + 1);
+                        setMealCount(next);
+                        saveSlotConfig(eveningCount, next);
+                      }}
+                      disabled={saving || mealCount >= SLOT_MAX}
+                      className="p-0.5 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center"
+                    >
+                      <ChevronUp className="w-3 h-3 text-gray-600" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const next = Math.max(SLOT_MIN, mealCount - 1);
+                        setMealCount(next);
+                        saveSlotConfig(eveningCount, next);
+                      }}
+                      disabled={saving || mealCount <= SLOT_MIN}
+                      className="p-0.5 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center"
+                    >
+                      <ChevronDown className="w-3 h-3 text-gray-600" />
+                    </button>
+                  </div>
+                </div>
+              </span>
+              <span>/</span>
+              <span className="flex items-center gap-2">
+                야자감독
+                <div className="inline-flex items-center border border-gray-300 rounded-md bg-white overflow-hidden w-12">
+                  <span className="flex-1 text-sm text-center py-0.5">{eveningCount}</span>
+                  <div className="flex flex-col border-l border-gray-300">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const next = Math.min(SLOT_MAX, eveningCount + 1);
+                        setEveningCount(next);
+                        saveSlotConfig(next, mealCount);
+                      }}
+                      disabled={saving || eveningCount >= SLOT_MAX}
+                      className="p-0.5 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center"
+                    >
+                      <ChevronUp className="w-3 h-3 text-gray-600" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const next = Math.max(SLOT_MIN, eveningCount - 1);
+                        setEveningCount(next);
+                        saveSlotConfig(next, mealCount);
+                      }}
+                      disabled={saving || eveningCount <= SLOT_MIN}
+                      className="p-0.5 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center"
+                    >
+                      <ChevronDown className="w-3 h-3 text-gray-600" />
+                    </button>
+                  </div>
+                </div>
+              </span>
+              <span>일정</span>
+            </h3>
+            <Button onClick={handleSave} disabled={saving}>
+              {saving ? "저장 중..." : "저장"}
+            </Button>
+          </div>
+          <div className="flex-1 overflow-auto">
+            <table className="w-full" style={{ tableLayout: "fixed" }}>
+              <thead>
+                <tr className="border-b border-gray-200">
+                  <th className="text-left py-3 px-2 text-sm font-semibold text-gray-700 w-12">순</th>
+                  <th className="text-left py-3 px-2 text-sm font-semibold text-gray-700 w-20">날짜</th>
+                  {Array.from({ length: mealCount }).map((_, i) => (
+                    <th key={`mg-${i}`} className="text-left py-3 px-2 text-sm font-semibold text-gray-700 bg-amber-50">
+                      급식지도 {i + 1}
+                    </th>
+                  ))}
+                  {Array.from({ length: eveningCount }).map((_, i) => (
+                    <th key={`ev-${i}`} className="text-left py-3 px-2 text-sm font-semibold text-gray-700 bg-sky-50">
+                      야자감독 {i + 1}
+                    </th>
+                  ))}
+                  <th className="text-left py-3 px-2 text-sm font-semibold text-gray-700">비고</th>
+                </tr>
+              </thead>
+              <tbody>
+                {weekdaysOfMonth.map((date, index) => {
+                  const dayOfWeek = date.getDay();
+                  const weekdayLabel = WEEKDAY_LABELS[dayOfWeek] ?? "";
+                  const dateStr = toDateString(date);
+                  const displayDateStr = `${date.getMonth() + 1}/${date.getDate()} (${weekdayLabel})`;
+                  const row = scheduleMap[dateStr];
+                  const inputClass =
+                    "w-full min-w-0 px-2 py-1 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-60";
+                  return (
+                    <tr key={date.toISOString()} className="border-b border-gray-100 hover:bg-gray-50/50">
+                      <td className="py-2 px-2 text-sm text-gray-700">{index + 1}</td>
+                      <td className="py-2 px-2 text-sm text-gray-900 w-20">{displayDateStr}</td>
+                      {Array.from({ length: mealCount }).map((_, i) => {
+                        const mg = row?.mealGuidance ?? [];
+                        const val = mg[i] ?? "";
+                        return (
+                          <td key={`mg-${i}`} className="py-1 px-2 bg-amber-50">
+                            <TeacherAutocomplete
+                              value={val}
+                              onChange={(v) => handleTeacherChange(dateStr, "mealGuidance", i, v)}
+                              teachers={teachers}
+                              placeholder="교사 선택"
+                              disabled={saving}
+                              className="w-1/2 min-w-[80px]"
+                            />
+                          </td>
+                        );
+                      })}
+                      {Array.from({ length: eveningCount }).map((_, i) => {
+                        const ev = row?.eveningSupervision ?? [];
+                        const val = ev[i] ?? "";
+                        return (
+                          <td key={`ev-${i}`} className="py-1 px-2 bg-sky-50">
+                            <TeacherAutocomplete
+                              value={val}
+                              onChange={(v) => handleTeacherChange(dateStr, "eveningSupervision", i, v)}
+                              teachers={teachers}
+                              placeholder="교사 선택"
+                              disabled={saving}
+                              className="w-1/2 min-w-[80px]"
+                            />
+                          </td>
+                        );
+                      })}
+                      <td className="py-1 px-2">
+                        <input
+                          type="text"
+                          value={row?.remarks ?? ""}
+                          onChange={(e) => handleRemarksChange(dateStr, e.target.value)}
+                          disabled={saving}
+                          placeholder="비고"
+                          className={inputClass}
+                        />
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
