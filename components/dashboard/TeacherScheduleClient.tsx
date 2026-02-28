@@ -6,6 +6,7 @@ import { Calendar, Sparkles, ChevronLeft, ChevronRight } from "lucide-react";
 import CalendarView, { CalendarEvent, CalendarViewHandle } from "./CalendarView";
 import { Button } from "@/components/ui/Button";
 import BulkUploadButton from "@/components/dashboard/BulkUploadButton";
+import ActivityInputModal from "./ActivityInputModal";
 
 type TeacherScheduleClientProps = {
   initialEvents: CalendarEvent[];
@@ -164,6 +165,30 @@ export default function TeacherScheduleClient({
 
   const [showStats, setShowStats] = useState<boolean>(true);
   const [activeTab, setActiveTab] = useState<"academic" | "creative">("academic");
+  const [activityModalEvent, setActivityModalEvent] = useState<{
+    id: string;
+    title: string;
+    activityContent: string;
+  } | null>(null);
+
+  const handleActivitySaved = useCallback((eventId: string, activityContent: string) => {
+    setEvents((prev) =>
+      prev.map((e) =>
+        e.id === eventId
+          ? { ...e, extendedProps: { ...e.extendedProps, activityContent } }
+          : e
+      )
+    );
+    setCreativeTabEvents((prev) =>
+      prev
+        ? prev.map((e) =>
+            e.id === eventId
+              ? { ...e, extendedProps: { ...e.extendedProps, activityContent } }
+              : e
+          )
+        : prev
+    );
+  }, []);
 
   // 학년도 계산 함수 (3월 1일부터 다음해 2월 말까지)
   const getAcademicYear = useCallback((date: Date): number => {
@@ -178,49 +203,82 @@ export default function TeacherScheduleClient({
   // 일정 유형 필터 (null = 전체)
   const [selectedEventType, setSelectedEventType] = useState<string | null>(null);
 
-  // 창의적 체험활동 이벤트 필터링 (학년도 기준: 3월 1일 ~ 다음해 2월 말, 학년 필터 포함)
-  const creativeEvents = useMemo<CalendarEventWithDate[]>(() => {
-    // 선택된 학년도의 시작일 (3월 1일)
-    const academicYearStart = new Date(selectedAcademicYear, 2, 1);
-    // 선택된 학년도의 종료일 (다음해 2월 마지막 날)
-    const academicYearEnd = new Date(selectedAcademicYear + 1, 1, 28, 23, 59, 59);
-    // 2월이 29일까지 있는 경우 처리
+  // 창의적 체험활동 탭 전용 이벤트 데이터 (selectedAcademicYear 기준 API 호출)
+  const [creativeTabEvents, setCreativeTabEvents] = useState<CalendarEvent[] | null>(null);
+  const [isCreativeEventsLoading, setIsCreativeEventsLoading] = useState(false);
+
+  // selectedAcademicYear 변경 시 창의적 체험활동 기간의 이벤트 API로 직접 조회
+  const [creativeRefreshKey, setCreativeRefreshKey] = useState(0);
+  const refreshCreativeTabEvents = useCallback(() => {
+    setCreativeRefreshKey((k) => k + 1);
+  }, []);
+
+  useEffect(() => {
+    const academicYearStart = new Date(selectedAcademicYear, 2, 1); // 3월 1일
+    const academicYearEnd = new Date(selectedAcademicYear + 1, 1, 28, 23, 59, 59); // 다음해 2월 28일
     const isLeapYear = (year: number) => (year % 4 === 0 && year % 100 !== 0) || (year % 400 === 0);
     if (isLeapYear(selectedAcademicYear + 1)) {
       academicYearEnd.setDate(29);
     }
 
-    return events
+    let cancelled = false;
+    setIsCreativeEventsLoading(true);
+    setCreativeTabEvents(null);
+
+    fetch(
+      `/api/calendar-events?start=${encodeURIComponent(academicYearStart.toISOString())}&end=${encodeURIComponent(academicYearEnd.toISOString())}&scope=all`
+    )
+      .then((res) => res.json())
+      .then((data) => {
+        if (!cancelled) {
+          setCreativeTabEvents(data.events || []);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setCreativeTabEvents([]);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setIsCreativeEventsLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedAcademicYear, creativeRefreshKey]);
+
+  // 창의적 체험활동 이벤트 필터링 (creativeTabEvents 기준, 학년/일정 유형 필터 포함)
+  const creativeEvents = useMemo<CalendarEventWithDate[]>(() => {
+    const sourceEvents = creativeTabEvents ?? [];
+    return sourceEvents
       .map<CalendarEventWithDate>((event) => ({
         ...event,
         startDate: new Date(event.start),
       }))
       .filter(
         (event) => {
-          // 일정 구분 필터링
-          const isCreativeActivity = 
+          // 일정 구분 필터링 (API 응답은 이미 학년도 범위 내 전체이므로 scheduleArea만 필터)
+          const isCreativeActivity =
             event.extendedProps.scheduleArea === "창의적 체험활동";
-          
-          // 학년도 필터링
-          const isInAcademicYear = 
-            event.startDate >= academicYearStart &&
-            event.startDate <= academicYearEnd;
-          
+
           // 학년 필터링 (선택된 경우)
           const gradeLevels = event.extendedProps.gradeLevels || [];
-          const matchesGrade = selectedGrade === null || 
-            gradeLevels.includes(selectedGrade);
-          
+          const matchesGrade =
+            selectedGrade === null || gradeLevels.includes(selectedGrade);
+
           // 일정 유형 필터링 (선택된 경우)
           const eventType = event.extendedProps.eventType;
-          const matchesEventType = selectedEventType === null || 
-            eventType === selectedEventType;
-          
-          return isCreativeActivity && isInAcademicYear && matchesGrade && matchesEventType;
+          const matchesEventType =
+            selectedEventType === null || eventType === selectedEventType;
+
+          return isCreativeActivity && matchesGrade && matchesEventType;
         }
       )
       .sort((a, b) => a.startDate.getTime() - b.startDate.getTime());
-  }, [events, selectedAcademicYear, selectedGrade, selectedEventType]);
+  }, [creativeTabEvents, selectedGrade, selectedEventType]);
 
   return (
     <div className="space-y-6">
@@ -280,6 +338,8 @@ export default function TeacherScheduleClient({
             ref={calendarRef}
             initialEvents={initialEvents}
             onEventsChange={handleEventsChange}
+            onEventSaved={refreshCreativeTabEvents}
+            onEventDeleted={refreshCreativeTabEvents}
             hideAddButton={true}
             onViewChange={handleViewChange}
             allowedScheduleAreas={allowedScheduleAreas}
@@ -369,6 +429,7 @@ export default function TeacherScheduleClient({
               <span className="flex items-center justify-center w-[70px] shrink-0 text-right">부서</span>
               <span className="flex items-center justify-center w-[70px] shrink-0 text-center">학년</span>
               <span className="flex items-center justify-center w-[70px] shrink-0 text-center">구분</span>
+              <span className="flex items-center justify-center flex-1 min-w-[100px] shrink-0 text-center">활동</span>
             </div>
 
             {/* 모바일(작은 화면)에서는 간단한 레이블만 표시 */}
@@ -430,6 +491,32 @@ export default function TeacherScheduleClient({
                         style={{ backgroundColor: eventColor, borderColor: eventColor, color: "#ffffff" }}
                       >
                         {eventType}
+                      </span>
+                      <span
+                        className="text-xs flex-1 min-w-[100px] shrink-0 line-clamp-2 flex items-center"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setActivityModalEvent({
+                            id: event.id,
+                            title: event.title,
+                            activityContent: (event.extendedProps as any).activityContent || "",
+                          });
+                        }}
+                      >
+                        {(event.extendedProps as any).activityContent ? (
+                          <span className="text-gray-600 cursor-pointer hover:text-blue-600 flex justify-center w-full text-center">
+                            {(event.extendedProps as any).activityContent}
+                          </span>
+                        ) : (
+                          <span className="flex justify-center w-full">
+                            <button
+                              type="button"
+                              className="text-blue-600 hover:text-blue-700 text-xs font-medium cursor-pointer"
+                            >
+                              활동 입력
+                            </button>
+                          </span>
+                        )}
                       </span>
                           </>
                         );
@@ -571,7 +658,9 @@ export default function TeacherScheduleClient({
               </div>
             </div>
           </div>
-          {creativeEvents.length === 0 ? (
+          {isCreativeEventsLoading ? (
+            <p className="text-sm text-gray-500 py-8 text-center">일정을 불러오는 중...</p>
+          ) : creativeEvents.length === 0 ? (
             <p className="text-sm text-gray-500">창의적 체험활동 일정이 없습니다.</p>
           ) : (
             <>
@@ -584,6 +673,7 @@ export default function TeacherScheduleClient({
                 <span className="flex items-center justify-center w-[70px] shrink-0 text-right">담당자</span>
                 <span className="flex items-center justify-center w-[70px] shrink-0 text-center">학년</span>
                 <span className="flex items-center justify-center w-[70px] shrink-0 text-center">구분</span>
+                <span className="flex items-center justify-center flex-1 min-w-[100px] shrink-0 text-center">활동</span>
               </div>
 
               {/* 모바일(작은 화면)에서는 간단한 레이블만 표시 */}
@@ -649,6 +739,32 @@ export default function TeacherScheduleClient({
                               >
                                 {eventType}
                               </span>
+                              <span
+                                className="text-xs flex-1 min-w-[100px] shrink-0 line-clamp-2 flex items-center"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setActivityModalEvent({
+                                    id: event.id,
+                                    title: event.title,
+                                    activityContent: (event.extendedProps as any).activityContent || "",
+                                  });
+                                }}
+                              >
+                                {(event.extendedProps as any).activityContent ? (
+                                  <span className="text-gray-600 cursor-pointer hover:text-blue-600 flex justify-center w-full text-center">
+                                    {(event.extendedProps as any).activityContent}
+                                  </span>
+                                ) : (
+                                  <span className="flex justify-center w-full">
+                                    <button
+                                      type="button"
+                                      className="text-blue-600 hover:text-blue-700 text-xs font-medium cursor-pointer"
+                                    >
+                                      활동 입력
+                                    </button>
+                                  </span>
+                                )}
+                              </span>
                             </>
                           );
                         })()}
@@ -661,6 +777,15 @@ export default function TeacherScheduleClient({
           )}
         </div>
       )}
+
+      <ActivityInputModal
+        isOpen={!!activityModalEvent}
+        onClose={() => setActivityModalEvent(null)}
+        eventId={activityModalEvent?.id ?? ""}
+        eventTitle={activityModalEvent?.title ?? ""}
+        initialValue={activityModalEvent?.activityContent ?? ""}
+        onSaved={handleActivitySaved}
+      />
     </div>
   );
 }

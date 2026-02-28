@@ -309,6 +309,7 @@ model CalendarEvent {
   scheduleArea      String? // 일정 구분: "창의적 체험활동", "교과"
   gradeLevels       String[]  @default([])
   periods           String[]  @default([])
+  activityContent   String?   // 활동 내용 (창의적 체험활동용)
   createdBy         String    @db.ObjectId // 생성한 사용자 ID
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt

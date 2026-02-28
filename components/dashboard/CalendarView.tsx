@@ -38,12 +38,15 @@ export interface CalendarEvent {
     gradeLevels?: string[];
     periods?: string[];
     description?: string;
+    activityContent?: string;
   };
 }
 
 type CalendarViewProps = {
   initialEvents?: CalendarEvent[];
   onEventsChange?: (events: CalendarEvent[]) => void;
+  onEventSaved?: () => void;
+  onEventDeleted?: () => void;
   hideAddButton?: boolean;
   onViewChange?: (viewDate: Date, viewType: string) => void;
   allowedScheduleAreas?: string[];
@@ -59,6 +62,8 @@ const CalendarView = forwardRef<CalendarViewHandle, CalendarViewProps>(
     {
       initialEvents = [],
       onEventsChange,
+      onEventSaved,
+      onEventDeleted,
       hideAddButton = false,
       onViewChange,
       allowedScheduleAreas,
@@ -201,6 +206,7 @@ const CalendarView = forwardRef<CalendarViewHandle, CalendarViewProps>(
   const handleEventSaved = () => {
     handleCloseModal();
     refreshEvents();
+    onEventSaved?.();
     showToast("일정이 저장되었습니다.", "success");
   };
 
@@ -208,6 +214,7 @@ const CalendarView = forwardRef<CalendarViewHandle, CalendarViewProps>(
   const handleEventDeleted = () => {
     handleCloseModal();
     refreshEvents();
+    onEventDeleted?.();
     showToast("일정이 삭제되었습니다.", "success");
   };
 

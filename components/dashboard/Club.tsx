@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from "react";
 import { Edit2, Trash2, Download, HelpCircle } from "lucide-react";
+import { StudentAutocomplete } from "./StudentAutocomplete";
 
 interface Teacher {
   id: string;
@@ -1403,48 +1404,14 @@ export default function Club() {
                                             const selectedIds = getCreativeSelectedStudentIds(item.id, idx);
                                             
                                             return (
-                                              <select
+                                              <StudentAutocomplete
                                                 key={idx}
                                                 value={selections[idx] || ""}
-                                                onChange={(e) => handleCreativeStudentSelectionChange(item.id, idx, e.target.value)}
-                                                className={`w-[120px] px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white ${
-                                                  !(selections[idx]) ? "text-gray-400" : "text-black"
-                                                }`}
-                                              >
-                                                <option value="" className="text-gray-400">학생 선택</option>
-                                                
-                                                {[...students].sort((a, b) => {
-                                                  // 학번이 없는 경우 뒤로 배치
-                                                  if (!a.studentId && !b.studentId) return 0;
-                                                  if (!a.studentId) return 1;
-                                                  if (!b.studentId) return -1;
-                                                  
-                                                  // 학번을 숫자로 변환하여 비교
-                                                  const numA = parseInt(a.studentId, 10) || 0;
-                                                  const numB = parseInt(b.studentId, 10) || 0;
-                                                  
-                                                  if (numA !== numB) {
-                                                    return numA - numB;
-                                                  }
-                                                  
-                                                  // 학번이 같으면 문자열로 비교
-                                                  return a.studentId.localeCompare(b.studentId);
-                                                }).map((student) => {
-                                                  const isSelected = selectedIds.includes(student.id);
-                                                  return (
-                                                    <option 
-                                                      key={student.id} 
-                                                      value={student.id}
-                                                      disabled={isSelected}
-                                                      className="text-black"
-                                                      style={isSelected ? { color: '#999', fontStyle: 'italic' } : {}}
-                                                    >
-                                                      {student.studentId ? `${student.studentId} ${student.name}` : student.name}
-                                                      {isSelected ? ' (선택됨)' : ''}
-                                                    </option>
-                                                  );
-                                                })}
-                                              </select>
+                                                onChange={(studentId) => handleCreativeStudentSelectionChange(item.id, idx, studentId)}
+                                                students={students}
+                                                disabledStudentIds={selectedIds}
+                                                placeholder="학생 선택"
+                                              />
                                             );
                                           });
                                         })()}
@@ -1811,48 +1778,14 @@ export default function Club() {
                                             const selectedIds = getAutonomousSelectedStudentIds(item.id, idx);
                                             
                                             return (
-                                              <select
+                                              <StudentAutocomplete
                                                 key={idx}
                                                 value={selections[idx] || ""}
-                                                onChange={(e) => handleAutonomousStudentSelectionChange(item.id, idx, e.target.value)}
-                                                className={`w-[120px] px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white ${
-                                                  !(selections[idx]) ? "text-gray-400" : "text-black"
-                                                }`}
-                                              >
-                                                <option value="" className="text-gray-400">학생 선택</option>
-                                                
-                                                {[...students].sort((a, b) => {
-                                                  // 학번이 없는 경우 뒤로 배치
-                                                  if (!a.studentId && !b.studentId) return 0;
-                                                  if (!a.studentId) return 1;
-                                                  if (!b.studentId) return -1;
-                                                  
-                                                  // 학번을 숫자로 변환하여 비교
-                                                  const numA = parseInt(a.studentId, 10) || 0;
-                                                  const numB = parseInt(b.studentId, 10) || 0;
-                                                  
-                                                  if (numA !== numB) {
-                                                    return numA - numB;
-                                                  }
-                                                  
-                                                  // 학번이 같으면 문자열로 비교
-                                                  return a.studentId.localeCompare(b.studentId);
-                                                }).map((student) => {
-                                                  const isSelected = selectedIds.includes(student.id);
-                                                  return (
-                                                    <option 
-                                                      key={student.id} 
-                                                      value={student.id}
-                                                      disabled={isSelected}
-                                                      className="text-black"
-                                                      style={isSelected ? { color: '#999', fontStyle: 'italic' } : {}}
-                                                    >
-                                                      {student.studentId ? `${student.studentId} ${student.name}` : student.name}
-                                                      {isSelected ? ' (선택됨)' : ''}
-                                                    </option>
-                                                  );
-                                                })}
-                                              </select>
+                                                onChange={(studentId) => handleAutonomousStudentSelectionChange(item.id, idx, studentId)}
+                                                students={students}
+                                                disabledStudentIds={selectedIds}
+                                                placeholder="학생 선택"
+                                              />
                                             );
                                           });
                                         })()}
