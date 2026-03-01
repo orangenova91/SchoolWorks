@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useMemo, useEffect } from "react";
 import { createPortal } from "react-dom";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
@@ -43,6 +44,7 @@ export default function EditClassGroupModal({
   onClose,
   onUpdated,
 }: EditClassGroupModalProps) {
+  const router = useRouter();
   const [className, setClassName] = useState("");
   const [period, setPeriod] = useState("1");
   const [schedules, setSchedules] = useState<Array<{ day: string; period: string }>>([
@@ -331,12 +333,6 @@ export default function EditClassGroupModal({
         return;
       }
 
-      // 수강생 검증
-      if (selectedStudentIds.size === 0) {
-        setValidationError("최소 1명 이상의 수강생을 선택해주세요.");
-        return;
-      }
-
       setIsSubmitting(true);
       
       try {
@@ -365,6 +361,9 @@ export default function EditClassGroupModal({
           return;
         }
 
+        // 서버 데이터 갱신으로 학반 배지 등 즉시 반영
+        router.refresh();
+
         // 이벤트 발생으로 다른 컴포넌트에 알림
         window.dispatchEvent(
           new CustomEvent("course:classGroups:updated", {
@@ -381,7 +380,7 @@ export default function EditClassGroupModal({
         setIsSubmitting(false);
       }
     },
-    [className, period, schedules, courseId, classGroup.id, selectedStudentIds, handleClose, onUpdated]
+    [className, period, schedules, courseId, classGroup.id, selectedStudentIds, router, handleClose, onUpdated]
   );
 
   const handleDelete = useCallback(async () => {
@@ -409,6 +408,9 @@ export default function EditClassGroupModal({
         return;
       }
 
+      // 서버 데이터 갱신으로 학반 배지 등 즉시 반영
+      router.refresh();
+
       // 이벤트 발생으로 다른 컴포넌트에 알림
       window.dispatchEvent(
         new CustomEvent("course:classGroups:updated", {
@@ -424,7 +426,7 @@ export default function EditClassGroupModal({
     } finally {
       setIsDeleting(false);
     }
-  }, [courseId, classGroup.id, classGroup.name, handleClose, onUpdated]);
+  }, [courseId, classGroup.id, classGroup.name, router, handleClose, onUpdated]);
 
   const modalContent = isOpen ? (
     <div
@@ -542,7 +544,7 @@ export default function EditClassGroupModal({
           <div className="flex-1 overflow-hidden flex flex-col">
             <div className="flex items-center justify-between mb-2">
               <label className="block text-sm font-medium text-gray-700">
-                수강생 추가하기 <span className="text-red-500">*</span>
+                수강생 추가하기
               </label>
               {filteredStudents.length > 0 && (
                 <div className="flex items-center gap-2">

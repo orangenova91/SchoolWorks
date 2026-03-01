@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useMemo, useEffect } from "react";
 import { createPortal } from "react-dom";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
@@ -45,6 +46,7 @@ export default function CreateClassGroupButton({
   onCreated,
   onClose,
 }: CreateClassGroupButtonProps) {
+  const router = useRouter();
   const [isOpen, setIsOpen] = useState(Boolean(initialOpen));
   const [fetchedStudents, setFetchedStudents] = useState<Student[]>([]);
   const studentsList = (students && students.length > 0) ? students : fetchedStudents;
@@ -352,12 +354,6 @@ export default function CreateClassGroupButton({
         return;
       }
 
-      // 수강생 검증 (hideStudents가 true면 선택 검증 스킵)
-      if (!hideStudents && selectedStudentIds.size === 0) {
-        setValidationError("최소 1명 이상의 수강생을 선택해주세요.");
-        return;
-      }
-
       setIsSubmitting(true);
       
       try {
@@ -386,7 +382,10 @@ export default function CreateClassGroupButton({
           return;
         }
 
-        // 이벤트 발생으로 다른 컴포넌트에 알림 (나중에 읽기 기능 구현 시 사용)
+        // 서버 데이터 갱신으로 학반 배지 등 즉시 반영
+        router.refresh();
+
+        // 이벤트 발생으로 다른 컴포넌트에 알림
         window.dispatchEvent(
           new CustomEvent("course:classGroups:updated", {
             detail: { courseId },
@@ -402,7 +401,7 @@ export default function CreateClassGroupButton({
         setIsSubmitting(false);
       }
     },
-    [className, period, schedules, courseId, selectedStudentIds, handleClose, onCreated]
+    [className, period, schedules, courseId, selectedStudentIds, router, handleClose, onCreated]
   );
 
   const modalContent = isOpen ? (
@@ -523,7 +522,7 @@ export default function CreateClassGroupButton({
                   <>
                     <div className="flex items-center justify-between mb-2">
                       <label className="block text-sm font-medium text-gray-700">
-                        수강생 추가하기 <span className="text-red-500">*</span>
+                        수강생 추가하기
                       </label>
                       {filteredStudents.length > 0 && (
                         <div className="flex items-center gap-2">

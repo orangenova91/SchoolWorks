@@ -1,12 +1,12 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import CalendarView, { CalendarEvent } from "./CalendarView";
 import { TeacherAutocomplete } from "./TeacherAutocomplete";
 import { useToastContext } from "@/components/providers/ToastProvider";
 import { Button } from "@/components/ui/Button";
-import { ChevronUp, ChevronDown } from "lucide-react";
+import { ChevronUp, ChevronDown, Printer, Upload } from "lucide-react";
 
 const WEEKDAY_LABELS: Record<number, string> = {
   1: "월",
@@ -79,6 +79,15 @@ function toDateString(d: Date): string {
   return `${y}-${m}-${day}`;
 }
 
+/** 인쇄용 기간 라벨 */
+function getPrintPeriodLabel(viewDate: Date, viewType: string): string {
+  const y = viewDate.getFullYear();
+  if (viewType === "semester1") return `${y}학년도 1학기 (3월~7월)`;
+  if (viewType === "semester2") return `${y}학년도 2학기 (8월~2월)`;
+  const m = viewDate.getMonth() + 1;
+  return `${y}년 ${m}월`;
+}
+
 export default function SupervisionMealCalendar({
   initialEvents,
   title,
@@ -92,6 +101,15 @@ export default function SupervisionMealCalendar({
   const [saving, setSaving] = useState(false);
   const [eveningCount, setEveningCount] = useState(1);
   const [mealCount, setMealCount] = useState(1);
+  const [csvText, setCsvText] = useState<string | null>(null);
+  const [csvPreview, setCsvPreview] = useState<
+    Array<{ row: number; date: string; mealGuidance: string; eveningSupervision: string; remarks: string }>
+  | null>(null);
+  const [csvErrors, setCsvErrors] = useState<Array<{ row: number; msg: string }>>([]);
+  const [csvLoading, setCsvLoading] = useState(false);
+  const [csvResult, setCsvResult] = useState<{ inserted?: number; errors?: Array<{ row: number; msg: string }> } | null>(null);
+  const csvInputRef = useRef<HTMLInputElement>(null);
+  const [scheduleRefreshKey, setScheduleRefreshKey] = useState(0);
   const router = useRouter();
   const { showToast } = useToastContext();
 
@@ -191,7 +209,7 @@ export default function SupervisionMealCalendar({
       setScheduleMap(map);
     };
     fetchSchedules().catch(() => setScheduleMap({}));
-  }, [year, month, viewType]);
+  }, [year, month, viewType, scheduleRefreshKey]);
 
   const handleTeacherChange = useCallback(
     (dateStr: string, field: "eveningSupervision" | "mealGuidance", index: number, value: string) => {
@@ -284,14 +302,187 @@ export default function SupervisionMealCalendar({
     }
   }, [weekdaysOfMonth, scheduleMap, eveningCount, mealCount, showToast]);
 
+  const handlePrint = useCallback(() => {
+    window.print();
+  }, []);
+
+  /** 현재 테이블에 보여지는 데이터를 CSV 형식으로 생성 */
+  const generateCsvFromCurrentData = useCallback(() => {
+    const escapeCsvCell = (val: string): string => {
+      if (val.includes(",") || val.includes('"') || val.includes("\n")) {
+        return `"${val.replace(/"/g, '""')}"`;
+      }
+      return val;
+    };
+    const headers = [
+      "날짜",
+      ...Array.from({ length: mealCount }, (_, i) => `급식지도${i + 1}`),
+      ...Array.from({ length: eveningCount }, (_, i) => `야자감독${i + 1}`),
+      "비고",
+    ];
+    const rows = weekdaysOfMonth.map((date) => {
+      const dateStr = toDateString(date);
+      const row = scheduleMap[dateStr];
+      const mg = row?.mealGuidance ?? [];
+      const ev = row?.eveningSupervision ?? [];
+      const cells = [
+        dateStr,
+        ...Array.from({ length: mealCount }, (_, i) => mg[i] ?? ""),
+        ...Array.from({ length: eveningCount }, (_, i) => ev[i] ?? ""),
+        row?.remarks ?? "",
+      ];
+      return cells.map(escapeCsvCell).join(",");
+    });
+    return `${headers.join(",")}\n${rows.join("\n")}\n`;
+  }, [weekdaysOfMonth, scheduleMap, mealCount, eveningCount]);
+
+  const downloadCsvTemplate = useCallback(() => {
+    const BOM = "\uFEFF";
+    const csv = generateCsvFromCurrentData();
+    const blob = new Blob([BOM + csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    const periodLabel =
+      viewType === "semester1"
+        ? `${year}학년도1학기`
+        : viewType === "semester2"
+          ? `${year}학년도2학기`
+          : `${year}-${String(month).padStart(2, "0")}`;
+    a.download = `supervision_meal_${periodLabel}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }, [generateCsvFromCurrentData, viewType, year, month]);
+
+  const handleCsvFile = useCallback(
+    async (file: File | null) => {
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = async () => {
+        const text = String(reader.result ?? "");
+        setCsvText(text);
+        setCsvLoading(true);
+        setCsvResult(null);
+        try {
+          const resp = await fetch("/api/academic-preparation/supervision-meal/bulk-upload", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ csvText: text, preview: true }),
+          });
+          const data = await resp.json();
+          setCsvPreview(data.preview ?? null);
+          setCsvErrors(data.errors ?? []);
+        } catch {
+          setCsvErrors([{ row: 0, msg: "미리보기 요청 실패" }]);
+          setCsvPreview(null);
+        } finally {
+          setCsvLoading(false);
+        }
+      };
+      reader.readAsText(file, "utf-8");
+    },
+    []
+  );
+
+  const handleCsvUpload = useCallback(async () => {
+    if (!csvText) return;
+    setCsvLoading(true);
+    try {
+      const resp = await fetch("/api/academic-preparation/supervision-meal/bulk-upload", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ csvText, preview: false }),
+      });
+      const data = await resp.json();
+      setCsvResult(data);
+      if (data.inserted != null && data.inserted > 0) {
+        showToast(`${data.inserted}건이 저장되었습니다.`, "success");
+        setCsvText(null);
+        setCsvPreview(null);
+        setCsvErrors([]);
+        setScheduleRefreshKey((k) => k + 1);
+        router.refresh();
+      }
+      if (data.errors?.length) {
+        setCsvErrors(data.errors);
+      }
+    } catch {
+      showToast("업로드에 실패했습니다.", "error");
+    } finally {
+      setCsvLoading(false);
+    }
+  }, [csvText, showToast, router]);
+
   return (
     <div className="space-y-6">
-      <header className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm space-y-4">
+      {/* 인쇄 시에만 보이는 영역 */}
+      <div className="hidden print:block print-schedule-wrapper">
+        <h1 className="text-xl font-bold text-gray-900 mb-1">급식지도/야자감독 일정</h1>
+        <p className="text-sm text-gray-600 mb-4">{getPrintPeriodLabel(viewDate, viewType)}</p>
+        <table className="w-full border-collapse text-sm print-schedule-table" style={{ tableLayout: "fixed" }}>
+          <thead>
+            <tr className="border-b-2 border-gray-800">
+              <th className="text-left py-2 px-2 font-semibold text-gray-900 w-10">순</th>
+              <th className="text-left py-2 px-2 font-semibold text-gray-900 w-24">날짜</th>
+              {Array.from({ length: mealCount }).map((_, i) => (
+                <th key={`mg-${i}`} className="text-left py-2 px-2 font-semibold text-gray-900 bg-amber-100">
+                  급식지도 {i + 1}
+                </th>
+              ))}
+              {Array.from({ length: eveningCount }).map((_, i) => (
+                <th key={`ev-${i}`} className="text-left py-2 px-2 font-semibold text-gray-900 bg-sky-100">
+                  야자감독 {i + 1}
+                </th>
+              ))}
+              <th className="text-left py-2 px-2 font-semibold text-gray-900">비고</th>
+            </tr>
+          </thead>
+          <tbody>
+            {weekdaysOfMonth.map((date, index) => {
+              const dayOfWeek = date.getDay();
+              const weekdayLabel = WEEKDAY_LABELS[dayOfWeek] ?? "";
+              const dateStr = toDateString(date);
+              const displayDateStr = `${date.getMonth() + 1}/${date.getDate()} (${weekdayLabel})`;
+              const row = scheduleMap[dateStr];
+              return (
+                <tr key={date.toISOString()} className="border-b border-gray-300">
+                  <td className="py-2 px-2 text-gray-700">{index + 1}</td>
+                  <td className="py-2 px-2 text-gray-900">{displayDateStr}</td>
+                  {Array.from({ length: mealCount }).map((_, i) => {
+                    const mg = row?.mealGuidance ?? [];
+                    const val = mg[i] ?? "";
+                    return (
+                      <td key={`mg-${i}`} className="py-2 px-2 bg-amber-50">
+                        {val || "—"}
+                      </td>
+                    );
+                  })}
+                  {Array.from({ length: eveningCount }).map((_, i) => {
+                    const ev = row?.eveningSupervision ?? [];
+                    const val = ev[i] ?? "";
+                    return (
+                      <td key={`ev-${i}`} className="py-2 px-2 bg-sky-50">
+                        {val || "—"}
+                      </td>
+                    );
+                  })}
+                  <td className="py-2 px-2 text-gray-700">{row?.remarks ?? ""}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      {/* 화면에만 보이는 영역 (인쇄 시 숨김) */}
+      <header className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm space-y-4 print:hidden">
         <h1 className="text-2xl font-bold text-gray-900">급식지도/야자감독</h1>
         <p className="text-sm text-gray-600">{description}</p>
       </header>
 
-      <div className="flex flex-col gap-6 lg:flex-row items-stretch">
+      <div className="flex flex-col gap-6 lg:flex-row items-stretch print:hidden">
         <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm w-full lg:w-1/2">
           <CalendarView
             initialEvents={events}
@@ -371,9 +562,15 @@ export default function SupervisionMealCalendar({
               </span>
               <span>일정</span>
             </h3>
-            <Button onClick={handleSave} disabled={saving}>
-              {saving ? "저장 중..." : "저장"}
-            </Button>
+            <div className="flex items-center gap-2 flex-wrap">
+              <Button variant="outline" onClick={handlePrint} type="button">
+                <Printer className="w-4 h-4 mr-1.5" />
+                인쇄
+              </Button>
+              <Button onClick={handleSave} disabled={saving}>
+                {saving ? "저장 중..." : "저장"}
+              </Button>
+            </div>
           </div>
           <div className="flex-1 overflow-auto">
             <table className="w-full" style={{ tableLayout: "fixed" }}>
@@ -455,6 +652,110 @@ export default function SupervisionMealCalendar({
               </tbody>
             </table>
           </div>
+
+          <div className="flex items-center justify-end gap-2 mt-3 pt-3 border-t border-gray-100">
+            <span className="text-xs italic text-gray-400">
+              급식지도/야자감독 일정을 CSV로 대량 업로드 할 수 있습니다.
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={downloadCsvTemplate}
+              type="button"
+            >
+              템플릿 다운
+            </Button>
+            <label className="inline-flex cursor-pointer">
+              <input
+                ref={csvInputRef}
+                type="file"
+                accept=".csv,text/csv"
+                className="sr-only"
+                onChange={(e) => handleCsvFile(e.target.files?.[0] ?? null)}
+              />
+              <Button
+                variant="outline"
+                size="sm"
+                type="button"
+                onClick={() => csvInputRef.current?.click()}
+              >
+                <Upload className="w-4 h-4 mr-1.5" />
+                CSV 업로드
+              </Button>
+            </label>
+          </div>
+
+          {csvLoading && (
+            <p className="text-sm text-gray-500 mt-2">CSV 처리 중...</p>
+          )}
+          {csvErrors.length > 0 && (
+            <div className="mt-2 text-sm text-red-600">
+              {csvErrors.slice(0, 5).map((e) => (
+                <div key={e.row}>
+                  {e.row}행: {e.msg}
+                </div>
+              ))}
+              {csvErrors.length > 5 && <div>...외 {csvErrors.length - 5}건</div>}
+            </div>
+          )}
+          {csvPreview && csvPreview.length > 0 && (
+            <div className="mt-3 space-y-2">
+              <div className="max-h-40 overflow-auto border rounded p-2 bg-gray-50">
+                <table className="text-sm w-full">
+                  <thead>
+                    <tr>
+                      <th className="text-left">#</th>
+                      <th className="text-left">날짜</th>
+                      <th className="text-left">급식지도</th>
+                      <th className="text-left">야자감독</th>
+                      <th className="text-left">비고</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {csvPreview.slice(0, 20).map((r) => (
+                      <tr key={r.row}>
+                        <td>{r.row}</td>
+                        <td>{r.date}</td>
+                        <td>{r.mealGuidance}</td>
+                        <td>{r.eveningSupervision}</td>
+                        <td>{r.remarks}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div className="flex items-center justify-end gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setCsvText(null);
+                    setCsvPreview(null);
+                    setCsvErrors([]);
+                    setCsvResult(null);
+                    if (csvInputRef.current) csvInputRef.current.value = "";
+                  }}
+                  disabled={csvLoading}
+                >
+                  취소
+                </Button>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={handleCsvUpload}
+                  disabled={csvLoading || csvErrors.length > 0}
+                >
+                  업로드 확인
+                </Button>
+              </div>
+            </div>
+          )}
+          {csvResult && csvResult.inserted != null && csvResult.inserted > 0 && (
+            <p className="text-sm text-gray-600 mt-2">
+              {csvResult.inserted}건 저장됨
+              {csvResult.errors?.length ? `, ${csvResult.errors.length}건 오류` : ""}
+            </p>
+          )}
         </div>
       </div>
     </div>

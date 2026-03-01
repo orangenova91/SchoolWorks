@@ -91,7 +91,7 @@ export default async function AcademicPreparationPage() {
 
   return (
     <div className="space-y-6">
-      <header className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm space-y-4">
+      <header className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm space-y-4 print:hidden">
         <div className="flex items-center gap-3">
           <h1 className="text-2xl font-bold text-gray-900">학사 준비</h1>
         </div>
