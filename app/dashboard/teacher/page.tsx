@@ -6,6 +6,7 @@ import { getTranslations } from "@/lib/i18n";
 import { prisma } from "@/lib/prisma";
 import WeeklyScheduleSection from "@/components/dashboard/WeeklyScheduleSection";
 import BannerSection from "@/components/dashboard/teacher/BannerSection";
+import CollaborativeDocLinksSection from "@/components/dashboard/teacher/CollaborativeDocLinksSection";
 import { Calendar, Users, UserCheck, MessageSquare, Paperclip } from "lucide-react";
 
 const t = getTranslations("ko");
@@ -899,10 +900,7 @@ export default async function TeacherDashboardPage() {
           </div>
         </section>
 
-        <section className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">협업 문서 링크 제작</h2>
-
-        </section>
+        <CollaborativeDocLinksSection />
         </div>
       </div>
 

@@ -41,6 +41,7 @@ model User {
   createdSchools School[]        @relation("SchoolCreator") // 슈퍼어드민이 생성한 학교
   adminSchools   School[]        @relation("SchoolAdminUser") // Admin이 담당하는 학교
   teacherBanner  TeacherBanner?  @relation("TeacherBanners")
+  collaborativeDocLinks CollaborativeDocLink[]
   comments       Comment[]       // 댓글
 
   @@map("users")
@@ -483,6 +484,20 @@ model TeacherBanner {
   updatedAt DateTime @updatedAt
 
   @@map("teacher_banners")
+}
+
+model CollaborativeDocLink {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  teacherId String   @db.ObjectId
+  user      User     @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  title     String   // 협업문서 제목
+  url       String   // 링크 URL
+  order     Int      @default(0) // 정렬 순서
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([teacherId])
+  @@map("collaborative_doc_links")
 }
 
 model Comment {
