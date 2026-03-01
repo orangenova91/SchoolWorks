@@ -753,7 +753,7 @@ export default async function TeacherDashboardPage() {
               return (
                 <>
                   {" "}
-                  오늘 <span className="font-semibold">{parts.join(", ")}</span> 담당입니다.
+                  오늘 <span className="inline-block mx-1 px-2 py-1 text-xl font-bold text-orange-900 bg-blue-200 rounded-md">{parts.join(", ")}</span> 담당입니다.
                 </>
               );
             })()}
@@ -851,6 +851,7 @@ export default async function TeacherDashboardPage() {
         </div>
         </section>
 
+        <div className="flex-1 flex flex-col gap-6">
         <section className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">바로가기</h2>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -897,6 +898,12 @@ export default async function TeacherDashboardPage() {
             </Link>
           </div>
         </section>
+
+        <section className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">협업 문서 링크 제작</h2>
+
+        </section>
+        </div>
       </div>
 
       <section className="grid gap-6 lg:grid-cols-2">

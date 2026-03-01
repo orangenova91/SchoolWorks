@@ -20,7 +20,7 @@ export default function CourseTabs({ tabs, children }: CourseTabsProps) {
       <div
         role="tablist"
         aria-label="수업 기능 탭"
-        className="flex gap-2 border-b border-gray-200"
+        className="flex gap-2 border-b border-gray-200 print:hidden"
       >
         {tabs.map((tab, index) => {
           const isActive = index === activeIndex;

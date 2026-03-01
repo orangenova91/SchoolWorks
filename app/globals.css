@@ -209,3 +209,32 @@ body {
   border-color: #60a5fa;
 }
 
+/* 급식지도/야자감독 일정 인쇄용 스타일 */
+@media print {
+  /* main 영역 여백 제거 (사이드바/상단메뉴 숨김 시) */
+  main {
+    margin-left: 0 !important;
+    padding-top: 0 !important;
+  }
+  .print-schedule-wrapper {
+    padding: 0;
+    margin: 0;
+  }
+  .print-schedule-table {
+    border: 1px solid #333;
+  }
+  .print-schedule-table th,
+  .print-schedule-table td {
+    border: 1px solid #999;
+    padding: 6px 8px;
+  }
+  /* 인쇄 시 테이블만 보이도록 카드 스타일 제거 */
+  article:has(.print-schedule-wrapper) {
+    border: none !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+  }
+}
+
