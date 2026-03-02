@@ -6,7 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { getTranslations } from "@/lib/i18n";
 import CourseTabs from "@/components/dashboard/CourseTabs";
 import StudentListTable from "@/components/dashboard/StudentListTable";
-import WeeklyAttendanceTable from "@/components/dashboard/WeeklyAttendanceTable";
+import AttendanceManagement from "@/components/dashboard/teacher/AttendanceManagement";
 import UpdateHomeroomModalButton from "@/components/dashboard/UpdateHomeroomModalButton";
 
 export default async function ClassManagementPage() {
@@ -215,22 +215,17 @@ export default async function ClassManagementPage() {
             </article>,
             <article
               key="attendance"
-              className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm space-y-4"
+              className="flex min-h-[60vh] flex-col rounded-2xl border border-gray-200 bg-white p-6 shadow-sm"
             >
-              <header className="flex items-center justify-between">
+              <header className="flex shrink-0 items-center justify-between">
                 <h2 className="text-lg font-semibold text-gray-900">출결 관리</h2>
               </header>
-              <div className="space-y-4">
-                {teacherProfile?.classLabel ? (
-                  <WeeklyAttendanceTable
-                    students={homeroomStudents}
-                    classLabel={teacherProfile.classLabel}
-                  />
-                ) : (
-                  <div className="text-sm text-gray-600">
-                    <p>담임반 정보가 없습니다. 담임반을 먼저 설정해주세요.</p>
-                  </div>
-                )}
+              <div className="mt-4 min-h-0 flex-1">
+                <AttendanceManagement
+                  hasHomeroom={!!teacherProfile?.classLabel}
+                  students={homeroomStudents}
+                  classLabel={teacherProfile?.classLabel ?? ""}
+                />
               </div>
             </article>,
             <article

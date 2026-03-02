@@ -333,6 +333,9 @@ export default function StudentListTable({
         <table className="w-full border-collapse">
           <thead>
             <tr className="border-b border-gray-200">
+              <th className="px-4 py-3 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider w-12">
+                순
+              </th>
               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                 학번
               </th>
@@ -356,16 +359,20 @@ export default function StudentListTable({
           <tbody className="divide-y divide-gray-200">
             {paginatedStudents.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-sm text-gray-500">
+                <td colSpan={7} className="px-4 py-8 text-center text-sm text-gray-500">
                   {searchQuery.trim() || selectedGradeFilter || selectedClassLabelFilter
                     ? "검색 결과가 없습니다."
                     : "등록된 학생이 없습니다."}
                 </td>
               </tr>
             ) : (
-              paginatedStudents.map((student) => {
+              paginatedStudents.map((student, index) => {
+                const rowNumber = (currentPage - 1) * (pageSize === "all" ? filteredStudents.length : (pageSize as number)) + index + 1;
                 return (
                   <tr key={student.id} className="hover:bg-gray-50">
+                    <td className="px-4 py-3 text-sm text-center text-gray-600">
+                      {rowNumber}
+                    </td>
                     <td className="px-4 py-3 text-sm text-gray-900">
                       {student.studentId}
                     </td>

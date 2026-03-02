@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 type Tab = {
   id: string;
@@ -10,10 +10,23 @@ type Tab = {
 type CourseTabsProps = {
   tabs: Tab[];
   children: React.ReactNode[]; // panels in the same order as tabs
+  /** 초기 활성 탭 ID (URL query와 연동) */
+  initialTabId?: string;
 };
 
-export default function CourseTabs({ tabs, children }: CourseTabsProps) {
-  const [activeIndex, setActiveIndex] = useState(0);
+export default function CourseTabs({ tabs, children, initialTabId }: CourseTabsProps) {
+  const resolvedIndex = initialTabId
+    ? Math.max(0, tabs.findIndex((t) => t.id === initialTabId))
+    : 0;
+  const [activeIndex, setActiveIndex] = useState(
+    resolvedIndex >= 0 ? resolvedIndex : 0
+  );
+
+  useEffect(() => {
+    if (initialTabId && resolvedIndex >= 0) {
+      setActiveIndex(resolvedIndex);
+    }
+  }, [initialTabId, resolvedIndex]);
 
   return (
     <div className="space-y-4">
