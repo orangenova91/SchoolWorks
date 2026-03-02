@@ -235,6 +235,27 @@ model Attendance {
   @@map("attendances")
 }
 
+model HomeroomAttendance {
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  studentId       String   @db.ObjectId
+  teacherId       String   @db.ObjectId
+  type            String   // "질병" | "인정" | "기타" | "조퇴" | "지각" | "결과"
+  reason          String?  // 출결 사유
+  periodFrom      String?  // 조퇴 시 교시(부터): "1"~"8"
+  periodTo        String?  // 지각 시 교시(까지): "1"~"8"
+  period          String?  // 결과 시 교시: "3", "3~4" 등 자유 입력
+  startDate       DateTime
+  endDate         DateTime
+  writtenAt       DateTime
+  studentSignUrl  String?
+  guardianSignUrl String?
+  attachments     String?  // JSON: [{url, name}]
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("homeroom_attendances")
+}
+
 model StudentProfile {
   id                         String   @id @default(auto()) @map("_id") @db.ObjectId
   userId                     String   @unique @db.ObjectId

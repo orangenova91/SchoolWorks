@@ -438,6 +438,9 @@ export default function StaffListTable({
         <table className="w-full border-collapse">
           <thead>
             <tr className="border-b border-gray-200">
+              <th className="px-4 py-3 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider w-12">
+                순
+              </th>
               <th 
                 className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-50 select-none"
                 onClick={() => handleSort("roleLabel")}
@@ -512,15 +515,20 @@ export default function StaffListTable({
           <tbody className="divide-y divide-gray-200">
             {paginatedStaff.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-sm text-gray-500">
+                <td colSpan={8} className="px-4 py-8 text-center text-sm text-gray-500">
                   {searchQuery.trim() || selectedRoleFilter || selectedGradeFilter || selectedClassLabelFilter
                     ? "검색 결과가 없습니다."
                     : "등록된 교직원이 없습니다."}
                 </td>
               </tr>
             ) : (
-              paginatedStaff.map((member) => (
+              paginatedStaff.map((member, index) => {
+                const rowNumber = (currentPage - 1) * (pageSize === "all" ? filteredStaff.length : (pageSize as number)) + index + 1;
+                return (
                 <tr key={member.id} className="hover:bg-gray-50">
+                  <td className="px-4 py-3 text-sm text-center text-gray-600">
+                    {rowNumber}
+                  </td>
                   <td className="px-4 py-3 text-sm text-gray-700">
                     {member.roleLabel}
                   </td>
@@ -551,7 +559,8 @@ export default function StaffListTable({
                     </div>
                   </td>
                 </tr>
-              ))
+              );
+              })
             )}
           </tbody>
         </table>

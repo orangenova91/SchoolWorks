@@ -200,24 +200,28 @@ export default function WeeklyScheduleSection({
                 </div>
                 <div className="mt-auto pt-2 border-t border-gray-100 min-h-[2.5rem] flex-shrink-0 text-xs text-gray-600 space-y-1">
                   {hasSupervisionMeal && day.supervisionMeal && (
-                    <>
+                    <Link
+                      href="/dashboard/teacher/academic-preparation?tab=supervision-meal"
+                      className="block space-y-1 hover:text-blue-600 transition-colors cursor-pointer group"
+                      title="급식지도/야자감독 일정 보기"
+                    >
                       {(day.supervisionMeal.mealGuidance || []).filter(Boolean).length > 0 && (
-                        <div className="flex items-start gap-1.5">
-                          <UtensilsCrossed className="w-3.5 h-3.5 flex-shrink-0 mt-0.5 text-gray-500" />
+                        <div className="flex items-start gap-1.5 group-hover:text-blue-600">
+                          <UtensilsCrossed className="w-3.5 h-3.5 flex-shrink-0 mt-0.5 text-gray-500 group-hover:text-blue-600" />
                           <span>
                             {(day.supervisionMeal.mealGuidance || []).filter(Boolean).join(", ")}
                           </span>
                         </div>
                       )}
                       {(day.supervisionMeal.eveningSupervision || []).filter(Boolean).length > 0 && (
-                        <div className="flex items-start gap-1.5">
-                          <Moon className="w-3.5 h-3.5 flex-shrink-0 mt-0.5 text-gray-500" />
+                        <div className="flex items-start gap-1.5 group-hover:text-blue-600">
+                          <Moon className="w-3.5 h-3.5 flex-shrink-0 mt-0.5 text-gray-500 group-hover:text-blue-600" />
                           <span>
                             {(day.supervisionMeal.eveningSupervision || []).filter(Boolean).join(", ")}
                           </span>
                         </div>
                       )}
-                    </>
+                    </Link>
                   )}
                 </div>
               </div>

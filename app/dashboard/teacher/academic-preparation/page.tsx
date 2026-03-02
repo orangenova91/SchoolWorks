@@ -31,7 +31,16 @@ const AnnouncementPageClient = dynamic(
   { ssr: false, loading: () => <div className="rounded-2xl border border-gray-200 bg-white p-6">로딩 중...</div> }
 );
 
-export default async function AcademicPreparationPage() {
+export default async function AcademicPreparationPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ tab?: string }> | { tab?: string };
+}) {
+  const params =
+    searchParams && typeof (searchParams as Promise<{ tab?: string }>).then === "function"
+      ? await searchParams
+      : (searchParams ?? {});
+  const tab = (params as { tab?: string })?.tab;
   const session = await getServerSession(authOptions);
   if (!session) redirect("/login");
   if (session.user.role !== "teacher") redirect("/dashboard");
@@ -100,6 +109,7 @@ export default async function AcademicPreparationPage() {
 
       <section>
         <CourseTabs
+          initialTabId={tab === "supervision-meal" ? "supervision-meal" : undefined}
           tabs={[
             { id: "work-guide", label: "업무 안내" },
             { id: "supervision-meal", label: "급식지도/야자감독" },

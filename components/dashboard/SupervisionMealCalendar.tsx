@@ -417,6 +417,14 @@ export default function SupervisionMealCalendar({
 
   return (
     <div className="space-y-6">
+      {/* 화면에만 보이는 영역 (인쇄 시 숨김) */}
+      <div className="mb-4 print:hidden">
+        <h2 className="text-lg font-semibold text-gray-900">급식지도/야자감독</h2>
+        <div className="flex items-center gap-1 mt-1">
+          <p className="text-sm text-gray-500">{description}</p>
+        </div>
+      </div>
+
       {/* 인쇄 시에만 보이는 영역 */}
       <div className="hidden print:block print-schedule-wrapper">
         <h1 className="text-xl font-bold text-gray-900 mb-1">급식지도/야자감독 일정</h1>
@@ -475,12 +483,6 @@ export default function SupervisionMealCalendar({
           </tbody>
         </table>
       </div>
-
-      {/* 화면에만 보이는 영역 (인쇄 시 숨김) */}
-      <header className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm space-y-4 print:hidden">
-        <h1 className="text-2xl font-bold text-gray-900">급식지도/야자감독</h1>
-        <p className="text-sm text-gray-600">{description}</p>
-      </header>
 
       <div className="flex flex-col gap-6 lg:flex-row items-stretch print:hidden">
         <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm w-full lg:w-1/2">
