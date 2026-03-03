@@ -95,6 +95,9 @@ export default function Volunteer() {
     volunteerHours: "",
     location: "",
   });
+
+  const [isHomeroomVolunteerAreaCustom, setIsHomeroomVolunteerAreaCustom] = useState(false);
+  const [isManagerVolunteerAreaCustom, setIsManagerVolunteerAreaCustom] = useState(false);
   const [managerEditForm, setManagerEditForm] = useState({
     department: "",
     teacher: "",
@@ -108,6 +111,13 @@ export default function Volunteer() {
     volunteerHours: "",
     location: "",
   });
+
+  const volunteerAreaOptions = [
+    "환경보호활동",
+    "이웃돕기활동",
+    "캠페인 활동",
+    "기타(직접 입력)",
+  ];
 
   useEffect(() => {
     fetchTeachers();
@@ -227,6 +237,7 @@ export default function Volunteer() {
         volunteerHours: "",
         location: "",
       });
+      setIsHomeroomVolunteerAreaCustom(false);
     }
   };
 
@@ -247,6 +258,7 @@ export default function Volunteer() {
         volunteerHours: "",
         location: "",
       });
+      setIsManagerVolunteerAreaCustom(false);
     }
   };
 
@@ -257,7 +269,10 @@ export default function Volunteer() {
       const n = value === "" ? NaN : parseInt(value, 10);
       if (!isNaN(n) && n < 1) next = "1";
     }
-    setManagerForm((prev) => ({ ...prev, [name]: next }));
+    setManagerForm((prev) => ({
+      ...prev,
+      [name]: next,
+    }));
   };
 
   const handleManagerSave = async () => {
@@ -387,7 +402,10 @@ export default function Volunteer() {
       const n = value === "" ? NaN : parseInt(value, 10);
       if (!isNaN(n) && n < 1) next = "1";
     }
-    setManagerEditForm((prev) => ({ ...prev, [name]: next }));
+    setManagerEditForm((prev) => ({
+      ...prev,
+      [name]: next,
+    }));
   };
 
   const handleManagerEditSave = async () => {
@@ -612,7 +630,10 @@ export default function Volunteer() {
       const n = value === "" ? NaN : parseInt(value, 10);
       if (!isNaN(n) && n < 1) next = "1";
     }
-    setHomeroomForm((prev) => ({ ...prev, [name]: next }));
+    setHomeroomForm((prev) => ({
+      ...prev,
+      [name]: next,
+    }));
   };
 
   const handleHomeroomSave = async () => {
@@ -742,7 +763,10 @@ export default function Volunteer() {
       const n = value === "" ? NaN : parseInt(value, 10);
       if (!isNaN(n) && n < 1) next = "1";
     }
-    setEditForm((prev) => ({ ...prev, [name]: next }));
+    setEditForm((prev) => ({
+      ...prev,
+      [name]: next,
+    }));
   };
 
   const handleEditSave = async () => {
@@ -1352,22 +1376,22 @@ export default function Volunteer() {
           {isLoading && volunteers.length === 0 && !isHomeroomOpen ? (
             <div className="text-center py-8 text-gray-500">로딩 중...</div>
           ) : (
-              <table className="w-full" style={{ tableLayout: "fixed" }}>
+              <table className="w-full text-sm border-collapse">
                 <thead>
                   <tr className="border-b border-gray-200">
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 w-12">순</th>
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 w-20">부서명</th>
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 w-24">담당교사</th>
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 w-24">봉사활동명</th>
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 w-24">봉사 영역</th>
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700" style={{ minWidth: "200px" }}>활동 내용</th>
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 w-24">시작 날짜</th>
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 w-24">종료 날짜</th>
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 w-24">활동 학년</th>
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 w-20">선발 인원</th>
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 w-20">봉사 시간</th>
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 w-24">활동 장소</th>
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 w-32">작업</th>
+                    <th className="text-center py-0 px-0 font-semibold text-gray-700 w-10">순</th>
+                    <th className="text-center py-0 px-0 font-semibold text-gray-700 w-20">부서명</th>
+                    <th className="text-center py-0 px-0 font-semibold text-gray-700 w-24">담당교사</th>
+                    <th className="text-center py-0 px-0 font-semibold text-gray-700 w-32">봉사활동명</th>
+                    <th className="text-center py-0 px-0 font-semibold text-gray-700 w-24">봉사 영역</th>
+                    <th className="text-center py-0 px-0 font-semibold text-gray-700" style={{ minWidth: "180px" }}>활동 내용</th>
+                    <th className="text-center py-0 px-0 font-semibold text-gray-700 w-24">시작 날짜</th>
+                    <th className="text-center py-0 px-0 font-semibold text-gray-700 w-24">종료 날짜</th>
+                    <th className="text-center py-0 px-0 font-semibold text-gray-700 w-20">활동 학년</th>
+                    <th className="text-center py-0 px-0 font-semibold text-gray-700 w-20">선발 인원</th>
+                    <th className="text-center py-0 px-0 font-semibold text-gray-700 w-20">봉사 시간</th>
+                    <th className="text-center py-0 px-0 font-semibold text-gray-700 w-24">활동 장소</th>
+                    <th className="text-center py-0 px-0 font-semibold text-gray-700 w-28">작업</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1379,12 +1403,190 @@ export default function Volunteer() {
                     </tr>
                   ) : (
                     <>
+                  {isHomeroomOpen && (
+                    <tr className="border-b border-gray-200 bg-gray-50">
+                      <td className="py-2 px-0 text-gray-600 w-10 text-center">-</td>
+                      <td className="py-2 px-0">
+                        <input
+                          name="department"
+                          value={homeroomForm.department}
+                          onChange={handleHomeroomFormChange}
+                          className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          placeholder="부서명"
+                        />
+                      </td>
+                      <td className="py-2 px-0 w-24">
+                        <select
+                          name="teacher"
+                          value={homeroomForm.teacher}
+                          onChange={handleHomeroomFormChange}
+                          className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                        >
+                          <option value="">교사 선택</option>
+                          {teachers.map((t) => (
+                            <option key={t.id} value={t.name}>{t.name}</option>
+                          ))}
+                        </select>
+                      </td>
+                      <td className="py-2 px-0 w-28">
+                        <input
+                          name="activityName"
+                          value={homeroomForm.activityName}
+                          onChange={handleHomeroomFormChange}
+                          className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          placeholder="봉사활동명"
+                        />
+                      </td>
+                      <td className="py-2 px-0 w-28">
+                        {/* 봉사 영역 선택 (담임 선발) */}
+                        <select
+                          name="volunteerArea"
+                          value={
+                            volunteerAreaOptions.includes(homeroomForm.volunteerArea)
+                              ? homeroomForm.volunteerArea
+                              : isHomeroomVolunteerAreaCustom
+                              ? "기타(직접 입력)"
+                              : ""
+                          }
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            if (value === "기타(직접 입력)") {
+                              setIsHomeroomVolunteerAreaCustom(true);
+                              setHomeroomForm((prev) => ({
+                                ...prev,
+                                volunteerArea: "",
+                              }));
+                            } else {
+                              setIsHomeroomVolunteerAreaCustom(false);
+                              setHomeroomForm((prev) => ({
+                                ...prev,
+                                volunteerArea: value,
+                              }));
+                            }
+                          }}
+                          className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                        >
+                          <option value="">봉사 영역 선택</option>
+                          {volunteerAreaOptions.map((option) => (
+                            <option key={option} value={option}>
+                              {option}
+                            </option>
+                          ))}
+                        </select>
+                        {isHomeroomVolunteerAreaCustom && (
+                          <input
+                            name="volunteerArea"
+                            value={homeroomForm.volunteerArea}
+                            onChange={handleHomeroomFormChange}
+                            className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            placeholder="기타 봉사 영역을 입력하세요"
+                          />
+                        )}
+                      </td>
+                      <td className="py-2 px-0" style={{ minWidth: "220px" }}>
+                        <input
+                          name="activityContent"
+                          value={homeroomForm.activityContent}
+                          onChange={handleHomeroomFormChange}
+                          className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          placeholder="활동 내용"
+                        />
+                      </td>
+                      <td className="py-2 px-0 w-24">
+                        <input
+                          name="startDate"
+                          type="date"
+                          value={homeroomForm.startDate}
+                          max={homeroomForm.endDate || undefined}
+                          onChange={handleHomeroomFormChange}
+                          className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </td>
+                      <td className="py-2 px-0 w-24">
+                        <input
+                          name="endDate"
+                          type="date"
+                          value={homeroomForm.endDate}
+                          min={homeroomForm.startDate || undefined}
+                          onChange={handleHomeroomFormChange}
+                          className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </td>
+                      <td className="py-2 px-0">
+                        <select
+                          name="grade"
+                          value={homeroomForm.grade}
+                          onChange={handleHomeroomFormChange}
+                          className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                        >
+                          <option value="">학년</option>
+                          <option value="1">1학년</option>
+                          <option value="2">2학년</option>
+                          <option value="3">3학년</option>
+                          <option value="전체">전체</option>
+                        </select>
+                      </td>
+                      <td className="py-2 px-0 w-20">
+                        <input
+                          name="selectionCount"
+                          type="number"
+                          min={1}
+                          step={1}
+                          value={homeroomForm.selectionCount}
+                          onChange={handleHomeroomFormChange}
+                          className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          placeholder="명"
+                        />
+                      </td>
+                      <td className="py-2 px-0 w-30">
+                        <input
+                          name="volunteerHours"
+                          type="number"
+                          min={1}
+                          step={1}
+                          value={homeroomForm.volunteerHours}
+                          onChange={handleHomeroomFormChange}
+                          className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          placeholder="시간"
+                        />
+                      </td>
+                      <td className="py-2 px-0">
+                        <input
+                          name="location"
+                          value={homeroomForm.location}
+                          onChange={handleHomeroomFormChange}
+                          className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          placeholder="활동 장소"
+                        />
+                      </td>
+                      <td className="py-2 px-0 w-28">
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={handleHomeroomSave}
+                            disabled={isLoading}
+                            className="inline-flex items-center px-2 py-1 rounded-md bg-green-600 hover:bg-green-700 text-white text-xs disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {isLoading ? "저장 중..." : "저장"}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleHomeroomCancel}
+                            disabled={isLoading}
+                            className="inline-flex items-center px-2 py-1 rounded-md bg-gray-100 hover:bg-gray-200 text-xs disabled:opacity-50"
+                          >
+                            취소
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
                   {volunteers.map((item, idx) => (
                     <React.Fragment key={item.id}>
                     {editingId === item.id ? (
                       <tr className="border-b border-gray-200 bg-blue-50">
-                        <td className="py-3 px-4 text-sm text-gray-600 w-12">{idx + 1}</td>
-                        <td className="py-3 px-4 w-20">
+                        <td className="py-2 px-0 text-sm text-gray-600 w-12 text-center">{idx + 1}</td>
+                        <td className="py-2 px-0 w-20">
                           <input
                             name="department"
                             value={editForm.department}
@@ -1392,7 +1594,7 @@ export default function Volunteer() {
                             className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                           />
                         </td>
-                        <td className="py-3 px-4 w-24">
+                        <td className="py-2 px-0 w-24">
                           <select
                             name="teacher"
                             value={editForm.teacher}
@@ -1405,7 +1607,7 @@ export default function Volunteer() {
                             ))}
                           </select>
                         </td>
-                        <td className="py-3 px-4 w-24">
+                        <td className="py-2 px-0 w-28">
                           <input
                             name="activityName"
                             value={editForm.activityName}
@@ -1413,15 +1615,32 @@ export default function Volunteer() {
                             className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                           />
                         </td>
-                        <td className="py-3 px-4 w-24">
-                          <input
+                        <td className="py-2 px-0 w-28">
+                          <select
                             name="volunteerArea"
                             value={editForm.volunteerArea}
                             onChange={handleEditFormChange}
-                            className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          />
+                            className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                          >
+                            <option value="">봉사 영역 선택</option>
+                            {volunteerAreaOptions.map((option) => (
+                              <option key={option} value={option}>
+                                {option}
+                              </option>
+                            ))}
+                          </select>
+                          {editForm.volunteerArea &&
+                            !volunteerAreaOptions.includes(editForm.volunteerArea) && (
+                              <input
+                                name="volunteerArea"
+                                value={editForm.volunteerArea}
+                                onChange={handleEditFormChange}
+                                className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                placeholder="기타 봉사 영역을 입력하세요"
+                              />
+                            )}
                         </td>
-                        <td className="py-3 px-4" style={{ minWidth: "200px" }}>
+                        <td className="py-2 px-0" style={{ minWidth: "180px" }}>
                           <input
                             name="activityContent"
                             value={editForm.activityContent}
@@ -1429,7 +1648,7 @@ export default function Volunteer() {
                             className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                           />
                         </td>
-                        <td className="py-3 px-4 w-24">
+                        <td className="py-2 px-0 w-24">
                           <input
                             name="startDate"
                             type="date"
@@ -1439,7 +1658,7 @@ export default function Volunteer() {
                             className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                           />
                         </td>
-                        <td className="py-3 px-4 w-24">
+                        <td className="py-2 px-0 w-24">
                           <input
                             name="endDate"
                             type="date"
@@ -1449,7 +1668,7 @@ export default function Volunteer() {
                             className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                           />
                         </td>
-                        <td className="py-3 px-4 w-24">
+                        <td className="py-2 px-0 w-24">
                           <select
                             name="grade"
                             value={editForm.grade}
@@ -1463,7 +1682,7 @@ export default function Volunteer() {
                             <option value="전체">전체</option>
                           </select>
                         </td>
-                        <td className="py-3 px-4 w-20">
+                        <td className="py-2 px-0 w-20">
                           <input
                             name="selectionCount"
                             type="number"
@@ -1474,7 +1693,7 @@ export default function Volunteer() {
                             className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                           />
                         </td>
-                        <td className="py-3 px-4 w-20">
+                        <td className="py-2 px-0 w-20">
                           <input
                             name="volunteerHours"
                             type="number"
@@ -1485,7 +1704,7 @@ export default function Volunteer() {
                             className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                           />
                         </td>
-                        <td className="py-3 px-4 w-24">
+                        <td className="py-2 px-0 w-24">
                           <input
                             name="location"
                             value={editForm.location}
@@ -1493,13 +1712,13 @@ export default function Volunteer() {
                             className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                           />
                         </td>
-                        <td className="py-3 px-4 w-32">
-                          <div className="flex items-center gap-1">
+                        <td className="py-0 px-0 w-28">
+                        <div className="flex items-center gap-1">
                             <button
                               type="button"
                               onClick={handleEditSave}
                               disabled={isLoading}
-                              className="inline-flex items-center px-2 py-1 rounded-md bg-green-600 hover:bg-green-700 text-white text-xs disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="inline-flex items-center px-2 py-1 rounded-md bg-green-600 hover:bg-green-700 text-white text-xs disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                               저장
                             </button>
@@ -1507,7 +1726,7 @@ export default function Volunteer() {
                               type="button"
                               onClick={handleEditCancel}
                               disabled={isLoading}
-                              className="inline-flex items-center px-2 py-1 rounded-md bg-gray-100 hover:bg-gray-200 text-xs disabled:opacity-50"
+                            className="inline-flex items-center px-2 py-1 rounded-md bg-gray-100 hover:bg-gray-200 text-xs disabled:opacity-50"
                             >
                               취소
                             </button>
@@ -1522,25 +1741,27 @@ export default function Volunteer() {
                             expandedIds.includes(item.id) ? 'bg-blue-50' : ''
                           } cursor-pointer`}
                         >
-                          <td className="py-3 px-4 text-sm text-gray-600 w-12">{idx + 1}</td>
-                          <td className="py-3 px-4 text-sm text-gray-900 w-24">{item.department}</td>
-                          <td className="py-3 px-4 text-sm text-gray-600 w-24">{item.teacher}</td>
-                          <td className="py-3 px-4 text-sm text-gray-600 w-32">{item.activityName}</td>
-                          <td className="py-3 px-4 text-sm text-gray-600 w-24">{item.volunteerArea || "-"}</td>
-                          <td className="py-3 px-4 text-sm text-gray-600" style={{ minWidth: "200px" }}>
+                          <td className="py-1.5 px-4 text-sm text-gray-600 w-12 text-center">{idx + 1}</td>
+                          <td className="py-1.5 px-4 text-sm text-gray-900 w-24">{item.department}</td>
+                          <td className="py-1.5 px-4 text-sm text-gray-600 w-24 whitespace-nowrap">{item.teacher}</td>
+                          <td className="py-1.5 px-4 text-sm text-gray-600 w-32">{item.activityName}</td>
+                          <td className="py-1.5 px-4 text-sm text-gray-600 w-24">{item.volunteerArea || "-"}</td>
+                          <td className="py-1.5 px-4 text-sm text-gray-600" style={{ minWidth: "200px" }}>
                             {item.activityContent || "-"}
                           </td>
-                          <td className="py-3 px-4 text-sm text-gray-600 w-24">
+                        <td className="py-1.5 px-2 text-sm text-gray-600 text-center w-24 whitespace-nowrap">
                             {item.startDate ? new Date(item.startDate).toLocaleDateString("ko-KR") : "-"}
                           </td>
-                          <td className="py-3 px-4 text-sm text-gray-600 w-24">
+                        <td className="py-1.5 px-2 text-sm text-gray-600 text-center w-24 whitespace-nowrap">
                             {item.endDate ? new Date(item.endDate).toLocaleDateString("ko-KR") : "-"}
                           </td>
-                          <td className="py-3 px-4 text-sm text-gray-600 w-24">{formatGrade(item.grade)}</td>
-                          <td className="py-3 px-4 text-sm text-gray-600 w-20">{item.selectionCount ?? "-"}</td>
-                          <td className="py-3 px-4 text-sm text-gray-600 w-20">{item.volunteerHours ?? "-"}</td>
-                          <td className="py-3 px-4 text-sm text-gray-600 w-32">{item.location || "-"}</td>
-                          <td className="py-3 px-4 w-32">
+                          <td className="py-1.5 px-4 text-sm text-gray-600 w-24 whitespace-nowrap">
+                            {formatGrade(item.grade)}
+                          </td>
+                          <td className="py-1.5 px-4 text-sm text-gray-600 w-20">{item.selectionCount ?? "-"}</td>
+                          <td className="py-1.5 px-4 text-sm text-gray-600 w-20">{item.volunteerHours ?? "-"}</td>
+                          <td className="py-1.5 px-4 text-sm text-gray-600 w-32">{item.location || "-"}</td>
+                          <td className="py-1.5 px-4 w-32">
                             <div className="flex items-center gap-1">
                               <button
                                 type="button"
@@ -1681,147 +1902,6 @@ export default function Volunteer() {
                     )}
                     </React.Fragment>
                   ))}
-                  {isHomeroomOpen && (
-                    <tr className="border-b border-gray-200 bg-gray-50">
-                      <td className="py-3 px-4 text-sm text-gray-600 w-12">-</td>
-                      <td className="py-3 px-4 w-20">
-                        <input
-                          name="department"
-                          value={homeroomForm.department}
-                          onChange={handleHomeroomFormChange}
-                          className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          placeholder="부서명"
-                        />
-                      </td>
-                      <td className="py-3 px-4 w-24">
-                        <select
-                          name="teacher"
-                          value={homeroomForm.teacher}
-                          onChange={handleHomeroomFormChange}
-                          className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                        >
-                          <option value="">교사 선택</option>
-                          {teachers.map((t) => (
-                            <option key={t.id} value={t.name}>{t.name}</option>
-                          ))}
-                        </select>
-                      </td>
-                      <td className="py-3 px-4 w-24">
-                        <input
-                          name="activityName"
-                          value={homeroomForm.activityName}
-                          onChange={handleHomeroomFormChange}
-                          className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          placeholder="봉사활동명"
-                        />
-                      </td>
-                      <td className="py-3 px-4 w-24">
-                        <input
-                          name="volunteerArea"
-                          value={homeroomForm.volunteerArea}
-                          onChange={handleHomeroomFormChange}
-                          className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          placeholder="봉사 영역"
-                        />
-                      </td>
-                      <td className="py-3 px-4" style={{ minWidth: "200px" }}>
-                        <input
-                          name="activityContent"
-                          value={homeroomForm.activityContent}
-                          onChange={handleHomeroomFormChange}
-                          className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          placeholder="활동 내용"
-                        />
-                      </td>
-                      <td className="py-3 px-4 w-24">
-                        <input
-                          name="startDate"
-                          type="date"
-                          value={homeroomForm.startDate}
-                          max={homeroomForm.endDate || undefined}
-                          onChange={handleHomeroomFormChange}
-                          className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
-                      </td>
-                      <td className="py-3 px-4 w-24">
-                        <input
-                          name="endDate"
-                          type="date"
-                          value={homeroomForm.endDate}
-                          min={homeroomForm.startDate || undefined}
-                          onChange={handleHomeroomFormChange}
-                          className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
-                      </td>
-                      <td className="py-3 px-4 w-24">
-                        <select
-                          name="grade"
-                          value={homeroomForm.grade}
-                          onChange={handleHomeroomFormChange}
-                          className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                        >
-                          <option value="">학년</option>
-                          <option value="1">1학년</option>
-                          <option value="2">2학년</option>
-                          <option value="3">3학년</option>
-                          <option value="전체">전체</option>
-                        </select>
-                      </td>
-                      <td className="py-3 px-4 w-20">
-                        <input
-                          name="selectionCount"
-                          type="number"
-                          min={1}
-                          step={1}
-                          value={homeroomForm.selectionCount}
-                          onChange={handleHomeroomFormChange}
-                          className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          placeholder="명"
-                        />
-                      </td>
-                      <td className="py-3 px-4 w-20">
-                        <input
-                          name="volunteerHours"
-                          type="number"
-                          min={1}
-                          step={1}
-                          value={homeroomForm.volunteerHours}
-                          onChange={handleHomeroomFormChange}
-                          className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          placeholder="시간"
-                        />
-                      </td>
-                      <td className="py-3 px-4 w-24">
-                        <input
-                          name="location"
-                          value={homeroomForm.location}
-                          onChange={handleHomeroomFormChange}
-                          className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          placeholder="활동 장소"
-                        />
-                      </td>
-                      <td className="py-3 px-4 w-32">
-                        <div className="flex items-center gap-1">
-                          <button
-                            type="button"
-                            onClick={handleHomeroomSave}
-                            disabled={isLoading}
-                            className="inline-flex items-center px-2 py-1 rounded-md bg-green-600 hover:bg-green-700 text-white text-xs disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            {isLoading ? "저장 중..." : "저장"}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={handleHomeroomCancel}
-                            disabled={isLoading}
-                            className="inline-flex items-center px-2 py-1 rounded-md bg-gray-100 hover:bg-gray-200 text-xs disabled:opacity-50"
-                          >
-                            취소
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  )}
                     </>
                   )}
                 </tbody>
@@ -1865,22 +1945,22 @@ export default function Volunteer() {
           {isLoading && managerVolunteers.length === 0 && !isManagerOpen ? (
             <div className="text-center py-8 text-gray-500">로딩 중...</div>
           ) : (
-              <table className="w-full" style={{ tableLayout: "fixed" }}>
+              <table className="w-full text-sm border-collapse">
                 <thead>
                   <tr className="border-b border-gray-200">
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 w-12">순</th>
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 w-20">부서명</th>
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 w-24">담당교사</th>
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 w-24">봉사활동명</th>
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 w-24">봉사 영역</th>
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700" style={{ minWidth: "200px" }}>활동 내용</th>
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 w-24">시작 날짜</th>
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 w-24">종료 날짜</th>
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 w-24">활동 학년</th>
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 w-20">선발 인원</th>
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 w-20">봉사 시간</th>
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 w-24">활동 장소</th>
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 w-32">작업</th>
+                    <th className="text-center py-0 px-0 font-semibold text-gray-700 w-10">순</th>
+                    <th className="text-center py-0 px-0 font-semibold text-gray-700 w-20">부서명</th>
+                    <th className="text-center py-0 px-0 font-semibold text-gray-700 w-24">담당교사</th>
+                    <th className="text-center py-0 px-0 font-semibold text-gray-700 w-32">봉사활동명</th>
+                    <th className="text-center py-0 px-0 font-semibold text-gray-700 w-24">봉사 영역</th>
+                    <th className="text-center py-0 px-0 font-semibold text-gray-700" style={{ minWidth: "180px" }}>활동 내용</th>
+                    <th className="text-center py-0 px-0 font-semibold text-gray-700 w-24">시작 날짜</th>
+                    <th className="text-center py-0 px-0 font-semibold text-gray-700 w-24">종료 날짜</th>
+                    <th className="text-center py-0 px-0 font-semibold text-gray-700 w-20">활동 학년</th>
+                    <th className="text-center py-0 px-0 font-semibold text-gray-700 w-20">선발 인원</th>
+                    <th className="text-center py-0 px-0 font-semibold text-gray-700 w-20">봉사 시간</th>
+                    <th className="text-center py-0 px-0 font-semibold text-gray-700 w-24">활동 장소</th>
+                    <th className="text-center py-0 px-0 font-semibold text-gray-700 w-28">작업</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1892,12 +1972,190 @@ export default function Volunteer() {
                     </tr>
                   ) : (
                     <>
+                  {isManagerOpen && (
+                    <tr className="border-b border-gray-200 bg-gray-50">
+                      <td className="py-2 px-0 text-gray-600 w-10">-</td>
+                      <td className="py-2 px-0 w-20">
+                        <input
+                          name="department"
+                          value={managerForm.department}
+                          onChange={handleManagerFormChange}
+                          className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          placeholder="부서명"
+                        />
+                      </td>
+                      <td className="py-2 px-0 w-24">
+                        <select
+                          name="teacher"
+                          value={managerForm.teacher}
+                          onChange={handleManagerFormChange}
+                          className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                        >
+                          <option value="">교사 선택</option>
+                          {teachers.map((t) => (
+                            <option key={t.id} value={t.name}>{t.name}</option>
+                          ))}
+                        </select>
+                      </td>
+                      <td className="py-2 px-0 w-28">
+                        <input
+                          name="activityName"
+                          value={managerForm.activityName}
+                          onChange={handleManagerFormChange}
+                          className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          placeholder="봉사활동명"
+                        />
+                      </td>
+                      <td className="py-2 px-0 w-28">
+                        {/* 봉사 영역 선택 (담당자 선발) */}
+                        <select
+                          name="volunteerArea"
+                          value={
+                            volunteerAreaOptions.includes(managerForm.volunteerArea)
+                              ? managerForm.volunteerArea
+                              : isManagerVolunteerAreaCustom
+                              ? "기타(직접 입력)"
+                              : ""
+                          }
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            if (value === "기타(직접 입력)") {
+                              setIsManagerVolunteerAreaCustom(true);
+                              setManagerForm((prev) => ({
+                                ...prev,
+                                volunteerArea: "",
+                              }));
+                            } else {
+                              setIsManagerVolunteerAreaCustom(false);
+                              setManagerForm((prev) => ({
+                                ...prev,
+                                volunteerArea: value,
+                              }));
+                            }
+                          }}
+                          className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                        >
+                          <option value="">봉사 영역 선택</option>
+                          {volunteerAreaOptions.map((option) => (
+                            <option key={option} value={option}>
+                              {option}
+                            </option>
+                          ))}
+                        </select>
+                        {isManagerVolunteerAreaCustom && (
+                          <input
+                            name="volunteerArea"
+                            value={managerForm.volunteerArea}
+                            onChange={handleManagerFormChange}
+                            className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            placeholder="기타 봉사 영역을 입력하세요"
+                          />
+                        )}
+                      </td>
+                      <td className="py-2 px-0" style={{ minWidth: "220px" }}>
+                        <input
+                          name="activityContent"
+                          value={managerForm.activityContent}
+                          onChange={handleManagerFormChange}
+                          className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          placeholder="활동 내용"
+                        />
+                      </td>
+                      <td className="py-2 px-0 w-24">
+                        <input
+                          name="startDate"
+                          type="date"
+                          value={managerForm.startDate}
+                          max={managerForm.endDate || undefined}
+                          onChange={handleManagerFormChange}
+                          className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </td>
+                      <td className="py-2 px-0 w-24">
+                        <input
+                          name="endDate"
+                          type="date"
+                          value={managerForm.endDate}
+                          min={managerForm.startDate || undefined}
+                          onChange={handleManagerFormChange}
+                          className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </td>
+                      <td className="py-2 px-0 w-20">
+                        <select
+                          name="grade"
+                          value={managerForm.grade}
+                          onChange={handleManagerFormChange}
+                          className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                        >
+                          <option value="">학년</option>
+                          <option value="1">1학년</option>
+                          <option value="2">2학년</option>
+                          <option value="3">3학년</option>
+                          <option value="전체">전체</option>
+                        </select>
+                      </td>
+                      <td className="py-2 px-0 w-20">
+                        <input
+                          name="selectionCount"
+                          type="number"
+                          min={1}
+                          step={1}
+                          value={managerForm.selectionCount}
+                          onChange={handleManagerFormChange}
+                          className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          placeholder="명"
+                        />
+                      </td>
+                      <td className="py-2 px-0">
+                        <input
+                          name="volunteerHours"
+                          type="number"
+                          min={1}
+                          step={1}
+                          value={managerForm.volunteerHours}
+                          onChange={handleManagerFormChange}
+                          className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          placeholder="시간"
+                        />
+                      </td>
+                      <td className="py-2 px-0 w-24">
+                        <input
+                          name="location"
+                          value={managerForm.location}
+                          onChange={handleManagerFormChange}
+                          className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          placeholder="활동 장소"
+                        />
+                      </td>
+                      <td className="py-2 px-0 w-28">
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={handleManagerSave}
+                            disabled={isLoading}
+                            className="inline-flex items-center px-2 py-1 rounded-md bg-green-600 hover:bg-green-700 text-white text-xs disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {isLoading ? "저장 중..." : "저장"}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleManagerCancel}
+                            disabled={isLoading}
+                            className="inline-flex items-center px-2 py-1 rounded-md bg-gray-100 hover:bg-gray-200 text-xs disabled:opacity-50"
+                          >
+                            취소
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
                   {managerVolunteers.map((item, idx) => (
                     <React.Fragment key={item.id}>
                     {managerEditingId === item.id ? (
                       <tr className="border-b border-gray-200 bg-blue-50">
-                        <td className="py-3 px-4 text-sm text-gray-600 w-12">{idx + 1}</td>
-                        <td className="py-3 px-4 w-20">
+                        <td className="py-2 px-0 text-sm text-gray-600 w-12 text-center">{idx + 1}</td>
+                        <td className="py-0 px-0 w-20">
                           <input
                             name="department"
                             value={managerEditForm.department}
@@ -1905,7 +2163,7 @@ export default function Volunteer() {
                             className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                           />
                         </td>
-                        <td className="py-3 px-4 w-24">
+                        <td className="py-0 px-0 w-24">
                           <select
                             name="teacher"
                             value={managerEditForm.teacher}
@@ -1918,7 +2176,7 @@ export default function Volunteer() {
                             ))}
                           </select>
                         </td>
-                        <td className="py-3 px-4 w-24">
+                        <td className="py-0 px-0 w-28">
                           <input
                             name="activityName"
                             value={managerEditForm.activityName}
@@ -1926,15 +2184,32 @@ export default function Volunteer() {
                             className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                           />
                         </td>
-                        <td className="py-3 px-4 w-24">
-                          <input
+                        <td className="py-0 px-0 w-28">
+                          <select
                             name="volunteerArea"
                             value={managerEditForm.volunteerArea}
                             onChange={handleManagerEditFormChange}
-                            className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          />
+                            className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                          >
+                            <option value="">봉사 영역 선택</option>
+                            {volunteerAreaOptions.map((option) => (
+                              <option key={option} value={option}>
+                                {option}
+                              </option>
+                            ))}
+                          </select>
+                          {managerEditForm.volunteerArea &&
+                            !volunteerAreaOptions.includes(managerEditForm.volunteerArea) && (
+                              <input
+                                name="volunteerArea"
+                                value={managerEditForm.volunteerArea}
+                                onChange={handleManagerEditFormChange}
+                                className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                placeholder="기타 봉사 영역을 입력하세요"
+                              />
+                            )}
                         </td>
-                        <td className="py-3 px-4" style={{ minWidth: "200px" }}>
+                        <td className="py-0 px-0" style={{ minWidth: "180px" }}>
                           <input
                             name="activityContent"
                             value={managerEditForm.activityContent}
@@ -1942,7 +2217,7 @@ export default function Volunteer() {
                             className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                           />
                         </td>
-                        <td className="py-3 px-4 w-24">
+                        <td className="py-0 px-0 w-24">
                           <input
                             name="startDate"
                             type="date"
@@ -1952,7 +2227,7 @@ export default function Volunteer() {
                             className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                           />
                         </td>
-                        <td className="py-3 px-4 w-24">
+                        <td className="py-0 px-0 w-24">
                           <input
                             name="endDate"
                             type="date"
@@ -1962,7 +2237,7 @@ export default function Volunteer() {
                             className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                           />
                         </td>
-                        <td className="py-3 px-4 w-24">
+                        <td className="py-0 px-0 w-24">
                           <select
                             name="grade"
                             value={managerEditForm.grade}
@@ -1976,7 +2251,7 @@ export default function Volunteer() {
                             <option value="전체">전체</option>
                           </select>
                         </td>
-                        <td className="py-3 px-4 w-20">
+                        <td className="py-0 px-0 w-20">
                           <input
                             name="selectionCount"
                             type="number"
@@ -1987,7 +2262,7 @@ export default function Volunteer() {
                             className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                           />
                         </td>
-                        <td className="py-3 px-4 w-20">
+                        <td className="py-0 px-0 w-20">
                           <input
                             name="volunteerHours"
                             type="number"
@@ -1998,7 +2273,7 @@ export default function Volunteer() {
                             className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                           />
                         </td>
-                        <td className="py-3 px-4 w-24">
+                        <td className="py-0 px-0 w-24">
                           <input
                             name="location"
                             value={managerEditForm.location}
@@ -2006,7 +2281,7 @@ export default function Volunteer() {
                             className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                           />
                         </td>
-                        <td className="py-3 px-4 w-32">
+                        <td className="py-2 px-0 w-28">
                           <div className="flex items-center gap-1">
                             <button
                               type="button"
@@ -2035,25 +2310,27 @@ export default function Volunteer() {
                             managerExpandedIds.includes(item.id) ? 'bg-blue-50' : ''
                           } cursor-pointer`}
                         >
-                          <td className="py-3 px-4 text-sm text-gray-600 w-12">{idx + 1}</td>
-                          <td className="py-3 px-4 text-sm text-gray-900 w-24">{item.department}</td>
-                          <td className="py-3 px-4 text-sm text-gray-600 w-24">{item.teacher}</td>
-                          <td className="py-3 px-4 text-sm text-gray-600 w-32">{item.activityName}</td>
-                          <td className="py-3 px-4 text-sm text-gray-600 w-24">{item.volunteerArea || "-"}</td>
-                          <td className="py-3 px-4 text-sm text-gray-600" style={{ minWidth: "200px" }}>
+                          <td className="py-1.5 px-4 text-sm text-gray-600 w-12">{idx + 1}</td>
+                          <td className="py-1.5 px-4 text-sm text-gray-900 w-24">{item.department}</td>
+                          <td className="py-1.5 px-4 text-sm text-gray-600 w-24 whitespace-nowrap">{item.teacher}</td>
+                          <td className="py-1.5 px-4 text-sm text-gray-600 w-32">{item.activityName}</td>
+                          <td className="py-1.5 px-4 text-sm text-gray-600 w-24">{item.volunteerArea || "-"}</td>
+                          <td className="py-1.5 px-4 text-sm text-gray-600" style={{ minWidth: "200px" }}>
                             {item.activityContent || "-"}
                           </td>
-                          <td className="py-3 px-4 text-sm text-gray-600 w-24">
+                          <td className="py-1.5 px-2 text-sm text-gray-600 text-center w-24 whitespace-nowrap">
                             {item.startDate ? new Date(item.startDate).toLocaleDateString("ko-KR") : "-"}
                           </td>
-                          <td className="py-3 px-4 text-sm text-gray-600 w-24">
+                          <td className="py-1.5 px-2 text-sm text-gray-600 text-center w-24 whitespace-nowrap">
                             {item.endDate ? new Date(item.endDate).toLocaleDateString("ko-KR") : "-"}
                           </td>
-                          <td className="py-3 px-4 text-sm text-gray-600 w-24">{formatGrade(item.grade)}</td>
-                          <td className="py-3 px-4 text-sm text-gray-600 w-20">{item.selectionCount ?? "-"}</td>
-                          <td className="py-3 px-4 text-sm text-gray-600 w-20">{item.volunteerHours ?? "-"}</td>
-                          <td className="py-3 px-4 text-sm text-gray-600 w-32">{item.location || "-"}</td>
-                          <td className="py-3 px-4 w-32">
+                          <td className="py-1.5 px-4 text-sm text-gray-600 w-24 whitespace-nowrap">
+                            {formatGrade(item.grade)}
+                          </td>
+                          <td className="py-1.5 px-4 text-sm text-gray-600 w-20">{item.selectionCount ?? "-"}</td>
+                          <td className="py-1.5 px-4 text-sm text-gray-600 w-20">{item.volunteerHours ?? "-"}</td>
+                          <td className="py-1.5 px-4 text-sm text-gray-600 w-32">{item.location || "-"}</td>
+                          <td className="py-1.5 px-4 w-32">
                             <div className="flex items-center gap-1">
                               <button
                                 type="button"
@@ -2188,147 +2465,6 @@ export default function Volunteer() {
                     )}
                     </React.Fragment>
                   ))}
-                  {isManagerOpen && (
-                    <tr className="border-b border-gray-200 bg-gray-50">
-                      <td className="py-3 px-4 text-sm text-gray-600 w-12">-</td>
-                      <td className="py-3 px-4 w-20">
-                        <input
-                          name="department"
-                          value={managerForm.department}
-                          onChange={handleManagerFormChange}
-                          className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          placeholder="부서명"
-                        />
-                      </td>
-                      <td className="py-3 px-4 w-24">
-                        <select
-                          name="teacher"
-                          value={managerForm.teacher}
-                          onChange={handleManagerFormChange}
-                          className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                        >
-                          <option value="">교사 선택</option>
-                          {teachers.map((t) => (
-                            <option key={t.id} value={t.name}>{t.name}</option>
-                          ))}
-                        </select>
-                      </td>
-                      <td className="py-3 px-4 w-24">
-                        <input
-                          name="activityName"
-                          value={managerForm.activityName}
-                          onChange={handleManagerFormChange}
-                          className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          placeholder="봉사활동명"
-                        />
-                      </td>
-                      <td className="py-3 px-4 w-24">
-                        <input
-                          name="volunteerArea"
-                          value={managerForm.volunteerArea}
-                          onChange={handleManagerFormChange}
-                          className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          placeholder="봉사 영역"
-                        />
-                      </td>
-                      <td className="py-3 px-4" style={{ minWidth: "200px" }}>
-                        <input
-                          name="activityContent"
-                          value={managerForm.activityContent}
-                          onChange={handleManagerFormChange}
-                          className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          placeholder="활동 내용"
-                        />
-                      </td>
-                      <td className="py-3 px-4 w-24">
-                        <input
-                          name="startDate"
-                          type="date"
-                          value={managerForm.startDate}
-                          max={managerForm.endDate || undefined}
-                          onChange={handleManagerFormChange}
-                          className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
-                      </td>
-                      <td className="py-3 px-4 w-24">
-                        <input
-                          name="endDate"
-                          type="date"
-                          value={managerForm.endDate}
-                          min={managerForm.startDate || undefined}
-                          onChange={handleManagerFormChange}
-                          className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
-                      </td>
-                      <td className="py-3 px-4 w-24">
-                        <select
-                          name="grade"
-                          value={managerForm.grade}
-                          onChange={handleManagerFormChange}
-                          className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                        >
-                          <option value="">학년</option>
-                          <option value="1">1학년</option>
-                          <option value="2">2학년</option>
-                          <option value="3">3학년</option>
-                          <option value="전체">전체</option>
-                        </select>
-                      </td>
-                      <td className="py-3 px-4 w-20">
-                        <input
-                          name="selectionCount"
-                          type="number"
-                          min={1}
-                          step={1}
-                          value={managerForm.selectionCount}
-                          onChange={handleManagerFormChange}
-                          className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          placeholder="명"
-                        />
-                      </td>
-                      <td className="py-3 px-4 w-20">
-                        <input
-                          name="volunteerHours"
-                          type="number"
-                          min={1}
-                          step={1}
-                          value={managerForm.volunteerHours}
-                          onChange={handleManagerFormChange}
-                          className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          placeholder="시간"
-                        />
-                      </td>
-                      <td className="py-3 px-4 w-24">
-                        <input
-                          name="location"
-                          value={managerForm.location}
-                          onChange={handleManagerFormChange}
-                          className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          placeholder="활동 장소"
-                        />
-                      </td>
-                      <td className="py-3 px-4 w-32">
-                        <div className="flex items-center gap-1">
-                          <button
-                            type="button"
-                            onClick={handleManagerSave}
-                            disabled={isLoading}
-                            className="inline-flex items-center px-2 py-1 rounded-md bg-green-600 hover:bg-green-700 text-white text-xs disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            {isLoading ? "저장 중..." : "저장"}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={handleManagerCancel}
-                            disabled={isLoading}
-                            className="inline-flex items-center px-2 py-1 rounded-md bg-gray-100 hover:bg-gray-200 text-xs disabled:opacity-50"
-                          >
-                            취소
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  )}
                     </>
                   )}
                 </tbody>
