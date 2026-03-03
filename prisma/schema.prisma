@@ -511,6 +511,7 @@ model CollaborativeDocLink {
   id        String   @id @default(auto()) @map("_id") @db.ObjectId
   teacherId String   @db.ObjectId
   user      User     @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  school    String?  // 학교 (같은 학교 교사들과 공유)
   title     String   // 협업문서 제목
   url       String   // 링크 URL
   order     Int      @default(0) // 정렬 순서
@@ -518,6 +519,7 @@ model CollaborativeDocLink {
   updatedAt DateTime @updatedAt
 
   @@index([teacherId])
+  @@index([school])
   @@map("collaborative_doc_links")
 }
 

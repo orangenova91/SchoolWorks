@@ -6,7 +6,7 @@ export const defaultLocale: Locale = "ko";
 export const translations = {
   ko: {
     app: {
-      version: "Ver.33.2.0",
+      version: "Ver.33.2.1",
     },
     auth: {
       login: "로그인",
@@ -63,6 +63,8 @@ export const translations = {
     messages: {
       loginSuccess: "로그인되었습니다",
       loginError: "이메일 또는 비밀번호가 올바르지 않습니다",
+      socialLoginRequired:
+        "이 이메일은 Google 계정으로 가입되어 있습니다. 아래 'Google로 로그인' 버튼을 사용해주세요.",
       registerSuccess: "회원가입이 완료되었습니다",
       registerError: "회원가입 중 오류가 발생했습니다",
       emailExists: "이미 사용 중인 이메일입니다",
@@ -157,7 +159,7 @@ export const translations = {
   },
   en: {
     app: {
-      version: "Ver.33.2.0",
+      version: "Ver.33.2.1",
     },
     auth: {
       login: "Login",
@@ -214,6 +216,8 @@ export const translations = {
     messages: {
       loginSuccess: "Logged in successfully",
       loginError: "Invalid email or password",
+      socialLoginRequired:
+        "This email is registered via Google. Please use the 'Sign in with Google' button below.",
       registerSuccess: "Registration completed",
       registerError: "An error occurred during registration",
       emailExists: "Email is already in use",
