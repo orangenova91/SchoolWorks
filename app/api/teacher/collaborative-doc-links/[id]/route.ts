@@ -11,6 +11,28 @@ const updateLinkSchema = z.object({
   url: z.string().trim().url("올바른 URL을 입력하세요"),
 });
 
+async function getUserSchool(user: {
+  id: string;
+  role?: string | null;
+  school?: string | null;
+}): Promise<string | null> {
+  if (user.school) {
+    return user.school;
+  }
+
+  if (user.role === "teacher") {
+    const profile = await (prisma as any).teacherProfile.findUnique({
+      where: { userId: user.id },
+      select: { school: true },
+    });
+    if (profile?.school) {
+      return profile.school;
+    }
+  }
+
+  return null;
+}
+
 // 협업 문서 링크 수정
 export async function PUT(
   request: NextRequest,
@@ -28,21 +50,38 @@ export async function PUT(
       return NextResponse.json({ error: "권한이 없습니다." }, { status: 403 });
     }
 
+    const school = await getUserSchool(session.user);
+
+    if (!school) {
+      return NextResponse.json(
+        { error: "학교 정보가 설정되지 않아 협업 문서를 수정할 수 없습니다." },
+        { status: 400 }
+      );
+    }
+
     const { id } = await params;
     const body = await request.json();
     const validatedData = updateLinkSchema.parse(body);
 
     const existing = await prisma.collaborativeDocLink.findUnique({
       where: { id },
-      select: { teacherId: true },
+      select: { teacherId: true, school: true },
     });
 
     if (!existing) {
       return NextResponse.json({ error: "링크를 찾을 수 없습니다." }, { status: 404 });
     }
 
-    if (existing.teacherId !== session.user.id) {
-      return NextResponse.json({ error: "권한이 없습니다." }, { status: 403 });
+    // 학교 단위로 공유되는 링크는 같은 학교 교사라면 수정 가능
+    if (existing.school) {
+      if (existing.school !== school) {
+        return NextResponse.json({ error: "권한이 없습니다." }, { status: 403 });
+      }
+    } else {
+      // 과거에 개인 단위로 생성된 링크는 생성자만 수정 가능
+      if (existing.teacherId !== session.user.id) {
+        return NextResponse.json({ error: "권한이 없습니다." }, { status: 403 });
+      }
     }
 
     const updated = await prisma.collaborativeDocLink.update({
@@ -94,19 +133,36 @@ export async function DELETE(
       return NextResponse.json({ error: "권한이 없습니다." }, { status: 403 });
     }
 
+    const school = await getUserSchool(session.user);
+
+    if (!school) {
+      return NextResponse.json(
+        { error: "학교 정보가 설정되지 않아 협업 문서를 삭제할 수 없습니다." },
+        { status: 400 }
+      );
+    }
+
     const { id } = await params;
 
     const existing = await prisma.collaborativeDocLink.findUnique({
       where: { id },
-      select: { teacherId: true },
+      select: { teacherId: true, school: true },
     });
 
     if (!existing) {
       return NextResponse.json({ error: "링크를 찾을 수 없습니다." }, { status: 404 });
     }
 
-    if (existing.teacherId !== session.user.id) {
-      return NextResponse.json({ error: "권한이 없습니다." }, { status: 403 });
+    // 학교 단위로 공유되는 링크는 같은 학교 교사라면 삭제 가능
+    if (existing.school) {
+      if (existing.school !== school) {
+        return NextResponse.json({ error: "권한이 없습니다." }, { status: 403 });
+      }
+    } else {
+      // 과거에 개인 단위로 생성된 링크는 생성자만 삭제 가능
+      if (existing.teacherId !== session.user.id) {
+        return NextResponse.json({ error: "권한이 없습니다." }, { status: 403 });
+      }
     }
 
     await prisma.collaborativeDocLink.delete({

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, MouseEvent } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
@@ -17,11 +17,13 @@ import Image from "next/image";
 
 const t = getTranslations("ko");
 const currentYear = new Date().getFullYear();
+const ENABLE_SELF_REGISTRATION = false;
 
 export default function LoginPage() {
   const router = useRouter();
   const { showToast } = useToastContext();
   const [isLoading, setIsLoading] = useState(false);
+  const [highlightGoogle, setHighlightGoogle] = useState(false);
 
   const {
     register,
@@ -31,6 +33,11 @@ export default function LoginPage() {
     resolver: zodResolver(loginSchema),
   });
   const [showPassword, setShowPassword] = useState(false);
+
+  const handleForgotPasswordClick = (event: MouseEvent<HTMLAnchorElement>) => {
+    event.preventDefault();
+    showToast("서비스 준비중입니다. 관리자에게 문의하세요.", "info");
+  };
 
   const onSubmit = async (data: LoginInput) => {
     setIsLoading(true);
@@ -42,8 +49,14 @@ export default function LoginPage() {
       });
 
       if (result?.error) {
-        showToast(t.messages.loginError, "error");
+        if (result.error === "SOCIAL_ONLY_GOOGLE") {
+          showToast(t.messages.socialLoginRequired, "error");
+          setHighlightGoogle(true);
+        } else {
+          showToast(t.messages.loginError, "error");
+        }
       } else {
+        setHighlightGoogle(false);
         showToast(t.messages.loginSuccess, "success");
         router.push("/dashboard");
         router.refresh();
@@ -57,6 +70,7 @@ export default function LoginPage() {
 
   const handleGoogleSignIn = async () => {
     setIsLoading(true);
+    setHighlightGoogle(false);
     try {
       await signIn("google", {
         callbackUrl: "/dashboard",
@@ -149,7 +163,8 @@ export default function LoginPage() {
 
             <div className="flex items-center justify-end">
               <Link
-                href="/reset-password"
+                href="#"
+                onClick={handleForgotPasswordClick}
                 className="text-sm font-medium text-blue-600 hover:text-blue-700 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded px-2 py-1"
               >
                 {t.auth.forgotPassword}
@@ -179,7 +194,11 @@ export default function LoginPage() {
               type="button"
               onClick={handleGoogleSignIn}
               disabled={isLoading}
-              className="w-full bg-white hover:bg-gray-50 text-gray-700 font-semibold py-3 rounded-lg shadow-md hover:shadow-lg transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98] border border-gray-300 flex items-center justify-center gap-3"
+              className={`w-full bg-white hover:bg-gray-50 text-gray-700 font-semibold py-3 rounded-lg shadow-md hover:shadow-lg transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98] border flex items-center justify-center gap-3 ${
+                highlightGoogle
+                  ? "border-blue-500 ring-2 ring-blue-300 animate-pulse"
+                  : "border-gray-300"
+              }`}
               size="lg"
             >
               <svg className="w-5 h-5" viewBox="0 0 24 24">
@@ -204,15 +223,17 @@ export default function LoginPage() {
             </Button>
 
             <div className="text-center space-y-2">
-              <p className="text-sm text-gray-600">
-                {t.auth.dontHaveAccount}{" "}
-                <Link
-                  href="/register"
-                  className="font-semibold text-blue-600 hover:text-blue-700 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded px-1"
-                >
-                  {t.auth.createAccount}
-                </Link>
-              </p>
+              {ENABLE_SELF_REGISTRATION && (
+                <p className="text-sm text-gray-600">
+                  {t.auth.dontHaveAccount}{" "}
+                  <Link
+                    href="/register"
+                    className="font-semibold text-blue-600 hover:text-blue-700 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded px-1"
+                  >
+                    {t.auth.createAccount}
+                  </Link>
+                </p>
+              )}
               <p className="text-sm text-gray-600">
                 {t.auth.forgotAccount}{" "}
                 <Link

@@ -9,6 +9,28 @@ const createLinkSchema = z.object({
   url: z.string().trim().url("올바른 URL을 입력하세요"),
 });
 
+async function getUserSchool(user: {
+  id: string;
+  role?: string | null;
+  school?: string | null;
+}): Promise<string | null> {
+  if (user.school) {
+    return user.school;
+  }
+
+  if (user.role === "teacher") {
+    const profile = await (prisma as any).teacherProfile.findUnique({
+      where: { userId: user.id },
+      select: { school: true },
+    });
+    if (profile?.school) {
+      return profile.school;
+    }
+  }
+
+  return null;
+}
+
 export const dynamic = "force-dynamic";
 
 // 협업 문서 링크 목록 조회
@@ -25,8 +47,24 @@ export async function GET() {
       return NextResponse.json({ error: "권한이 없습니다." }, { status: 403 });
     }
 
+    const school = await getUserSchool(session.user);
+
+    if (!school) {
+      return NextResponse.json(
+        { error: "학교 정보가 설정되지 않아 협업 문서를 조회할 수 없습니다." },
+        { status: 400 }
+      );
+    }
+
     const links = await prisma.collaborativeDocLink.findMany({
-      where: { teacherId: session.user.id },
+      where: {
+        OR: [
+          // 학교 단위로 공유되는 링크
+          { school },
+          // 과거에 개인 단위로 생성된 링크 (school 필드가 비어 있고, 본인이 생성한 링크)
+          { school: null, teacherId: session.user.id },
+        ],
+      },
       orderBy: [{ order: "asc" }, { createdAt: "asc" }],
       select: {
         id: true,
@@ -66,16 +104,29 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "권한이 없습니다." }, { status: 403 });
     }
 
+    const school = await getUserSchool(session.user);
+
+    if (!school) {
+      return NextResponse.json(
+        { error: "학교 정보가 설정되지 않아 협업 문서를 추가할 수 없습니다." },
+        { status: 400 }
+      );
+    }
+
     const body = await request.json();
     const validatedData = createLinkSchema.parse(body);
 
     const count = await prisma.collaborativeDocLink.count({
-      where: { teacherId: session.user.id },
+      where: {
+        // 학교 단위로 정렬 순서를 관리
+        school,
+      },
     });
 
     const newLink = await prisma.collaborativeDocLink.create({
       data: {
         teacherId: session.user.id,
+        school,
         title: validatedData.title,
         url: validatedData.url,
         order: count,

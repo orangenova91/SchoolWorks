@@ -61,7 +61,26 @@ export const authOptions: NextAuthOptions = {
           },
         });
 
-        if (!user || !user.hashedPassword) {
+        if (!user) {
+          // 보안: 계정 존재 여부를 구분하지 않음
+          throw new Error("이메일 또는 비밀번호가 올바르지 않습니다");
+        }
+
+        // 소셜(예: Google) 계정이 연결된 사용자는 비밀번호 로그인 불가
+        const socialAccount = await prisma.account.findFirst({
+          where: {
+            userId: user.id,
+            provider: "google",
+          },
+        });
+
+        if (socialAccount) {
+          // 클라이언트에서 소셜 로그인 유도 메시지를 보여줄 수 있도록
+          // 구분 가능한 에러 코드를 전달
+          throw new Error("SOCIAL_ONLY_GOOGLE");
+        }
+
+        if (!user.hashedPassword) {
           // 보안: 계정 존재 여부를 구분하지 않음
           throw new Error("이메일 또는 비밀번호가 올바르지 않습니다");
         }
