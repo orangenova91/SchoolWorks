@@ -79,8 +79,10 @@ export default function BannerSection({ isEditable = true }: BannerSectionProps)
     );
   }
 
-  const title = isEditable ? "학사업무 바로가기 배너 편집" : "학사업무 바로가기";
-  const subtitle = isEditable ? "그 아래 교사용 대시보드의 학사업무 바로가기 창을 편집합니다." : "";
+  const title = "학사업무 바로가기";
+  const subtitle = isEditable
+    ? "모든 교사는 오른쪽 편집 기능으로 학사업무 바로가기 창을 편집할 수 있습니다."
+    : "";
 
   return (
     <section className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm space-y-4">
