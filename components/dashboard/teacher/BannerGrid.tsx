@@ -96,7 +96,15 @@ export default function BannerGrid({ banners, onEdit, isEditable = true }: Banne
       <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2 sm:gap-3">
         {activeBanners.map((banner, index) => {
           const IconComponent = getIconComponent(banner.icon);
-          const isExternal = banner.url.startsWith("http://") || banner.url.startsWith("https://");
+          const rawUrl = banner.url.trim();
+          const hasProtocol =
+            rawUrl.startsWith("http://") || rawUrl.startsWith("https://");
+          const looksLikeDomain =
+            !rawUrl.startsWith("/") &&
+            /^[\w.-]+\.[a-z]{2,}(\/.*)?$/i.test(rawUrl);
+
+          const isExternal = hasProtocol || looksLikeDomain;
+          const href = !hasProtocol && looksLikeDomain ? `https://${rawUrl}` : rawUrl;
 
           const bannerContent = (
             <div className="group relative bg-white border border-gray-200 rounded-lg p-3 hover:shadow-md transition-shadow cursor-pointer h-full flex flex-col items-center justify-center text-center space-y-2">
@@ -111,7 +119,7 @@ export default function BannerGrid({ banners, onEdit, isEditable = true }: Banne
             return (
               <a
                 key={index}
-                href={banner.url}
+                href={href}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="block"
@@ -122,7 +130,7 @@ export default function BannerGrid({ banners, onEdit, isEditable = true }: Banne
           }
 
           return (
-            <Link key={index} href={banner.url} className="block">
+            <Link key={index} href={href || "#"} className="block">
               {bannerContent}
             </Link>
           );

@@ -36,6 +36,8 @@ type WeeklyScheduleSectionProps = {
   todayIsoDate: string;
   moreHref?: string;
   moreLabel?: string;
+  currentTeacherName?: string;
+  currentTeacherEmail?: string;
 };
 
 const formatDateTime = (isoString: string | null | undefined) => {
@@ -55,6 +57,8 @@ export default function WeeklyScheduleSection({
   todayIsoDate,
   moreHref,
   moreLabel = "학사일정 바로가기 →",
+  currentTeacherName,
+  currentTeacherEmail,
 }: WeeklyScheduleSectionProps) {
   // removed click-to-toggle selectedEvent; using hover tooltip only
   const [hoverTooltip, setHoverTooltip] = useState<
@@ -65,6 +69,19 @@ export default function WeeklyScheduleSection({
   const getDayOfWeek = (isoDate: string): number => {
     const date = new Date(isoDate + "T00:00:00");
     return date.getDay();
+  };
+
+  const matchesCurrentTeacher = (raw: string): boolean => {
+    const value = raw?.trim().toLowerCase();
+    if (!value) return false;
+
+    const name = currentTeacherName?.trim().toLowerCase();
+    const email = currentTeacherEmail?.trim().toLowerCase();
+
+    // 이름이 있으면 우선 이름으로 비교, 그 다음 이메일도 허용
+    if (name && value === name) return true;
+    if (email && value === email) return true;
+    return false;
   };
 
   return (
@@ -208,16 +225,52 @@ export default function WeeklyScheduleSection({
                       {(day.supervisionMeal.mealGuidance || []).filter(Boolean).length > 0 && (
                         <div className="flex items-start gap-1.5 group-hover:text-blue-600">
                           <UtensilsCrossed className="w-3.5 h-3.5 flex-shrink-0 mt-0.5 text-gray-500 group-hover:text-blue-600" />
-                          <span>
-                            {(day.supervisionMeal.mealGuidance || []).filter(Boolean).join(", ")}
+                          <span className="flex flex-wrap gap-x-1">
+                            {(day.supervisionMeal.mealGuidance || [])
+                              .filter(Boolean)
+                              .map((name, idx, arr) => {
+                                const isMe = matchesCurrentTeacher(String(name));
+                                return (
+                                  <span key={idx} className="inline-flex items-center gap-1">
+                                    <span
+                                      className={
+                                        isMe
+                                          ? "inline-flex items-center rounded-full bg-orange-100 text-orange-800 text-[10px] px-1.5 py-0.5 font-semibold"
+                                          : undefined
+                                      }
+                                    >
+                                      {name}
+                                    </span>
+                                    {idx < arr.length - 1 && <span>,</span>}
+                                  </span>
+                                );
+                              })}
                           </span>
                         </div>
                       )}
                       {(day.supervisionMeal.eveningSupervision || []).filter(Boolean).length > 0 && (
                         <div className="flex items-start gap-1.5 group-hover:text-blue-600">
                           <Moon className="w-3.5 h-3.5 flex-shrink-0 mt-0.5 text-gray-500 group-hover:text-blue-600" />
-                          <span>
-                            {(day.supervisionMeal.eveningSupervision || []).filter(Boolean).join(", ")}
+                          <span className="flex flex-wrap gap-x-1">
+                            {(day.supervisionMeal.eveningSupervision || [])
+                              .filter(Boolean)
+                              .map((name, idx, arr) => {
+                                const isMe = matchesCurrentTeacher(String(name));
+                                return (
+                                  <span key={idx} className="inline-flex items-center gap-1">
+                                    <span
+                                      className={
+                                        isMe
+                                          ? "inline-flex items-center rounded-full bg-orange-100 text-orange-800 text-[10px] px-1.5 py-0.5 font-semibold"
+                                          : undefined
+                                      }
+                                    >
+                                      {name}
+                                    </span>
+                                    {idx < arr.length - 1 && <span>,</span>}
+                                  </span>
+                                );
+                              })}
                           </span>
                         </div>
                       )}

@@ -269,6 +269,8 @@ const parseSchedules = (value: string): ClassGroupSchedule[] => {
 
 export const dynamic = 'force-dynamic';
 
+const showExtraTeacherDashboardSections = false;
+
 export default async function TeacherDashboardPage() {
   const session = await getServerSession(authOptions);
 
@@ -292,6 +294,10 @@ export default async function TeacherDashboardPage() {
   // 한국 시간 기준으로 주간 종료(다음 주 일요일 자정) 계산
   // weekStart는 이미 한국 시간 기준의 UTC 변환된 값이므로, 7일을 더하면 다음 주 일요일이 됨
   const weekEnd = new Date(weekStart.getTime() + 7 * 24 * 60 * 60 * 1000);
+
+  // 급식지도/야자감독 D-day 계산용: 오늘부터 7일 뒤까지 범위
+  const dutyRangeStart = getKoreaDayStart(today, 0);
+  const dutyRangeEnd = getKoreaDayStart(today, 8);
 
   const school = session.user.school;
 
@@ -351,7 +357,7 @@ export default async function TeacherDashboardPage() {
       ? (prisma as any).supervisionMealSchedule.findMany({
           where: {
             school,
-            date: { gte: weekStart, lt: weekEnd },
+            date: { gte: dutyRangeStart, lt: dutyRangeEnd },
           },
           orderBy: { date: "asc" },
         })
@@ -715,374 +721,370 @@ export default async function TeacherDashboardPage() {
 
   return (
     <div className="space-y-6">
-      <header className="border-4 border-dashed border-gray-200 rounded-lg p-4 bg-white">
-        <div className="flex items-center gap-4 flex-wrap">
-          <h2 className="text-2xl font-bold text-gray-900">
-            안녕하세요 {session.user.name ?? t.dashboard.roleTeacher} 선생님 
-          </h2>
+      <div className="space-y-3">
+        <header className="border-4 border-dashed border-gray-200 rounded-lg p-4 bg-white">
+          <div className="flex items-center gap-4 flex-wrap">
+            <h2 className="text-2xl font-bold text-gray-900">
+              안녕하세요 {session.user.name ?? t.dashboard.roleTeacher} 선생님 
+            </h2>
 
-          <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 text-sm text-blue-800 whitespace-nowrap">
-            오늘은{" "}
-            <span className="inline-block mx-1 px-2 py-1 text-xl font-bold text-blue-900 bg-blue-200 rounded-md">
-              {new Intl.DateTimeFormat("ko-KR", {
-                timeZone: "Asia/Seoul",
-                month: "2-digit",
-                day: "2-digit",
-                weekday: "long",
-              }).format(now)}{" "}
-            </span>
-            입니다. 오늘 선생님의 수업은{" "}
-            <span className="inline-block mx-1 px-2 py-1 text-xl font-bold text-blue-900 bg-blue-200 rounded-md">
-              {todaysGroupCount}개
-            </span>{" "}
-            입니다.
-            {(() => {
-              const todayDuty = supervisionMealMap[isoToday];
-              const teacherName = session.user.name?.trim() ?? "";
-              const teacherEmail = session.user.email?.trim() ?? "";
-              if (!todayDuty || (!teacherName && !teacherEmail)) return null;
-              const matches = (s: string) => {
-                const t = String(s).trim();
-                return t && (t === teacherName || t === teacherEmail);
-              };
-              const hasYa = (todayDuty.eveningSupervision || []).some(matches);
-              const hasMeal = (todayDuty.mealGuidance || []).some(matches);
-              if (!hasYa && !hasMeal) return null;
-              const parts: string[] = [];
-              if (hasMeal) parts.push("급식지도");
-              if (hasYa) parts.push("야자감독");
-              return (
-                <>
-                  {" "}
-                  오늘 <span className="inline-block mx-1 px-2 py-1 text-xl font-bold text-orange-900 bg-blue-200 rounded-md">{parts.join(", ")}</span> 담당입니다.
-                </>
-              );
-            })()}
-          </div>
-        </div>
-      </header>
+            <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 text-sm text-blue-800 whitespace-nowrap">
+              오늘은{" "}
+              <span className="inline-block mx-1 px-2 py-1 text-xl font-bold text-blue-900 bg-blue-200 rounded-md">
+                {new Intl.DateTimeFormat("ko-KR", {
+                  timeZone: "Asia/Seoul",
+                  month: "2-digit",
+                  day: "2-digit",
+                  weekday: "long",
+                }).format(now)}{" "}
+              </span>
+              입니다. 오늘 선생님의 수업은{" "}
+              <span className="inline-block mx-1 px-2 py-1 text-xl font-bold text-blue-900 bg-blue-200 rounded-md">
+                {todaysGroupCount}개
+              </span>{" "}
+              입니다.
+              {(() => {
+                const teacherName = session.user.name?.trim() ?? "";
+                const teacherEmail = session.user.email?.trim() ?? "";
+                if (!teacherName && !teacherEmail) return null;
 
-      <WeeklyScheduleSection
-        schedule={weeklySchedule}
-        todayIsoDate={isoToday}
-        moreHref="/dashboard/teacher/schedule"
-        moreLabel="더보기 →"
-      />
+                const matches = (s: string) => {
+                  const t = String(s).trim();
+                  return t && (t === teacherName || t === teacherEmail);
+                };
 
-      <div className="flex gap-6 items-start">
-        {/* 주간 시간표 섹션 */}
-        <section className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm w-1/3 flex-shrink-0">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-gray-900">주간 시간표</h2>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full border-collapse text-sm">
-            <thead>
-              <tr>
-                <th className="border border-gray-300 bg-gray-50 px-1 py-2 font-semibold text-gray-700 min-w-[30px]">
-                  교시
-                </th>
-                {weekDays.map((day) => (
-                  <th
-                    key={day}
-                    className={`border border-gray-300 px-1 py-2 font-semibold min-w-[60px] ${
-                      day === todayDay 
-                        ? "bg-yellow-100 text-yellow-900" 
-                        : "bg-gray-50 text-gray-700"
-                    }`}
-                  >
-                    {day}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {periods.map((period) => {
-                const isCurrentPeriod = currentPeriod === period;
+                // 오늘(기준일)
+                const todayDate = new Date(isoToday + "T00:00:00");
+                const dayMs = 24 * 60 * 60 * 1000;
+
+                // 급식지도·야자감독 각각 가장 가까운 날만 따로 저장
+                let nextMeal: { diffDays: number } | null = null;
+                let nextYa: { diffDays: number } | null = null;
+
+                Object.entries(supervisionMealMap).forEach(([dateStr, duty]) => {
+                  const dutyDate = new Date(dateStr + "T00:00:00");
+                  const diffMs = dutyDate.getTime() - todayDate.getTime();
+                  const diffDays = Math.round(diffMs / dayMs);
+
+                  if (diffDays < 0 || diffDays > 7) return;
+
+                  const hasYa = (duty.eveningSupervision || []).some(matches);
+                  const hasMeal = (duty.mealGuidance || []).some(matches);
+
+                  if (hasMeal && (!nextMeal || diffDays < nextMeal.diffDays)) {
+                    nextMeal = { diffDays };
+                  }
+                  if (hasYa && (!nextYa || diffDays < nextYa.diffDays)) {
+                    nextYa = { diffDays };
+                  }
+                });
+
+                if (nextMeal === null && nextYa === null) return null;
+
+                const dDayLabel = (d: number) => (d === 0 ? "D-day" : `D-${d}`);
+                const mealLabel =
+                  nextMeal !== null
+                    ? dDayLabel((nextMeal as { diffDays: number }).diffDays)
+                    : null;
+                const yaLabel =
+                  nextYa !== null
+                    ? dDayLabel((nextYa as { diffDays: number }).diffDays)
+                    : null;
+
                 return (
-                <tr key={period}>
-                  <td className={`border border-gray-300 px-1 py-2 text-center font-medium ${
-                    isCurrentPeriod
-                      ? "bg-yellow-100 text-yellow-900 border-yellow-300" 
-                      : "bg-gray-50 text-gray-700"
-                  }`}>
-                    {period}
-                  </td>
-                  {weekDays.map((day) => {
-                    const cells = weeklyScheduleTable[day][period];
-                    const isToday = day === todayDay;
-                    const isCurrentCell = isToday && isCurrentPeriod;
-                    return (
-                      <td
-                        key={`${day}-${period}`}
-                        className={`border border-gray-300 px-1 py-2 align-top min-h-[80px] ${
-                          isCurrentCell 
-                            ? "bg-yellow-200 border-yellow-400 ring-2 ring-yellow-400" 
-                            : "bg-white"
-                        }`}
-                      >
-                        {cells.length > 0 ? (
-                          <div className="space-y-1">
-                            {cells.map((cell, idx) => (
-                              <Link
-                                key={`${cell.courseId}-${cell.groupId}-${idx}`}
-                                href={`/dashboard/teacher/manage-classes/${cell.courseId}`}
-                                className="block rounded-md bg-blue-100 hover:bg-blue-200 px-1 py-2 transition-colors cursor-pointer border border-blue-200"
+                  <>
+                    {" "}
+                    다음{" "}
+                    {nextMeal !== null && (
+                      <span>
+                        <span className="inline-block mx-0.5 px-2 py-1 text-sm font-semibold text-orange-900 bg-blue-100 rounded-md">
+                          급식지도
+                        </span>
+                        <span className="inline-block mx-0.5 px-2 py-1 text-sm font-bold text-orange-900 bg-orange-100 rounded-md">
+                          {mealLabel}
+                        </span>
+                      </span>
+                    )}
+                    {nextMeal !== null && nextYa !== null && ", "}
+                    {nextYa !== null && (
+                      <span>
+                        <span className="inline-block mx-0.5 px-2 py-1 text-sm font-semibold text-orange-900 bg-blue-100 rounded-md">
+                          야자감독
+                        </span>
+                        <span className="inline-block mx-0.5 px-2 py-1 text-sm font-bold text-orange-900 bg-orange-100 rounded-md">
+                          {yaLabel}
+                        </span>
+                      </span>
+                    )}
+                    입니다.
+                  </>
+                );
+              })()}
+            </div>
+          </div>
+        </header>
+
+        <WeeklyScheduleSection
+          schedule={weeklySchedule}
+          todayIsoDate={isoToday}
+          moreHref="/dashboard/teacher/schedule"
+          moreLabel="더보기 →"
+          currentTeacherName={session.user.name ?? undefined}
+          currentTeacherEmail={session.user.email ?? undefined}
+        />
+
+        <BannerSection />
+      </div>
+      
+      {showExtraTeacherDashboardSections && (
+        <>
+          <div className="flex gap-6 items-start">
+            {/* 주간 시간표 섹션 */}
+            <section className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm w-1/3 flex-shrink-0">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold text-gray-900">주간 시간표</h2>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse text-sm">
+                  <thead>
+                    <tr>
+                      <th className="border border-gray-300 bg-gray-50 px-1 py-2 font-semibold text-gray-700 min-w-[30px]">
+                        교시
+                      </th>
+                      {weekDays.map((day) => (
+                        <th
+                          key={day}
+                          className={`border border-gray-300 px-1 py-2 font-semibold min-w-[60px] ${
+                            day === todayDay 
+                              ? "bg-yellow-100 text-yellow-900" 
+                              : "bg-gray-50 text-gray-700"
+                          }`}
+                        >
+                          {day}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {periods.map((period) => {
+                      const isCurrentPeriod = currentPeriod === period;
+                      return (
+                        <tr key={period}>
+                          <td
+                            className={`border border-gray-300 px-1 py-2 text-center font-medium ${
+                              isCurrentPeriod
+                                ? "bg-yellow-100 text-yellow-900 border-yellow-300" 
+                                : "bg-gray-50 text-gray-700"
+                            }`}
+                          >
+                            {period}
+                          </td>
+                          {weekDays.map((day) => {
+                            const cells = weeklyScheduleTable[day][period];
+                            const isToday = day === todayDay;
+                            const isCurrentCell = isToday && isCurrentPeriod;
+                            return (
+                              <td
+                                key={`${day}-${period}`}
+                                className={`border border-gray-300 px-1 py-2 align-top min-h-[80px] ${
+                                  isCurrentCell 
+                                    ? "bg-yellow-200 border-yellow-400 ring-2 ring-yellow-400" 
+                                    : "bg-white"
+                                }`}
                               >
-                                <div className="font-medium text-blue-900 text-xs leading-tight">
-                                  {cell.courseSubject}
-                                </div>
-                                <div className="text-xs text-blue-700 mt-1 leading-tight">
-                                  {cell.groupName}
-                                </div>
-                              </Link>
-                            ))}
+                                {cells.length > 0 ? (
+                                  <div className="space-y-1">
+                                    {cells.map((cell, idx) => (
+                                      <Link
+                                        key={`${cell.courseId}-${cell.groupId}-${idx}`}
+                                        href={`/dashboard/teacher/manage-classes/${cell.courseId}`}
+                                        className="block rounded-md bg-blue-100 hover:bg-blue-200 px-1 py-2 transition-colors cursor-pointer border border-blue-200"
+                                      >
+                                        <div className="font-medium text-blue-900 text-xs leading-tight">
+                                          {cell.courseSubject}
+                                        </div>
+                                        <div className="text-xs text-blue-700 mt-1 leading-tight">
+                                          {cell.groupName}
+                                        </div>
+                                      </Link>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <div className="text-gray-400 text-xs text-center py-2">-</div>
+                                )}
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+
+            <div className="flex-1 flex flex-col gap-6">
+              <section className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+                <h2 className="text-lg font-semibold text-gray-900 mb-4">바로가기</h2>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <Link
+                    href="/dashboard/teacher/schedule"
+                    className="flex flex-col items-center justify-center p-6 rounded-lg border border-gray-200 bg-white hover:bg-blue-50 hover:border-blue-300 transition-all duration-200 cursor-pointer group"
+                  >
+                    <Calendar className="w-8 h-8 text-blue-600 mb-3 group-hover:text-blue-700" />
+                    <span className="text-sm font-medium text-gray-700 group-hover:text-blue-900">
+                      학사일정
+                    </span>
+                  </Link>
+
+                  <Link
+                    href="/dashboard/teacher/students"
+                    className="flex flex-col items-center justify-center p-6 rounded-lg border border-gray-200 bg-white hover:bg-green-50 hover:border-green-300 transition-all duration-200 cursor-pointer group"
+                  >
+                    <Users className="w-8 h-8 text-green-600 mb-3 group-hover:text-green-700" />
+                    <span className="text-sm font-medium text-gray-700 group-hover:text-green-900">
+                      학생명렬
+                    </span>
+                  </Link>
+
+                  <Link
+                    href="/dashboard/teacher/staff"
+                    className="flex flex-col items-center justify-center p-6 rounded-lg border border-gray-200 bg-white hover:bg-purple-50 hover:border-purple-300 transition-all duration-200 cursor-pointer group"
+                  >
+                    <UserCheck className="w-8 h-8 text-purple-600 mb-3 group-hover:text-purple-700" />
+                    <span className="text-sm font-medium text-gray-700 group-hover:text-purple-900">
+                      교직원 명렬
+                    </span>
+                  </Link>
+
+                  <Link
+                    href="/dashboard/chat"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex flex-col items-center justify-center p-6 rounded-lg border border-gray-200 bg-white hover:bg-orange-50 hover:border-orange-300 transition-all duration-200 cursor-pointer group"
+                  >
+                    <MessageSquare className="w-8 h-8 text-orange-600 mb-3 group-hover:text-orange-700" />
+                    <span className="text-sm font-medium text-gray-700 group-hover:text-orange-900">
+                      채팅하기
+                    </span>
+                  </Link>
+                </div>
+              </section>
+
+              <CollaborativeDocLinksSection />
+            </div>
+          </div>
+
+          <section className="grid gap-6 lg:grid-cols-2">
+            {/* 교직원 게시판 */}
+            <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold text-gray-900">교직원 게시판</h2>
+                <Link
+                  href="/dashboard/teacher/board_teachers"
+                  className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                >
+                  더보기 →
+                </Link>
+              </div>
+              {staffAnnouncements.length === 0 ? (
+                <p className="text-sm text-gray-500 py-4">등록된 게시글이 없습니다.</p>
+              ) : (
+                <div className="space-y-3">
+                  {staffAnnouncements.map((announcement: any, index: number) => {
+                    // 전체 목록에서의 실제 글번호 계산 (역순)
+                    const globalIndex = index;
+                    const announcementNumber = staffAnnouncementsCount - globalIndex;
+                    return (
+                      <Link
+                        key={announcement.id}
+                        href={`/dashboard/teacher/board_teachers`}
+                        className="block p-3 rounded-lg border border-gray-100 hover:bg-gray-50 hover:border-gray-200 transition-colors"
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className="flex-shrink-0 w-8 text-center text-xs text-gray-500 font-medium pt-0.5">
+                            {announcementNumber}
                           </div>
-                        ) : (
-                          <div className="text-gray-400 text-xs text-center py-2">-</div>
-                        )}
-                      </td>
+                          <div className="flex-shrink-0">
+                            {getCategoryBadge(announcement.category)}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <h3 className="text-sm font-medium text-gray-900 truncate mb-1">
+                              {announcement.title}
+                            </h3>
+                            <div className="flex items-center gap-2 text-xs text-gray-500">
+                              <span>{announcement.author}</span>
+                              <span>·</span>
+                              <span>{formatDateShort(announcement.publishedAt || announcement.createdAt)}</span>
+                            </div>
+                          </div>
+                          {hasAttachments(announcement.attachments) && (
+                            <Paperclip className="h-4 w-4 text-gray-400 flex-shrink-0 mt-1" />
+                          )}
+                        </div>
+                      </Link>
                     );
                   })}
-                </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-        </section>
-
-        <div className="flex-1 flex flex-col gap-6">
-        <section className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">바로가기</h2>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <Link
-              href="/dashboard/teacher/schedule"
-              className="flex flex-col items-center justify-center p-6 rounded-lg border border-gray-200 bg-white hover:bg-blue-50 hover:border-blue-300 transition-all duration-200 cursor-pointer group"
-            >
-              <Calendar className="w-8 h-8 text-blue-600 mb-3 group-hover:text-blue-700" />
-              <span className="text-sm font-medium text-gray-700 group-hover:text-blue-900">
-                학사일정
-              </span>
-            </Link>
-
-            <Link
-              href="/dashboard/teacher/students"
-              className="flex flex-col items-center justify-center p-6 rounded-lg border border-gray-200 bg-white hover:bg-green-50 hover:border-green-300 transition-all duration-200 cursor-pointer group"
-            >
-              <Users className="w-8 h-8 text-green-600 mb-3 group-hover:text-green-700" />
-              <span className="text-sm font-medium text-gray-700 group-hover:text-green-900">
-                학생명렬
-              </span>
-            </Link>
-
-            <Link
-              href="/dashboard/teacher/staff"
-              className="flex flex-col items-center justify-center p-6 rounded-lg border border-gray-200 bg-white hover:bg-purple-50 hover:border-purple-300 transition-all duration-200 cursor-pointer group"
-            >
-              <UserCheck className="w-8 h-8 text-purple-600 mb-3 group-hover:text-purple-700" />
-              <span className="text-sm font-medium text-gray-700 group-hover:text-purple-900">
-                교직원 명렬
-              </span>
-            </Link>
-
-            <Link
-              href="/dashboard/chat"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex flex-col items-center justify-center p-6 rounded-lg border border-gray-200 bg-white hover:bg-orange-50 hover:border-orange-300 transition-all duration-200 cursor-pointer group"
-            >
-              <MessageSquare className="w-8 h-8 text-orange-600 mb-3 group-hover:text-orange-700" />
-              <span className="text-sm font-medium text-gray-700 group-hover:text-orange-900">
-                채팅하기
-              </span>
-            </Link>
-          </div>
-        </section>
-
-        <CollaborativeDocLinksSection />
-        </div>
-      </div>
-
-      <section className="grid gap-6 lg:grid-cols-2">
-        {/* 교직원 게시판 */}
-        <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-gray-900">교직원 게시판</h2>
-            <Link
-              href="/dashboard/teacher/board_teachers"
-              className="text-sm text-blue-600 hover:text-blue-700 font-medium"
-            >
-              더보기 →
-            </Link>
-          </div>
-          {staffAnnouncements.length === 0 ? (
-            <p className="text-sm text-gray-500 py-4">등록된 게시글이 없습니다.</p>
-          ) : (
-            <div className="space-y-3">
-              {staffAnnouncements.map((announcement: any, index: number) => {
-                // 전체 목록에서의 실제 글번호 계산 (역순)
-                const globalIndex = index;
-                const announcementNumber = staffAnnouncementsCount - globalIndex;
-                return (
-                <Link
-                  key={announcement.id}
-                  href={`/dashboard/teacher/board_teachers`}
-                  className="block p-3 rounded-lg border border-gray-100 hover:bg-gray-50 hover:border-gray-200 transition-colors"
-                >
-                  <div className="flex items-start gap-3">
-                    <div className="flex-shrink-0 w-8 text-center text-xs text-gray-500 font-medium pt-0.5">
-                      {announcementNumber}
-                    </div>
-                    <div className="flex-shrink-0">
-                      {getCategoryBadge(announcement.category)}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h3 className="text-sm font-medium text-gray-900 truncate mb-1">
-                        {announcement.title}
-                      </h3>
-                      <div className="flex items-center gap-2 text-xs text-gray-500">
-                        <span>{announcement.author}</span>
-                        <span>·</span>
-                        <span>{formatDateShort(announcement.publishedAt || announcement.createdAt)}</span>
-                      </div>
-                    </div>
-                    {hasAttachments(announcement.attachments) && (
-                      <Paperclip className="h-4 w-4 text-gray-400 flex-shrink-0 mt-1" />
-                    )}
-                  </div>
-                </Link>
-                );
-              })}
+                </div>
+              )}
             </div>
-          )}
-        </div>
 
-        {/* 가정 안내문 */}
-        <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-gray-900">가정 안내문</h2>
-            <Link
-              href="/dashboard/teacher/announcements"
-              className="text-sm text-blue-600 hover:text-blue-700 font-medium"
-            >
-              더보기 →
-            </Link>
-          </div>
-          {parentAnnouncements.length === 0 ? (
-            <p className="text-sm text-gray-500 py-4">등록된 안내문이 없습니다.</p>
-          ) : (
-            <div className="space-y-3">
-              {parentAnnouncements.map((announcement: any, index: number) => {
-                // 전체 목록에서의 실제 글번호 계산 (역순)
-                const globalIndex = index;
-                const announcementNumber = parentAnnouncementsCount - globalIndex;
-                return (
+            {/* 가정 안내문 */}
+            <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold text-gray-900">가정 안내문</h2>
                 <Link
-                  key={announcement.id}
-                  href={`/dashboard/teacher/announcements`}
-                  className="block p-3 rounded-lg border border-gray-100 hover:bg-gray-50 hover:border-gray-200 transition-colors"
+                  href="/dashboard/teacher/announcements"
+                  className="text-sm text-blue-600 hover:text-blue-700 font-medium"
                 >
-                  <div className="flex items-start gap-3">
-                    <div className="flex-shrink-0 w-8 text-center text-xs text-gray-500 font-medium pt-0.5">
-                      {announcementNumber}
-                    </div>
-                    <div className="flex-shrink-0">
-                      {getCategoryBadge(announcement.category)}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h3 className="text-sm font-medium text-gray-900 truncate mb-1">
-                        {announcement.title}
-                      </h3>
-                      <div className="flex items-center gap-2 text-xs text-gray-500">
-                        <span>{announcement.author}</span>
-                        <span>·</span>
-                        <span>{formatDateShort(announcement.publishedAt || announcement.createdAt)}</span>
-                      </div>
-                    </div>
-                    {hasAttachments(announcement.attachments) && (
-                      <Paperclip className="h-4 w-4 text-gray-400 flex-shrink-0 mt-1" />
-                    )}
-                  </div>
+                  더보기 →
                 </Link>
-                );
-              })}
+              </div>
+              {parentAnnouncements.length === 0 ? (
+                <p className="text-sm text-gray-500 py-4">등록된 안내문이 없습니다.</p>
+              ) : (
+                <div className="space-y-3">
+                  {parentAnnouncements.map((announcement: any, index: number) => {
+                    // 전체 목록에서의 실제 글번호 계산 (역순)
+                    const globalIndex = index;
+                    const announcementNumber = parentAnnouncementsCount - globalIndex;
+                    return (
+                      <Link
+                        key={announcement.id}
+                        href={`/dashboard/teacher/announcements`}
+                        className="block p-3 rounded-lg border border-gray-100 hover:bg-gray-50 hover:border-gray-200 transition-colors"
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className="flex-shrink-0 w-8 text-center text-xs text-gray-500 font-medium pt-0.5">
+                            {announcementNumber}
+                          </div>
+                          <div className="flex-shrink-0">
+                            {getCategoryBadge(announcement.category)}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <h3 className="text-sm font-medium text-gray-900 truncate mb-1">
+                              {announcement.title}
+                            </h3>
+                            <div className="flex items-center gap-2 text-xs text-gray-500">
+                              <span>{announcement.author}</span>
+                              <span>·</span>
+                              <span>{formatDateShort(announcement.publishedAt || announcement.createdAt)}</span>
+                            </div>
+                          </div>
+                          {hasAttachments(announcement.attachments) && (
+                            <Paperclip className="h-4 w-4 text-gray-400 flex-shrink-0 mt-1" />
+                          )}
+                        </div>
+                      </Link>
+                    );
+                  })}
+                </div>
+              )}
             </div>
-          )}
-        </div>
-      </section>
+          </section>
+        </>
+      )}
 
-      <BannerSection isEditable={false} />
-
-
-
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {teacherSections.map((section) => (
-          <article
-            key={section.key}
-            className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm"
-          >
-            <h3 className="text-lg font-semibold text-gray-900">{section.title}</h3>
-            <p className="mt-2 text-sm text-gray-600">{section.description}</p>
-            <button
-              type="button"
-              className="mt-4 inline-flex items-center text-sm font-medium text-blue-600 hover:text-blue-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
-            >
-              {section.action}
-            </button>
-          </article>
-        ))}
-      </section>
-
-
-      <section className="grid gap-4 lg:grid-cols-2">
-        <article className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
-          <h3 className="text-lg font-semibold text-gray-900">
-            {t.dashboard.teacherScheduleTitle}
-          </h3>
-          <ul className="mt-4 space-y-3">
-            {upcomingLessons.length === 0 ? (
-              <li className="text-sm text-gray-600">
-                {t.dashboard.teacherScheduleEmpty}
-              </li>
-            ) : (
-              upcomingLessons.map((lesson) => (
-                <li
-                  key={lesson.title}
-                  className="flex flex-col rounded-lg border border-gray-100 p-4"
-                >
-                  <span className="text-sm font-medium text-gray-900">
-                    {lesson.title}
-                  </span>
-                  <span className="text-sm text-gray-600 mt-1">{lesson.time}</span>
-                  <span className="text-xs text-gray-500 mt-1">
-                    {lesson.location}
-                  </span>
-                </li>
-              ))
-            )}
-          </ul>
-        </article>
-
-        <article className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
-          <h3 className="text-lg font-semibold text-gray-900">
-            {t.dashboard.teacherSections.announcements.title}
-          </h3>
-          <ul className="mt-4 space-y-3">
-            {quickNotes.map((note) => (
-              <li
-                key={note.title}
-                className="flex flex-col rounded-lg border border-gray-100 p-4"
-              >
-                <span className="text-sm font-medium text-gray-900">
-                  {note.title}
-                </span>
-                <span className="text-xs text-gray-500 mt-1">{note.date}</span>
-              </li>
-            ))}
-          </ul>
-        </article>
-      </section>
 
     </div>
   );
