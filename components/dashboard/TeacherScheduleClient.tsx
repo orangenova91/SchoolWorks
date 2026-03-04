@@ -15,6 +15,7 @@ type TeacherScheduleClientProps = {
   allowedScheduleAreas?: string[];
   editableScopes?: string[];
   showAddButton?: boolean;
+  initialActiveTab?: "academic" | "creative";
 };
 
 type CalendarEventWithDate = CalendarEvent & { startDate: Date };
@@ -26,6 +27,7 @@ export default function TeacherScheduleClient({
   allowedScheduleAreas,
   editableScopes,
   showAddButton = true,
+  initialActiveTab = "academic",
 }: TeacherScheduleClientProps) {
   const [events, setEvents] = useState<CalendarEvent[]>(initialEvents);
   const calendarRef = useRef<CalendarViewHandle>(null);
@@ -164,7 +166,7 @@ export default function TeacherScheduleClient({
   }, [currentMonthEvents]);
 
   const [showStats, setShowStats] = useState<boolean>(true);
-  const [activeTab, setActiveTab] = useState<"academic" | "creative">("academic");
+  const [activeTab, setActiveTab] = useState<"academic" | "creative">(initialActiveTab);
   const [activityModalEvent, setActivityModalEvent] = useState<{
     id: string;
     title: string;
