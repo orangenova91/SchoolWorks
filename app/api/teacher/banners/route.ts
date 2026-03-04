@@ -6,13 +6,25 @@ import { z } from "zod";
 
 export const dynamic = 'force-dynamic';
 
+// 허용할 최대 배너 줄 수 및 개수 (프론트 편집 UI와 맞춰야 함)
+const MAX_ROWS = 4;
+const COLUMNS = 7;
+const MAX_BANNERS = MAX_ROWS * COLUMNS;
+const DEFAULT_ROWS = 3;
+
 const bannerSchema = z.object({
   icon: z.string().optional(),
   title: z.string().optional(),
   url: z.string().optional(),
 });
 
-const bannersSchema = z.array(bannerSchema).length(21);
+// 길이를 고정하지 않고, 최대 개수만 제한
+const bannersSchema = z.array(bannerSchema).max(MAX_BANNERS);
+
+const saveSchema = z.object({
+  banners: bannersSchema,
+  rows: z.number().int().min(1).max(MAX_ROWS),
+});
 
 // GET: 현재 사용자의 배너 목록 조회 (같은 학교의 관리자 배너 표시)
 export async function GET(request: NextRequest) {
@@ -86,16 +98,30 @@ export async function GET(request: NextRequest) {
         data: {
           teacherId,
           banners: JSON.stringify(defaultBanners),
+          rows: DEFAULT_ROWS,
         },
       });
 
       parsed = defaultBanners;
     }
 
-    // 배너가 없으면 빈 배열 반환
-    const banners = parsed ?? (teacherBanner ? JSON.parse(teacherBanner.banners) : Array(21).fill(null).map(() => ({ icon: "", title: "", url: "" })));
+    // 배너가 없으면 기본값 또는 빈 배열 반환
+    const banners =
+      parsed ??
+      (teacherBanner
+        ? JSON.parse(teacherBanner.banners)
+        : Array(21)
+            .fill(null)
+            .map(() => ({ icon: "", title: "", url: "" })));
 
-    return NextResponse.json({ banners });
+    const rawRows =
+      teacherBanner && typeof (teacherBanner as any).rows === "number"
+        ? (teacherBanner as any).rows
+        : DEFAULT_ROWS;
+    const rows =
+      rawRows < 1 ? 1 : rawRows > MAX_ROWS ? MAX_ROWS : rawRows;
+
+    return NextResponse.json({ banners, rows });
   } catch (error) {
     console.error("Get banners error:", error);
     return NextResponse.json(
@@ -119,7 +145,7 @@ export async function PUT(request: NextRequest) {
     }
 
     const body = await request.json();
-    const validatedData = bannersSchema.parse(body);
+    const { banners, rows } = saveSchema.parse(body);
 
     const teacherId = session.user.id;
 
@@ -130,17 +156,20 @@ export async function PUT(request: NextRequest) {
     const teacherBanner = await db.teacherBanner.upsert({
       where: { teacherId },
       update: {
-        banners: JSON.stringify(validatedData),
+        banners: JSON.stringify(banners),
+        rows,
       },
       create: {
         teacherId,
-        banners: JSON.stringify(validatedData),
+        banners: JSON.stringify(banners),
+        rows,
       },
     });
 
     return NextResponse.json({
       message: "배너가 저장되었습니다.",
       banners: JSON.parse(teacherBanner.banners),
+      rows: rows,
     });
   } catch (error: any) {
     if (error.name === "ZodError") {

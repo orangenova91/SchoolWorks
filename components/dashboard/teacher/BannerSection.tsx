@@ -10,6 +10,7 @@ interface BannerSectionProps {
 
 export default function BannerSection({ isEditable = true }: BannerSectionProps) {
   const [banners, setBanners] = useState<Banner[]>([]);
+  const [rows, setRows] = useState<number>(3);
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -22,46 +23,45 @@ export default function BannerSection({ isEditable = true }: BannerSectionProps)
       const response = await fetch("/api/teacher/banners");
       if (!response.ok) throw new Error("배너 조회 실패");
       const data = await response.json();
-      
-      // 21개의 배너 슬롯을 보장
-      const defaultBanners: Banner[] = Array(21).fill(null).map(() => ({
-        icon: "",
-        title: "",
-        url: "",
-      }));
-      
-      if (data.banners && Array.isArray(data.banners)) {
-        // 기존 배너 데이터로 채우기
-        data.banners.forEach((banner: Banner, index: number) => {
-          if (index < 21) {
-            defaultBanners[index] = banner;
-          }
-        });
-      }
-      
-      setBanners(defaultBanners);
+
+      const serverBanners: Banner[] = Array.isArray(data.banners)
+        ? data.banners
+        : [];
+
+      setBanners(serverBanners);
+      const serverRows =
+        typeof data.rows === "number" && data.rows >= 1 && data.rows <= 4
+          ? data.rows
+          : 3;
+      setRows(serverRows);
     } catch (error) {
       console.error("배너 조회 오류:", error);
-      // 오류 발생 시 기본값 설정
-      setBanners(Array(21).fill(null).map(() => ({ icon: "", title: "", url: "" })));
+      // 오류 발생 시 빈 배열로 설정
+      setBanners([]);
+      setRows(3);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleSave = async (updatedBanners: Banner[]) => {
+  const handleSave = async (payload: { banners: Banner[]; rows: number }) => {
+    const { banners: updatedBanners, rows: updatedRows } = payload;
     try {
       const response = await fetch("/api/teacher/banners", {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(updatedBanners),
+        body: JSON.stringify({
+          banners: updatedBanners,
+          rows: updatedRows,
+        }),
       });
 
       if (!response.ok) throw new Error("배너 저장 실패");
 
       setBanners(updatedBanners);
+      setRows(updatedRows);
       setIsEditing(false);
     } catch (error) {
       console.error("배너 저장 오류:", error);
@@ -103,12 +103,14 @@ export default function BannerSection({ isEditable = true }: BannerSectionProps)
       {isEditable && isEditing ? (
         <BannerEditor
           banners={banners}
+          rows={rows}
           onSave={handleSave}
           onCancel={() => setIsEditing(false)}
         />
       ) : (
         <BannerGrid
           banners={banners}
+          rows={rows}
           onEdit={() => isEditable && setIsEditing(true)}
           isEditable={isEditable && isEditing} // 편집 버튼을 헤더로 이동
         />

@@ -501,6 +501,7 @@ model TeacherBanner {
   teacherId String   @unique @db.ObjectId
   user      User     @relation("TeacherBanners", fields: [teacherId], references: [id], onDelete: Cascade)
   banners   String   @default("[]") // JSON 배열: [{icon: "BookOpen", title: "수업 관리", url: "/dashboard/teacher/manage-classes"}, ...]
+  rows      Int      @default(3)    // 사용 중인 배너 줄 수 (1~4줄, 한 줄당 7개)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
