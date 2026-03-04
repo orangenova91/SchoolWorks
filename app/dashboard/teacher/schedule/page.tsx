@@ -5,7 +5,11 @@ import { getTranslations } from "@/lib/i18n";
 import { prisma } from "@/lib/prisma";
 import TeacherScheduleClient from "@/components/dashboard/TeacherScheduleClient";
 
-export default async function TeacherSchedulePage() {
+export default async function TeacherSchedulePage({
+  searchParams,
+}: {
+  searchParams?: { tab?: string };
+}) {
   const session = await getServerSession(authOptions);
 
   if (!session) {
@@ -17,6 +21,8 @@ export default async function TeacherSchedulePage() {
   }
 
   const t = getTranslations("ko");
+
+  const tab = (searchParams as { tab?: string } | undefined)?.tab;
 
   // 오늘부터 3개월 전후 일정 가져오기
   const now = new Date();
@@ -99,6 +105,7 @@ export default async function TeacherSchedulePage() {
         initialEvents={formattedEvents}
         title={t.dashboard.teacherScheduleTitle}
         description="학교 운영(창의적 체험활동 포함) 및 개인 일정을 확인하고 관리할 수 있습니다."
+        initialActiveTab={tab === "creative" ? "creative" : "academic"}
       />
     </div>
   );
