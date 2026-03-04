@@ -295,8 +295,10 @@ export default async function TeacherDashboardPage() {
   // weekStart는 이미 한국 시간 기준의 UTC 변환된 값이므로, 7일을 더하면 다음 주 일요일이 됨
   const weekEnd = new Date(weekStart.getTime() + 7 * 24 * 60 * 60 * 1000);
 
-  // 급식지도/야자감독 D-day 계산용: 오늘부터 7일 뒤까지 범위
-  const dutyRangeStart = getKoreaDayStart(today, 0);
+  // 급식지도/야자감독 조회 범위:
+  // - 이번 주 학사일정에는 주간 전체(weekStart~weekEnd) 데이터가 필요
+  // - 상단 D-day 배지는 오늘 기준 앞으로 7일 이내의 일정도 필요
+  //   → 조회 범위를 weekStart ~ 오늘부터 7일 뒤(dutyRangeEnd)까지로 설정
   const dutyRangeEnd = getKoreaDayStart(today, 8);
 
   const school = session.user.school;
@@ -357,7 +359,8 @@ export default async function TeacherDashboardPage() {
       ? (prisma as any).supervisionMealSchedule.findMany({
           where: {
             school,
-            date: { gte: dutyRangeStart, lt: dutyRangeEnd },
+            // 이번 주 학사일정의 과거 날짜 셀 + D-day(오늘부터 7일 뒤까지)를 모두 커버
+            date: { gte: weekStart, lt: dutyRangeEnd },
           },
           orderBy: { date: "asc" },
         })
