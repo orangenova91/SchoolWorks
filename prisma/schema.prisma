@@ -508,6 +508,18 @@ model TeacherBanner {
   @@map("teacher_banners")
 }
 
+// 학교당 하나의 학사업무 바로가기 배너 (같은 학교 교사/관리자 모두 동일 배너 조회·편집)
+model SchoolBanner {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  school    String   @unique // 학교 식별 (User.school과 동일 값)
+  banners   String   @default("[]") // JSON 배열: [{icon, title, url}, ...]
+  rows      Int      @default(3) // 사용 줄 수 (1~4)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("school_banners")
+}
+
 model CollaborativeDocLink {
   id        String   @id @default(auto()) @map("_id") @db.ObjectId
   teacherId String   @db.ObjectId
