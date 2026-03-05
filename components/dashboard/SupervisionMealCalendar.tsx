@@ -26,6 +26,8 @@ type SupervisionMealCalendarProps = {
   initialEvents: CalendarEvent[];
   title: string;
   description: string;
+  currentTeacherName?: string;
+  currentTeacherEmail?: string;
 };
 
 /** 해당 월의 평일(월~금) 날짜 목록 반환 */
@@ -92,6 +94,8 @@ export default function SupervisionMealCalendar({
   initialEvents,
   title,
   description,
+  currentTeacherName,
+  currentTeacherEmail,
 }: SupervisionMealCalendarProps) {
   const [events, setEvents] = useState<CalendarEvent[]>(initialEvents);
   const [viewDate, setViewDate] = useState<Date>(() => new Date());
@@ -112,6 +116,21 @@ export default function SupervisionMealCalendar({
   const [scheduleRefreshKey, setScheduleRefreshKey] = useState(0);
   const router = useRouter();
   const { showToast } = useToastContext();
+
+  const matchesCurrentTeacher = useCallback(
+    (raw: string): boolean => {
+      const value = raw?.trim().toLowerCase();
+      if (!value) return false;
+
+      const name = currentTeacherName?.trim().toLowerCase();
+      const email = currentTeacherEmail?.trim().toLowerCase();
+
+      if (name && value === name) return true;
+      if (email && value === email) return true;
+      return false;
+    },
+    [currentTeacherName, currentTeacherEmail]
+  );
 
   const handleViewChange = useCallback((date: Date, vt: string) => {
     setViewDate(date);
@@ -463,7 +482,19 @@ export default function SupervisionMealCalendar({
                     const val = mg[i] ?? "";
                     return (
                       <td key={`mg-${i}`} className="py-2 px-2 bg-amber-50">
-                        {val || "—"}
+                        {val ? (
+                          <span
+                            className={
+                              matchesCurrentTeacher(String(val))
+                                ? "inline-flex items-center rounded-full bg-orange-100 text-orange-800 text-base px-2 py-0.5 font-semibold"
+                                : undefined
+                            }
+                          >
+                            {val}
+                          </span>
+                        ) : (
+                          "—"
+                        )}
                       </td>
                     );
                   })}
@@ -472,7 +503,19 @@ export default function SupervisionMealCalendar({
                     const val = ev[i] ?? "";
                     return (
                       <td key={`ev-${i}`} className="py-2 px-2 bg-sky-50">
-                        {val || "—"}
+                        {val ? (
+                          <span
+                            className={
+                              matchesCurrentTeacher(String(val))
+                                ? "inline-flex items-center rounded-full bg-orange-100 text-orange-800 text-xs px-2 py-0.5 font-semibold"
+                                : undefined
+                            }
+                          >
+                            {val}
+                          </span>
+                        ) : (
+                          "—"
+                        )}
                       </td>
                     );
                   })}
@@ -492,6 +535,8 @@ export default function SupervisionMealCalendar({
             onViewChange={handleViewChange}
             hideAddButton={true}
             dateExtraInfo={dateExtraInfo}
+            currentTeacherName={currentTeacherName}
+            currentTeacherEmail={currentTeacherEmail}
           />
         </div>
         <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm w-full lg:flex-1 min-h-[400px] flex flex-col">

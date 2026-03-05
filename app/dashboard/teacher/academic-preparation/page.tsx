@@ -137,6 +137,8 @@ export default async function AcademicPreparationPage({
                 initialEvents={formattedEvents}
                 title={t.dashboard.teacherScheduleTitle}
                 description="급식지도/야자감독 일정을 학사일정 달력에서 확인할 수 있습니다."
+                currentTeacherName={session.user.name ?? undefined}
+                currentTeacherEmail={session.user.email ?? undefined}
               />
             </article>,
 

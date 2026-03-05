@@ -58,6 +58,8 @@ type CalendarViewProps = {
   editableScopes?: string[];
   /** 급식지도/야자감독 명단 - 해당 날짜 셀에 표시 (날짜 문자열 YYYY-MM-DD 키) */
   dateExtraInfo?: DateExtraInfo;
+  currentTeacherName?: string;
+  currentTeacherEmail?: string;
 };
 
 export type CalendarViewHandle = {
@@ -88,6 +90,8 @@ const CalendarView = forwardRef<CalendarViewHandle, CalendarViewProps>(
       allowedScheduleAreas,
       editableScopes,
       dateExtraInfo,
+      currentTeacherName,
+      currentTeacherEmail,
     },
     ref
   ) => {
@@ -102,6 +106,48 @@ const CalendarView = forwardRef<CalendarViewHandle, CalendarViewProps>(
   const [isLoading, setIsLoading] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [currentViewDate, setCurrentViewDate] = useState<Date>(new Date());
+
+  const matchesCurrentTeacher = useCallback(
+    (raw: string): boolean => {
+      const value = raw?.trim().toLowerCase();
+      if (!value) return false;
+
+      const name = currentTeacherName?.trim().toLowerCase();
+      const email = currentTeacherEmail?.trim().toLowerCase();
+
+      if (name && value === name) return true;
+      if (email && value === email) return true;
+      return false;
+    },
+    [currentTeacherName, currentTeacherEmail]
+  );
+
+  const formatNamesWithBadges = useCallback(
+    (names: string[]): string => {
+      const escapeHtml = (str: string): string =>
+        String(str)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#39;");
+
+      return names
+        .filter(Boolean)
+        .map((name) => {
+          const isMe = matchesCurrentTeacher(String(name));
+          const safeName = escapeHtml(String(name));
+
+          if (isMe) {
+            return `<span class="inline-flex items-center gap-1"><span class="inline-flex items-center rounded-full bg-emerald-100 text-emerald-800 text-[12px] px-1.5 py-0.5 font-semibold">${safeName}</span></span>`;
+          }
+
+          return `<span class="inline-flex items-center gap-1">${safeName}</span>`;
+        })
+        .join('<span class="mx-0.5">,</span>');
+    },
+    [matchesCurrentTeacher]
+  );
 
     const openEventModal = useCallback((eventData: CalendarEvent) => {
       // 새 일정 추가인 경우 (id가 없거나 빈 문자열)
@@ -300,8 +346,8 @@ const CalendarView = forwardRef<CalendarViewHandle, CalendarViewProps>(
       wrap.className = "fc-supervision-meal-cell";
       wrap.dataset.dateKey = dateStr;
       const parts: string[] = [];
-      if (mg.length) parts.push(`${MEAL_ICON} ${mg.join(", ")}`);
-      if (ev.length) parts.push(`${MOON_ICON} ${ev.join(", ")}`);
+      if (mg.length) parts.push(`${MEAL_ICON} ${formatNamesWithBadges(mg)}`);
+      if (ev.length) parts.push(`${MOON_ICON} ${formatNamesWithBadges(ev)}`);
       wrap.innerHTML = parts.join("<br>");
 
       const frame = arg.el.querySelector(".fc-daygrid-day-frame");
@@ -337,8 +383,8 @@ const CalendarView = forwardRef<CalendarViewHandle, CalendarViewProps>(
         return;
       }
       const parts: string[] = [];
-      if (mg.length) parts.push(`${MEAL_ICON} ${mg.join(", ")}`);
-      if (ev.length) parts.push(`${MOON_ICON} ${ev.join(", ")}`);
+      if (mg.length) parts.push(`${MEAL_ICON} ${formatNamesWithBadges(mg)}`);
+      if (ev.length) parts.push(`${MOON_ICON} ${formatNamesWithBadges(ev)}`);
       const html = parts.join("<br>");
       if (existing) {
         existing.innerHTML = html;

@@ -531,11 +531,11 @@ export default function AllCoursesSection({ currentUserId }: AllCoursesSectionPr
         <thead>
           <tr className="border-b border-gray-200 bg-gray-50">
             <th className="text-left py-3 px-2 text-sm font-semibold text-gray-700">번호</th>
-            <th className="text-left py-3 px-2 text-sm font-semibold text-gray-700">강좌명</th>
-            <th className="text-left py-3 px-2 text-sm font-semibold text-gray-700">학기</th>
+            <th className="text-left py-3 px-0 text-sm font-semibold text-gray-700">강좌명</th>
+            <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">학기</th>
             <th className="text-left py-3 px-2 text-sm font-semibold text-gray-700">스케줄</th>
             <th className="text-left py-3 px-2 text-sm font-semibold text-gray-700">강사</th>
-            <th className="text-left py-3 px-2 text-sm font-semibold text-gray-700 whitespace-nowrap">수강생 수</th>
+            <th className="text-left py-3 px-0 text-sm font-semibold text-gray-700 whitespace-nowrap">수강생 수</th>
           </tr>
         </thead>
         <tbody>
@@ -562,12 +562,12 @@ export default function AllCoursesSection({ currentUserId }: AllCoursesSectionPr
                     openEdit(c);
                   }}
                 >
-                  <td className="py-3 px-2 text-sm text-gray-600">{idx + 1}</td>
-                  <td className="py-3 px-2 text-sm text-gray-900">
-                    <span className="line-clamp-2 break-words block min-w-0">{c.subject}</span>
+                  <td className="py-3 px-4 text-sm text-gray-600">{idx + 1}</td>
+                  <td className="py-3 px-0 text-sm text-gray-900">
+                    <span className="line-clamp-2 break-words block min-w-0 ml-[-15px]">{c.subject}</span>
                   </td>
-                  <td className="py-3 px-2 text-sm text-gray-600">{c.semester || "-"}</td>
-                  <td className="py-3 px-2 text-sm text-gray-600">{c.classGroupSchedule || "-"}</td>
+                  <td className="py-3 px-4 text-sm text-gray-600">{c.semester || "-"}</td>
+                  <td className="py-3 px-2 text-sm text-gray-600 text-center">{c.classGroupSchedule || "-"}</td>
                   <td className="py-3 px-2 text-sm text-gray-600">{c.instructor}</td>
                   <td className="py-3 px-2 text-sm text-gray-600">
                     {Array.isArray(c.firstClassGroupStudentIds) ? `${c.firstClassGroupStudentIds.length}명` : "0명"}
