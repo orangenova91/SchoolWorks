@@ -8,16 +8,29 @@ interface Course {
   subject: string;
   instructor: string;
   createdAt: string;
+  grade?: string | null;
   classGroupSchedule?: string;
   firstClassGroupId?: string | null;
   firstClassGroupStudentIds?: string[];
   enrollmentOpen?: boolean;
 }
 
+function isCourseVisibleForStudentGrade(course: Course, studentGrade: string | null) {
+  if (!studentGrade) return true;
+
+  const g = (course.grade ?? "").toString().trim();
+
+  // grade 미설정 또는 무학년제는 모든 학년에 노출
+  if (!g || g === "무학년제") return true;
+
+  return g === studentGrade;
+}
+
 export default function AfterSchoolCourseList() {
   const [courses, setCourses] = useState<Course[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [currentUserRole, setCurrentUserRole] = useState<string | null>(null);
+  const [studentGrade, setStudentGrade] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [periodStart, setPeriodStart] = useState<string>("");
@@ -46,6 +59,18 @@ export default function AfterSchoolCourseList() {
     }
   };
 
+  const fetchStudentProfile = async () => {
+    try {
+      const res = await fetch("/api/student/profile");
+      if (!res.ok) return;
+      const data = await res.json().catch(() => null);
+      const grade = data?.profile?.grade ?? null;
+      setStudentGrade(typeof grade === "string" ? (grade.trim() || null) : null);
+    } catch (err) {
+      // ignore
+    }
+  };
+
   useEffect(() => {
     fetchCourses();
     (async () => {
@@ -53,8 +78,12 @@ export default function AfterSchoolCourseList() {
         const res = await fetch("/api/auth/session");
         if (!res.ok) return;
         const data = await res.json();
+        const role = data?.user?.role || null;
         setCurrentUserId(data?.user?.id || null);
-        setCurrentUserRole(data?.user?.role || null);
+        setCurrentUserRole(role);
+        if (role === "student") {
+          fetchStudentProfile();
+        }
       } catch (e) {
         // ignore
       }
@@ -114,6 +143,11 @@ export default function AfterSchoolCourseList() {
     });
   };
 
+  const visibleCourses =
+    currentUserRole === "student"
+      ? courses.filter((course) => isCourseVisibleForStudentGrade(course, studentGrade))
+      : courses;
+
   return (
     <div className="space-y-6">
       {/* 강의 생성 섹션 (버튼 없음) */}
@@ -144,14 +178,14 @@ export default function AfterSchoolCourseList() {
 
         {isLoading ? (
           <div className="text-center py-8 text-gray-500">로딩 중...</div>
-        ) : courses.length === 0 ? (
+        ) : visibleCourses.length === 0 ? (
           <div className="text-center py-8 text-gray-500">생성된 강의가 없습니다.</div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
                 <tr className="border-b border-gray-200">
-                  <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">번호</th>
+                  <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">순</th>
                   <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">강좌명</th>
                   <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">스케줄</th>
                   <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">강사</th>
@@ -160,9 +194,9 @@ export default function AfterSchoolCourseList() {
                 </tr>
               </thead>
               <tbody>
-                {courses.map((course, idx) => (
+                {visibleCourses.map((course, idx) => (
                   <tr key={course.id} className="border-b border-gray-100 hover:bg-gray-50">
-                    <td className="py-3 px-4 text-sm text-gray-600">{courses.length - idx}</td>
+                    <td className="py-3 px-4 text-sm text-gray-600">{idx + 1}</td>
                     <td className="py-3 px-4 text-sm text-gray-900">{course.subject}</td>
                     <td className="py-3 px-4 text-sm text-gray-600">{course.classGroupSchedule || "-"}</td>
                     <td className="py-3 px-4 text-sm text-gray-600">{course.instructor}</td>
@@ -180,7 +214,7 @@ export default function AfterSchoolCourseList() {
                               <button
                                 type="button"
                                 disabled
-                                className="flex items-center justify-center px-1 h-6 rounded-sm text-xs bg-gray-200 text-gray-500 cursor-not-allowed"
+                                className="flex items-center justify-center px-1 h-6 rounded-sm text-xs bg-gray-200 text-gray-500 cursor-not-allowed whitespace-nowrap"
                                 title="신청이 종료된 강의입니다."
                               >
                                 강의 닫힘
@@ -260,7 +294,7 @@ export default function AfterSchoolCourseList() {
                             if (!ok) return;
                             window.alert("신청 기능은 학생 계정에서 진행해야 합니다. (추후 구현 예정)");
                           }}
-                          className="flex items-center justify-center bg-blue-600 hover:bg-blue-700 text-white px-1 h-6 rounded-sm text-xs"
+                          className="flex items-center justify-center bg-blue-600 hover:bg-blue-700 text-white px-1 h-6 rounded-sm text-xs whitespace-nowrap"
                         >
                           신청하기
                         </Button>

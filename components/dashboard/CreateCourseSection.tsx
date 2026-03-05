@@ -484,14 +484,14 @@ export default function CreateCourseSection({ instructorName }: CreateCourseSect
                     }
                   }}
                   disabled={periodLoading || Boolean(periodStart && periodEnd && new Date(periodEnd) < new Date(periodStart))}
-                  className="inline-flex items-center px-3 py-1 rounded-md bg-green-600 hover:bg-green-700 text-white text-sm disabled:opacity-50"
+                  className="inline-flex items-center px-3 py-1 rounded-md bg-green-600 hover:bg-green-700 text-white text-sm disabled:opacity-50 whitespace-nowrap"
                 >
                   {periodLoading ? "저장중..." : "저장"}
                 </button>
               </div>
             </div>
 
-            <Button onClick={handleOpen} className="bg-green-600 hover:bg-green-700 h-10">
+            <Button onClick={handleOpen} className="bg-green-600 hover:bg-green-700 h-10 whitespace-nowrap">
               강의 생성
             </Button>
           </div>
@@ -510,7 +510,7 @@ export default function CreateCourseSection({ instructorName }: CreateCourseSect
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-gray-200">
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">번호</th>
+                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">순</th>
                     <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">강좌명</th>
                     <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">스케줄</th>
                     <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">강사</th>
@@ -529,13 +529,13 @@ export default function CreateCourseSection({ instructorName }: CreateCourseSect
                         openDetail(c);
                       }}
                     >
-                      <td className="py-3 px-4 text-sm text-gray-600">{courses.length - idx}</td>
-                      <td className="py-3 px-4 text-sm text-gray-900">
+                      <td className="py-3 px-4 text-sm text-gray-600">{idx + 1}</td>
+                      <td className="py-3 px-2 text-sm text-gray-900">
                         <span className="line-clamp-2 break-words block min-w-0">{c.subject}</span>
                       </td>
-                      <td className="py-3 px-4 text-sm text-gray-600">{c.classGroupSchedule || "-"}</td>
-                      <td className="py-3 px-4 text-sm text-gray-600">{c.instructor}</td>
-                      <td className="py-3 px-4 text-sm text-gray-600">
+                      <td className="py-3 px-2 text-sm text-gray-600 text-center">{c.classGroupSchedule || "-"}</td>
+                      <td className="py-3 px-2 text-sm text-gray-600 whitespace-nowrap">{c.instructor}</td>
+                      <td className="py-3 px-2 text-sm text-gray-600">
                         <Button
                           type="button"
                           onClick={async (e) => {
@@ -569,17 +569,17 @@ export default function CreateCourseSection({ instructorName }: CreateCourseSect
                               alert("상태 변경 중 오류가 발생했습니다.");
                             }
                           }}
-                          className={`flex items-center justify-center px-2 h-7 rounded-md text-sm ${
+                          className={`flex items-center justify-center px-2 h-7 rounded-md text-sm whitespace-nowrap ${
                             c.enrollmentOpen ? "bg-green-600 hover:bg-green-700 text-white" : "bg-gray-200 text-gray-700"
                           }`}
                         >
                           {c.enrollmentOpen ? "신청 받음" : "신청 닫음"}
                         </Button>
                       </td>
-                      <td className="py-3 px-4 text-sm text-gray-600">
+                      <td className="py-3 px-4 text-sm text-gray-600 text-center">
                         {Array.isArray(c.firstClassGroupStudentIds) ? `${c.firstClassGroupStudentIds.length}명` : "0명"}
                       </td>
-                      <td className="py-3 px-4">
+                      <td className="py-3 px-2">
                         <div className="relative flex justify-end" onClick={(e) => e.stopPropagation()}>
                           <button
                             type="button"
