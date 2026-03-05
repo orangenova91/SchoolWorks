@@ -510,7 +510,7 @@ export default function CreateCourseSection({ instructorName }: CreateCourseSect
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-gray-200">
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">번호</th>
+                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">순</th>
                     <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">강좌명</th>
                     <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">스케줄</th>
                     <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">강사</th>
@@ -529,7 +529,7 @@ export default function CreateCourseSection({ instructorName }: CreateCourseSect
                         openDetail(c);
                       }}
                     >
-                      <td className="py-3 px-4 text-sm text-gray-600">{courses.length - idx}</td>
+                      <td className="py-3 px-4 text-sm text-gray-600">{idx + 1}</td>
                       <td className="py-3 px-4 text-sm text-gray-900">
                         <span className="line-clamp-2 break-words block min-w-0">{c.subject}</span>
                       </td>
@@ -569,7 +569,7 @@ export default function CreateCourseSection({ instructorName }: CreateCourseSect
                               alert("상태 변경 중 오류가 발생했습니다.");
                             }
                           }}
-                          className={`flex items-center justify-center px-2 h-7 rounded-md text-sm ${
+                          className={`flex items-center justify-center px-2 h-7 rounded-md text-sm whitespace-nowrap ${
                             c.enrollmentOpen ? "bg-green-600 hover:bg-green-700 text-white" : "bg-gray-200 text-gray-700"
                           }`}
                         >
