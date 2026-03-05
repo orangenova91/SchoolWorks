@@ -220,6 +220,17 @@ model ClassGroup {
   @@map("class_groups")
 }
 
+model AfterSchoolManager {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  school    String
+  teacherId String   @db.ObjectId
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([school])
+  @@map("after_school_managers")
+}
+
 model Attendance {
   id           String     @id @default(auto()) @map("_id") @db.ObjectId
   classGroupId String     @db.ObjectId

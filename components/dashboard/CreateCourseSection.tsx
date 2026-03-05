@@ -20,6 +20,7 @@ export default function CreateCourseSection({ instructorName }: CreateCourseSect
   const [courses, setCourses] = useState<Array<any>>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [menuAnchorRect, setMenuAnchorRect] = useState<DOMRect | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [selectedCourse, setSelectedCourse] = useState<any | null>(null);
   const [detailLocalCourse, setDetailLocalCourse] = useState<any | null>(null);
@@ -38,14 +39,20 @@ export default function CreateCourseSection({ instructorName }: CreateCourseSect
     description: "",
     academicYear: "",
     semester: "",
+    grade: "",
   });
   const [periodStart, setPeriodStart] = useState<string>("");
   const [periodEnd, setPeriodEnd] = useState<string>("");
   const [periodLoading, setPeriodLoading] = useState(false);
   const semesterOptions = [
-    { value: "", label: "학기 선택" },
     { value: "1학기", label: "1학기" },
     { value: "2학기", label: "2학기" },
+  ];
+  const gradeOptions = [
+    { value: "1", label: "1학년" },
+    { value: "2", label: "2학년" },
+    { value: "3", label: "3학년" },
+    { value: "무학년제", label: "무학년제" },
   ];
 
   useEffect(() => {
@@ -73,7 +80,10 @@ export default function CreateCourseSection({ instructorName }: CreateCourseSect
 
   useEffect(() => {
     if (!openMenuId) return;
-    const onWindowClick = () => setOpenMenuId(null);
+    const onWindowClick = () => {
+      setOpenMenuId(null);
+      setMenuAnchorRect(null);
+    };
     window.addEventListener("click", onWindowClick);
     return () => window.removeEventListener("click", onWindowClick);
   }, [openMenuId]);
@@ -107,6 +117,7 @@ export default function CreateCourseSection({ instructorName }: CreateCourseSect
             description: updated.description || "",
             academicYear: updated.academicYear || "",
             semester: updated.semester || "",
+            grade: updated.grade || "",
           });
         } else {
           // If the course was deleted/removed, close the detail modal
@@ -212,6 +223,7 @@ export default function CreateCourseSection({ instructorName }: CreateCourseSect
       description: course.description || "",
       academicYear: course.academicYear || "",
       semester: course.semester || "",
+      grade: course.grade || "",
     });
     setIsEditingDetail(Boolean(options?.startEditing));
     // Initialize class-group fields.
@@ -310,7 +322,7 @@ export default function CreateCourseSection({ instructorName }: CreateCourseSect
           subjectArea: "-",
           careerTrack: "-",
           subject: detailForm.subject || "",
-          grade: "",
+          grade: detailForm.grade || "",
           classroom: detailForm.classroom || "",
           description: detailForm.description || "",
           instructor: instructorName || "",
@@ -325,41 +337,6 @@ export default function CreateCourseSection({ instructorName }: CreateCourseSect
           throw new Error(responseBody?.error || "생성 실패");
         }
         createdCourseId = responseBody?.class?.id;
-        // If user requested class-group creation, attempt to create it as well
-        if (showClassGroup && createdCourseId) {
-          // validate class-group inputs
-          const periodNum = parseInt(cgPeriod, 10) || 0;
-          const incomplete = cgSchedules.slice(0, periodNum).some((s) => !s.day || !s.period);
-          const errors: { name?: string; period?: string; schedules?: string } = {};
-          if (!cgName.trim()) errors.name = "학반명을 입력해주세요.";
-          if (!periodNum || periodNum < 1) errors.period = "차시 수를 올바르게 입력하세요.";
-          if (periodNum > 0 && incomplete) errors.schedules = "모든 차시의 요일과 교시를 입력해주세요.";
-          if (Object.keys(errors).length > 0) {
-            setCgErrors(errors);
-            showToast?.("학반 정보를 확인하세요.", "error");
-          } else {
-            try {
-              const cgRes = await fetch(`/api/courses/${createdCourseId}/class-groups`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  name: cgName.trim(),
-                  period: cgPeriod.trim() || null,
-                  schedules: cgSchedules.slice(0, periodNum).filter((s) => s.day && s.period),
-                  studentIds: [],
-                }),
-              });
-              if (!cgRes.ok) {
-                showToast?.("수업은 생성되었으나 학반 정보 등록에 실패했습니다. 수동으로 등록해 주세요.", "warning");
-              } else {
-                showToast?.("학반이 함께 생성되었습니다.", "success");
-              }
-            } catch (err) {
-              console.error("class-group create error:", err);
-              showToast?.("수업은 생성되었으나 학반 정보 등록에 실패했습니다. 수동으로 등록해 주세요.", "warning");
-            }
-          }
-        }
       } else {
         const res = await fetch(`/api/courses/${id}`, {
           method: "PUT",
@@ -376,12 +353,12 @@ export default function CreateCourseSection({ instructorName }: CreateCourseSect
       const courseIdToUse = createdCourseId ?? (id === "new" ? undefined : id);
 
       // If class-group inputs present, attempt to create or update class-group
-      if (cgName.trim() && courseIdToUse) {
+      if (detailForm.subject.trim() && courseIdToUse) {
         setCgErrors({});
         const periodNum = parseInt(cgPeriod, 10) || 0;
         const incomplete = cgSchedules.slice(0, periodNum).some((s) => !s.day || !s.period);
         const errors: { name?: string; period?: string; schedules?: string } = {};
-        if (!cgName.trim()) errors.name = "학반명을 입력해주세요.";
+        if (!detailForm.subject.trim()) errors.name = "강좌명을 입력해주세요.";
         if (!periodNum || periodNum < 1) errors.period = "차시(교시 수)를 올바르게 입력하세요.";
         if (periodNum > 0 && incomplete) errors.schedules = "모든 차시의 요일과 교시를 입력해주세요.";
         if (Object.keys(errors).length > 0) {
@@ -395,7 +372,7 @@ export default function CreateCourseSection({ instructorName }: CreateCourseSect
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                  name: cgName.trim(),
+                  name: detailForm.subject.trim(),
                   period: cgPeriod.trim() || null,
                   schedules: cgSchedules.slice(0, periodNum).filter((s) => s.day && s.period),
                   studentIds: [],
@@ -412,7 +389,7 @@ export default function CreateCourseSection({ instructorName }: CreateCourseSect
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                  name: cgName.trim(),
+                  name: detailForm.subject.trim(),
                   period: cgPeriod.trim() || null,
                   schedules: cgSchedules.slice(0, periodNum).filter((s) => s.day && s.period),
                   studentIds: [],
@@ -553,7 +530,9 @@ export default function CreateCourseSection({ instructorName }: CreateCourseSect
                       }}
                     >
                       <td className="py-3 px-4 text-sm text-gray-600">{courses.length - idx}</td>
-                      <td className="py-3 px-4 text-sm text-gray-900">{c.subject}</td>
+                      <td className="py-3 px-4 text-sm text-gray-900">
+                        <span className="line-clamp-2 break-words block min-w-0">{c.subject}</span>
+                      </td>
                       <td className="py-3 px-4 text-sm text-gray-600">{c.classGroupSchedule || "-"}</td>
                       <td className="py-3 px-4 text-sm text-gray-600">{c.instructor}</td>
                       <td className="py-3 px-4 text-sm text-gray-600">
@@ -606,6 +585,8 @@ export default function CreateCourseSection({ instructorName }: CreateCourseSect
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
+                              const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                              setMenuAnchorRect(rect);
                               setOpenMenuId((prev) => (prev === c.id ? null : c.id));
                             }}
                             className="p-2 rounded-md text-gray-500 hover:bg-gray-100"
@@ -613,35 +594,6 @@ export default function CreateCourseSection({ instructorName }: CreateCourseSect
                           >
                             <MoreVertical className="h-4 w-4" />
                           </button>
-                          {openMenuId === c.id && (
-                            <div className="absolute right-0 top-full mt-2 w-40 rounded-md border border-gray-200 bg-white shadow-lg z-10">
-                              <div className="py-1">
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setOpenMenuId(null);
-                                    openDetail(c, { startEditing: true });
-                                  }}
-                                  className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                                >
-                                  수정
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setOpenMenuId(null);
-                                    handleDeleteCourse(c.id);
-                                  }}
-                                  disabled={deletingId === c.id}
-                                  className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 disabled:opacity-50"
-                                >
-                                  {deletingId === c.id ? "삭제 중..." : "삭제"}
-                                </button>
-                              </div>
-                            </div>
-                          )}
                         </div>
                       </td>
                     </tr>
@@ -656,6 +608,52 @@ export default function CreateCourseSection({ instructorName }: CreateCourseSect
         {/* Placeholder here; actual portal rendering happens after return */}
       </div>
       {mounted && isModalOpen && createPortal(modal, document.body)}
+      {mounted &&
+        openMenuId &&
+        menuAnchorRect &&
+        (() => {
+          const course = courses.find((c: any) => c.id === openMenuId);
+          if (!course) return null;
+          const closeMenu = () => {
+            setOpenMenuId(null);
+            setMenuAnchorRect(null);
+          };
+          return createPortal(
+            <div
+              className="fixed w-40 rounded-md border border-gray-200 bg-white shadow-lg z-[9999] py-1"
+              style={{
+                left: menuAnchorRect.right - 160,
+                top: menuAnchorRect.bottom + 8,
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  closeMenu();
+                  openDetail(course, { startEditing: true });
+                }}
+                className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+              >
+                수정
+              </button>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  closeMenu();
+                  handleDeleteCourse(course.id);
+                }}
+                disabled={deletingId === course.id}
+                className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 disabled:opacity-50"
+              >
+                {deletingId === course.id ? "삭제 중..." : "삭제"}
+              </button>
+            </div>,
+            document.body
+          );
+        })()}
       {mounted && isDetailOpen &&
         createPortal(
           <div
@@ -730,7 +728,13 @@ export default function CreateCourseSection({ instructorName }: CreateCourseSect
                               options={semesterOptions}
                               placeholder="학기 선택"
                               disabled={!canEdit}
-                              className={canEdit ? undefined : "bg-gray-50 text-gray-700"}
+                              className={
+                                !detailForm.semester
+                                  ? ["text-gray-400", !canEdit && "bg-gray-50"].filter(Boolean).join(" ") || undefined
+                                  : !canEdit
+                                    ? "bg-gray-50 text-gray-700"
+                                    : undefined
+                              }
                             />
                           </div>
                         </>
@@ -738,8 +742,28 @@ export default function CreateCourseSection({ instructorName }: CreateCourseSect
                     })()}
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
+                  <div className="flex flex-col sm:flex-row gap-4 sm:items-end">
+                    <div className="sm:w-36 flex-shrink-0">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        대상 학년
+                      </label>
+                      <Select
+                        name="grade"
+                        value={detailForm.grade}
+                        onChange={handleDetailChange}
+                        options={gradeOptions}
+                        placeholder="대상 학년 선택"
+                        disabled={!isEditingDetail}
+                        className={
+                          !detailForm.grade
+                            ? ["text-gray-400", !isEditingDetail && "bg-gray-50"].filter(Boolean).join(" ") || undefined
+                            : !isEditingDetail
+                              ? "bg-gray-50 text-gray-700"
+                              : undefined
+                        }
+                      />
+                    </div>
+                    <div className="flex-1 min-w-0">
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         강좌명 <span className="text-red-500">*</span>
                       </label>
@@ -760,8 +784,7 @@ export default function CreateCourseSection({ instructorName }: CreateCourseSect
                         );
                       })()}
                     </div>
-
-                    <div>
+                    <div className="sm:w-36 flex-shrink-0">
                       <label className="block text-sm font-medium text-gray-700 mb-2">강사</label>
                       <input
                         type="text"
@@ -816,65 +839,100 @@ export default function CreateCourseSection({ instructorName }: CreateCourseSect
                     })()}
                   </div>
 
-                  {/* Class-group section moved here (after description) */}
+                  {/* Class-group section moved here (after description); 학반명은 강좌명과 동일하게 사용되어 입력 필드 숨김 */}
                   <div>
                     <div className="mt-4 space-y-4">
-                      
-
                       <>
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">학반명 <span className="text-red-500">*</span></label>
-                            <Input
-                              value={cgName}
-                              onChange={(e) => isEditingDetail && setCgName(e.target.value)}
-                              placeholder="예: 1반"
-                              readOnly={!isEditingDetail}
-                              aria-readonly={!isEditingDetail}
-                            />
-                            {cgErrors.name && <p className="mt-1 text-sm text-red-600" role="alert">{cgErrors.name}</p>}
-                          </div>
-
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-2">차시(교시 수) <span className="text-red-500">*</span></label>
+                        {cgErrors.name && (
+                          <p className="text-sm text-red-600" role="alert">
+                            {cgErrors.name}
+                          </p>
+                        )}
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            차시별 요일 및 교시 <span className="text-red-500">*</span>
+                          </label>
+                          <div className="flex items-start gap-3">
+                            <div className="flex-shrink-0">
+                              <label
+                                htmlFor="cgPeriod"
+                                className="block text-xs text-gray-600 mb-1"
+                              >
+                                차시
+                              </label>
                               <Input
+                                id="cgPeriod"
+                                type="number"
+                                min="1"
                                 value={cgPeriod}
-                                onChange={(e) => isEditingDetail && handleCgPeriodChange(e.target.value)}
+                                onChange={(e) =>
+                                  isEditingDetail && handleCgPeriodChange(e.target.value)
+                                }
                                 readOnly={!isEditingDetail}
                                 aria-readonly={!isEditingDetail}
+                                className="w-20"
                               />
-                              {cgErrors.period && <p className="mt-1 text-sm text-red-600" role="alert">{cgErrors.period}</p>}
+                              {cgErrors.period && (
+                                <p className="mt-1 text-sm text-red-600" role="alert">
+                                  {cgErrors.period}
+                                </p>
+                              )}
                             </div>
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">스케줄 <span className="text-red-500">*</span></label>
-                            <div className="space-y-2">
-                              {cgSchedules.map((s, idx) => (
-                                <div key={idx} className="flex gap-2">
-                                    <Select
-                                      options={[
-                                        { value: "", label: "요일 선택" },
-                                        { value: "월", label: "월요일" },
-                                        { value: "화", label: "화요일" },
-                                        { value: "수", label: "수요일" },
-                                        { value: "목", label: "목요일" },
-                                        { value: "금", label: "금요일" },
-                                      ]}
-                                      value={s.day}
-                                      onChange={(e) => isEditingDetail && handleCgScheduleChange(idx, "day", e.target.value)}
-                                      className="flex-1"
-                                      disabled={!isEditingDetail}
-                                    />
-                                    <Select
-                                      options={[{ value: "", label: "교시 선택" }, ...Array.from({ length: 10 }, (_, i) => ({ value: `${i+1}`, label: `${i+1}교시` }))]}
-                                      value={s.period}
-                                      onChange={(e) => isEditingDetail && handleCgScheduleChange(idx, "period", e.target.value)}
-                                      className="flex-1"
-                                      disabled={!isEditingDetail}
-                                    />
+
+                            {cgSchedules.length > 0 && (
+                              <div className="flex-1 overflow-y-auto max-h-64">
+                                <div className="space-y-2">
+                                  {cgSchedules.map((s, idx) => (
+                                    <div
+                                      key={idx}
+                                      className="flex items-center gap-2"
+                                    >
+                                      <span className="text-xs font-medium text-gray-700 min-w-[2.5rem]">
+                                        {idx + 1}차시
+                                      </span>
+                                      <Select
+                                        options={[
+                                          { value: "", label: "요일 선택" },
+                                          { value: "월", label: "월요일" },
+                                          { value: "화", label: "화요일" },
+                                          { value: "수", label: "수요일" },
+                                          { value: "목", label: "목요일" },
+                                          { value: "금", label: "금요일" },
+                                        ]}
+                                        value={s.day}
+                                        onChange={(e) =>
+                                          isEditingDetail &&
+                                          handleCgScheduleChange(idx, "day", e.target.value)
+                                        }
+                                        className="flex-1"
+                                        disabled={!isEditingDetail}
+                                      />
+                                      <Select
+                                        options={[
+                                          { value: "", label: "교시 선택" },
+                                          ...Array.from({ length: 10 }, (_, i) => ({
+                                            value: `${i + 1}`,
+                                            label: `${i + 1}교시`,
+                                          })),
+                                        ]}
+                                        value={s.period}
+                                        onChange={(e) =>
+                                          isEditingDetail &&
+                                          handleCgScheduleChange(idx, "period", e.target.value)
+                                        }
+                                        className="flex-1"
+                                        disabled={!isEditingDetail}
+                                      />
+                                    </div>
+                                  ))}
                                 </div>
-                              ))}
-                            </div>
-                            {cgErrors.schedules && <p className="mt-1 text-sm text-red-600" role="alert">{cgErrors.schedules}</p>}
+                                {cgErrors.schedules && (
+                                  <p className="mt-1 text-sm text-red-600" role="alert">
+                                    {cgErrors.schedules}
+                                  </p>
+                                )}
+                              </div>
+                            )}
                           </div>
                         </div>
                       </>

@@ -120,7 +120,7 @@ export async function PUT(
 
     const existing = await prisma.course.findUnique({
       where: { id: courseId },
-      select: { teacherId: true },
+      select: { teacherId: true, courseType: true },
     });
     if (!existing) {
       return NextResponse.json({ error: "수업을 찾을 수 없습니다." }, { status: 404 });
@@ -128,7 +128,13 @@ export async function PUT(
 
     const isTeacherOwner = session.user.role === "teacher" && session.user.id === existing.teacherId;
     const isAdmin = session.user.role === "admin";
-    if (!isTeacherOwner && !isAdmin) {
+    const isAfterSchoolManager =
+      existing.courseType === "after_school" &&
+      !!(await (prisma as any).afterSchoolManager.findFirst({
+        where: { teacherId: session.user.id },
+      }));
+
+    if (!isTeacherOwner && !isAdmin && !isAfterSchoolManager) {
       return NextResponse.json({ error: "수정 권한이 없습니다." }, { status: 403 });
     }
 

@@ -13,21 +13,16 @@ export async function DELETE(
   try {
     const session = await getServerSession(authOptions);
 
-    if (!session || session.user?.role !== "teacher") {
+    if (!session || !session.user) {
       return NextResponse.json(
         { error: "수업 삭제 권한이 없습니다." },
         { status: 403 }
       );
     }
 
-    const course = await (prisma as unknown as {
-      course: {
-        findFirst: (args: {
-          where: { id: string; teacherId: string };
-        }) => Promise<{ id: string } | null>;
-      };
-    }).course.findFirst({
-      where: { id: params.courseId, teacherId: session.user.id },
+    const course = await (prisma as any).course.findFirst({
+      where: { id: params.courseId },
+      select: { id: true, teacherId: true, courseType: true },
     });
 
     if (!course) {
@@ -37,11 +32,23 @@ export async function DELETE(
       );
     }
 
-    await (prisma as unknown as {
-      course: {
-        delete: (args: { where: { id: string } }) => Promise<void>;
-      };
-    }).course.delete({
+    const isTeacherOwner =
+      session.user.role === "teacher" && session.user.id === course.teacherId;
+    const isAdmin = session.user.role === "admin" || session.user.role === "superadmin";
+    const isAfterSchoolManager =
+      course.courseType === "after_school" &&
+      !!(await (prisma as any).afterSchoolManager.findFirst({
+        where: { teacherId: session.user.id },
+      }));
+
+    if (!isTeacherOwner && !isAdmin && !isAfterSchoolManager) {
+      return NextResponse.json(
+        { error: "수업 삭제 권한이 없습니다." },
+        { status: 403 }
+      );
+    }
+
+    await (prisma as any).course.delete({
       where: { id: params.courseId },
     });
 
