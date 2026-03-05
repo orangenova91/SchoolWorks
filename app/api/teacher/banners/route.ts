@@ -4,7 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 
 // 허용할 최대 배너 줄 수 및 개수 (프론트 편집 UI와 맞춰야 함)
 const MAX_ROWS = 4;
@@ -18,7 +18,6 @@ const bannerSchema = z.object({
   url: z.string().optional(),
 });
 
-// 길이를 고정하지 않고, 최대 개수만 제한
 const bannersSchema = z.array(bannerSchema).max(MAX_BANNERS);
 
 const saveSchema = z.object({
@@ -26,7 +25,13 @@ const saveSchema = z.object({
   rows: z.number().int().min(1).max(MAX_ROWS),
 });
 
-// GET: 현재 사용자의 배너 목록 조회 (같은 학교의 관리자 배너 표시)
+function defaultBannersList() {
+  return Array(21)
+    .fill(null)
+    .map(() => ({ icon: "", title: "", url: "" }));
+}
+
+// GET: 같은 학교의 배너 1개 조회 (교사/관리자 모두 동일 학교면 같은 배너)
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
@@ -40,84 +45,39 @@ export async function GET(request: NextRequest) {
 
     const role = session?.user.role;
     const userSchool = session.user.school;
-    const teacherId = session.user.id;
 
-    // 헬퍼: 빈 배너 여부 판단
-    const isEmptyBannerList = (banners: any[]) =>
-      Array.isArray(banners) &&
-      banners.every(
-        (b) =>
-          (!b?.icon || b.icon.trim() === "") &&
-          (!b?.title || b.title.trim() === "") &&
-          (!b?.url || b.url.trim() === "")
-      );
+    if (role !== "admin" && role !== "teacher") {
+      return NextResponse.json({ banners: [], rows: DEFAULT_ROWS });
+    }
 
-    // Prisma Mongo 클라이언트 타입에 없는 모델이므로 any 캐스팅
+    if (!userSchool || userSchool.trim() === "") {
+      return NextResponse.json({
+        banners: defaultBannersList(),
+        rows: DEFAULT_ROWS,
+      });
+    }
+
     const db = prisma as any;
+    let schoolBanner = await db.schoolBanner.findUnique({
+      where: { school: userSchool },
+    });
 
-    // 1순위: 본인 배너 (admin/teacher만)
-    let teacherBanner = null;
-    let parsed = null;
-    
-    if (role === "admin" || role === "teacher") {
-      teacherBanner = await db.teacherBanner.findUnique({
-        where: { teacherId },
-      });
-      parsed = teacherBanner ? JSON.parse(teacherBanner.banners) : null;
-    }
-
-    // 2순위: 본인 배너가 없거나 비어있으면 같은 학교의 관리자 최신 배너 fallback
-    if ((!teacherBanner || isEmptyBannerList(parsed)) && userSchool) {
-      const adminBanner = await db.teacherBanner.findFirst({
-        where: {
-          user: {
-            role: "admin",
-            school: userSchool, // 같은 학교의 관리자만
-          },
-        },
-        orderBy: { updatedAt: "desc" },
-      });
-
-      if (adminBanner) {
-        teacherBanner = adminBanner;
-        parsed = JSON.parse(adminBanner.banners);
-      }
-    }
-
-    // 없으면 기본값 생성 (admin/teacher만 본인 소유로 생성)
-    if (!teacherBanner && (role === "admin" || role === "teacher")) {
-      const defaultBanners = Array(21)
-        .fill(null)
-        .map(() => ({
-          icon: "",
-          title: "",
-          url: "",
-        }));
-
-      teacherBanner = await db.teacherBanner.create({
+    if (!schoolBanner) {
+      schoolBanner = await db.schoolBanner.create({
         data: {
-          teacherId,
-          banners: JSON.stringify(defaultBanners),
+          school: userSchool,
+          banners: JSON.stringify(defaultBannersList()),
           rows: DEFAULT_ROWS,
         },
       });
-
-      parsed = defaultBanners;
     }
 
-    // 배너가 없으면 기본값 또는 빈 배열 반환
     const banners =
-      parsed ??
-      (teacherBanner
-        ? JSON.parse(teacherBanner.banners)
-        : Array(21)
-            .fill(null)
-            .map(() => ({ icon: "", title: "", url: "" })));
-
+      schoolBanner.banners != null
+        ? JSON.parse(schoolBanner.banners)
+        : defaultBannersList();
     const rawRows =
-      teacherBanner && typeof (teacherBanner as any).rows === "number"
-        ? (teacherBanner as any).rows
-        : DEFAULT_ROWS;
+      typeof schoolBanner.rows === "number" ? schoolBanner.rows : DEFAULT_ROWS;
     const rows =
       rawRows < 1 ? 1 : rawRows > MAX_ROWS ? MAX_ROWS : rawRows;
 
@@ -131,7 +91,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// PUT: 배너 목록 업데이트
+// PUT: 같은 학교의 배너 업데이트 (교사/관리자 누구나 편집 가능, 학교당 1개 공유)
 export async function PUT(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
@@ -144,23 +104,27 @@ export async function PUT(request: NextRequest) {
       );
     }
 
+    const userSchool = session.user.school;
+    if (!userSchool || userSchool.trim() === "") {
+      return NextResponse.json(
+        { error: "학교 정보가 없어 배너를 저장할 수 없습니다." },
+        { status: 400 }
+      );
+    }
+
     const body = await request.json();
     const { banners, rows } = saveSchema.parse(body);
 
-    const teacherId = session.user.id;
-
-    // Prisma Mongo 클라이언트 타입에 없는 모델이므로 any 캐스팅
     const db = prisma as any;
 
-    // 배너 업데이트 또는 생성
-    const teacherBanner = await db.teacherBanner.upsert({
-      where: { teacherId },
+    const schoolBanner = await db.schoolBanner.upsert({
+      where: { school: userSchool },
       update: {
         banners: JSON.stringify(banners),
         rows,
       },
       create: {
-        teacherId,
+        school: userSchool,
         banners: JSON.stringify(banners),
         rows,
       },
@@ -168,8 +132,8 @@ export async function PUT(request: NextRequest) {
 
     return NextResponse.json({
       message: "배너가 저장되었습니다.",
-      banners: JSON.parse(teacherBanner.banners),
-      rows: rows,
+      banners: JSON.parse(schoolBanner.banners),
+      rows: schoolBanner.rows ?? rows,
     });
   } catch (error: any) {
     if (error.name === "ZodError") {
@@ -186,4 +150,3 @@ export async function PUT(request: NextRequest) {
     );
   }
 }
-
