@@ -32,12 +32,36 @@ export async function PUT(
       );
     }
 
-    // 학반 존재 여부 및 소유권 확인
+    const course = await prisma.course.findFirst({
+      where: { id: params.courseId },
+      select: { teacherId: true, courseType: true },
+    });
+
+    if (!course) {
+      return NextResponse.json(
+        { error: "수업을 찾을 수 없거나 수정 권한이 없습니다." },
+        { status: 404 }
+      );
+    }
+
+    const isTeacherOwner = session.user.id === course.teacherId;
+    const isAfterSchoolManager =
+      course.courseType === "after_school" &&
+      !!(await (prisma as any).afterSchoolManager.findFirst({
+        where: { teacherId: session.user.id },
+      }));
+
+    if (!isTeacherOwner && !isAfterSchoolManager) {
+      return NextResponse.json(
+        { error: "학반 수정 권한이 없습니다." },
+        { status: 403 }
+      );
+    }
+
     const existingClassGroup = await prisma.classGroup.findFirst({
       where: {
         id: params.classGroupId,
         courseId: params.courseId,
-        teacherId: session.user.id,
       },
     });
 
@@ -116,12 +140,36 @@ export async function DELETE(
       );
     }
 
-    // 학반 존재 여부 및 소유권 확인
+    const course = await prisma.course.findFirst({
+      where: { id: params.courseId },
+      select: { teacherId: true, courseType: true },
+    });
+
+    if (!course) {
+      return NextResponse.json(
+        { error: "수업을 찾을 수 없거나 삭제 권한이 없습니다." },
+        { status: 404 }
+      );
+    }
+
+    const isTeacherOwner = session.user.id === course.teacherId;
+    const isAfterSchoolManager =
+      course.courseType === "after_school" &&
+      !!(await (prisma as any).afterSchoolManager.findFirst({
+        where: { teacherId: session.user.id },
+      }));
+
+    if (!isTeacherOwner && !isAfterSchoolManager) {
+      return NextResponse.json(
+        { error: "학반 삭제 권한이 없습니다." },
+        { status: 403 }
+      );
+    }
+
     const existingClassGroup = await prisma.classGroup.findFirst({
       where: {
         id: params.classGroupId,
         courseId: params.courseId,
-        teacherId: session.user.id,
       },
     });
 

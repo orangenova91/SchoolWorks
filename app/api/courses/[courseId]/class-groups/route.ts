@@ -34,12 +34,9 @@ export async function GET(
       );
     }
 
-    // 수업 존재 여부 및 소유권 확인
     const course = await prisma.course.findFirst({
-      where: {
-        id: params.courseId,
-        teacherId: session.user.id,
-      },
+      where: { id: params.courseId },
+      select: { teacherId: true, courseType: true },
     });
 
     if (!course) {
@@ -49,11 +46,24 @@ export async function GET(
       );
     }
 
+    const isTeacherOwner = session.user.id === course.teacherId;
+    const isAfterSchoolManager =
+      course.courseType === "after_school" &&
+      !!(await (prisma as any).afterSchoolManager.findFirst({
+        where: { teacherId: session.user.id },
+      }));
+
+    if (!isTeacherOwner && !isAfterSchoolManager) {
+      return NextResponse.json(
+        { error: "학반 조회 권한이 없습니다." },
+        { status: 403 }
+      );
+    }
+
     // 학반 목록 조회
     const classGroups = await prisma.classGroup.findMany({
       where: {
         courseId: params.courseId,
-        teacherId: session.user.id,
       },
       orderBy: {
         createdAt: "desc",
@@ -94,12 +104,9 @@ export async function POST(
       );
     }
 
-    // 수업 존재 여부 및 소유권 확인
     const course = await prisma.course.findFirst({
-      where: {
-        id: params.courseId,
-        teacherId: session.user.id,
-      },
+      where: { id: params.courseId },
+      select: { teacherId: true, courseType: true },
     });
 
     if (!course) {
@@ -109,12 +116,26 @@ export async function POST(
       );
     }
 
+    const isTeacherOwner = session.user.id === course.teacherId;
+    const isAfterSchoolManager =
+      course.courseType === "after_school" &&
+      !!(await (prisma as any).afterSchoolManager.findFirst({
+        where: { teacherId: session.user.id },
+      }));
+
+    if (!isTeacherOwner && !isAfterSchoolManager) {
+      return NextResponse.json(
+        { error: "학반 생성 권한이 없습니다." },
+        { status: 403 }
+      );
+    }
+
     const body = await request.json();
     const validatedData = createClassGroupSchema.parse(body);
 
     console.log("학반 생성 요청:", {
       courseId: params.courseId,
-      teacherId: session.user.id,
+      teacherId: course.teacherId,
       name: validatedData.name,
       period: validatedData.period,
       schedulesCount: validatedData.schedules.length,
@@ -129,7 +150,7 @@ export async function POST(
         schedules: JSON.stringify(validatedData.schedules),
         courseId: params.courseId,
         studentIds: validatedData.studentIds,
-        teacherId: session.user.id,
+        teacherId: course.teacherId!,
       },
     });
 

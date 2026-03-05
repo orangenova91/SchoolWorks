@@ -100,13 +100,15 @@ export async function GET(request: NextRequest) {
       courseType: "after_school",
     };
 
-    // 교사는 자신이 생성한 강의만, 학생은 학교의 모든 방과후 수업 강의 조회
-    if (session.user.role === "teacher") {
+    const url = new URL(request.url);
+    const scopeAll = url.searchParams.get("scope") === "all";
+
+    // 교사: 기본은 자신 강의만, scope=all이면 같은 학교 교사 전체 강의. 학생: 같은 학교 전체 강의
+    if (session.user.role === "teacher" && !scopeAll) {
       where.teacherId = session.user.id;
       console.log("Fetching after-school courses for teacherId:", session.user.id);
     } else {
-      // 학생은 같은 학교의 모든 방과후 수업 강의 조회
-      // teacherId로 User를 조인하여 school 필터링
+      // 학생이거나 교사+scope=all: 같은 학교의 모든 방과후 수업 강의 조회
       const teachers = await (prisma as any).user.findMany({
         where: {
           role: "teacher",
@@ -116,13 +118,11 @@ export async function GET(request: NextRequest) {
       });
       const teacherIds = teachers.map((t: any) => t.id);
       if (teacherIds.length > 0) {
-        // MongoDB에서는 in 연산자 사용
         where.teacherId = { in: teacherIds };
       } else {
-        // 해당 학교에 교사가 없으면 빈 배열 반환
         return NextResponse.json({ courses: [] });
       }
-      console.log("Fetching after-school courses for student school:", session.user.school, "teacherIds:", teacherIds.length);
+      console.log("Fetching after-school courses (scope=all or student), school:", session.user.school, "teacherIds:", teacherIds.length);
     }
 
     const courses = await (prisma as any).course.findMany({
@@ -137,6 +137,8 @@ export async function GET(request: NextRequest) {
         enrollmentOpen: true,
         academicYear: true,
         semester: true,
+        grade: true,
+        teacherId: true,
         createdAt: true,
       },
     });

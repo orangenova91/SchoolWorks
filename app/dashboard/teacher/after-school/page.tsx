@@ -20,6 +20,11 @@ const CreateCourseSection = dynamic(
   { ssr: false, loading: () => <div className="rounded-2xl border border-gray-200 bg-white p-6">로딩 중...</div> }
 );
 
+const AllCoursesSection = dynamic(
+  () => import("@/components/dashboard/AllCoursesSection"),
+  { ssr: false, loading: () => <div className="rounded-2xl border border-gray-200 bg-white p-6">로딩 중...</div> }
+);
+
 export default async function AfterSchoolPage() {
   const session = await getServerSession(authOptions);
   if (!session) redirect("/login");
@@ -42,7 +47,7 @@ export default async function AfterSchoolPage() {
           tabs={[
             { id: "announcements", label: "공지사항" },
             { id: "student-enroll", label: "강의 신청 및 생성" },
-            { id: "teacher-create", label: "강의 생성(교사)" },
+            { id: "teacher-create", label: "전체 강의 보기" },
             { id: "course-apply", label: "수강 신청(학생)" },
             { id: "classroom", label: "강의실" },
           ]}
@@ -71,8 +76,7 @@ export default async function AfterSchoolPage() {
             </article>,
 
             <article key="teacher-create" className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-              <h2 className="text-lg font-semibold text-gray-900">강의 생성(교사)</h2>
-              <p className="text-sm text-gray-600 mt-2">아직 내용이 없습니다.</p>
+              <AllCoursesSection currentUserId={session.user.id} />
             </article>,
 
             <article key="course-apply" className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
