@@ -59,9 +59,8 @@ export default async function AfterSchoolPage() {
                 description="방과후 수업 관련 공지사항을 작성하고 확인하세요."
                 authorName={session.user.name || session.user.email || "담당 교사"}
                 includeScheduled={true}
-                audience="students"
+                audience="teacher"
                 boardType="board_after_school"
-                showGradeTabs
               />
             </article>,
 

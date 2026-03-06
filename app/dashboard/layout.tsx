@@ -170,10 +170,10 @@ export default async function DashboardLayout({
           },
 
           {
-            href: "/dashboard/teacher/student-progress",
-            label: t.sidebar.teacher.studentProgress,
+            href: "/dashboard/teacher/evaluation",
+            label: "평가",
             icon: <TrendingUp className="w-5 h-5" />,
-            iconName: "TrendingUp"
+            iconName: "ClipboardList"
           },
           {
             href: "/dashboard/teacher/students",

@@ -206,6 +206,22 @@ model EvaluationSubmission {
   @@map("evaluation_submissions")
 }
 
+model EvaluationPlanFile {
+  id               String   @id @default(auto()) @map("_id") @db.ObjectId
+  grade            String   // "1", "2", "3"
+  filePath         String   // Vercel Blob URL
+  originalFileName String
+  fileSize         Int?
+  mimeType         String?
+  school           String
+  uploadedById     String   @db.ObjectId
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([school, grade])
+  @@map("evaluation_plan_files")
+}
+
 model ClassGroup {
   id          String       @id @default(auto()) @map("_id") @db.ObjectId
   name        String // 학반명
