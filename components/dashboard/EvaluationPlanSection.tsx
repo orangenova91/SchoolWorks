@@ -241,10 +241,7 @@ export default function EvaluationPlanSection() {
                         </div>
                         <div className="flex items-center gap-1 flex-shrink-0">
                           <a
-                            href={f.filePath}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            download={f.originalFileName}
+                            href={`/api/evaluation-plan/file/${f.id}`}
                             className="p-1.5 text-gray-500 hover:text-blue-600 rounded"
                             title="다운로드"
                           >
