@@ -19,10 +19,10 @@ const teacherSections = [
     action: t.dashboard.teacherSections.manageClasses.action,
   },
   {
-    key: "studentProgress",
-    title: t.dashboard.teacherSections.studentProgress.title,
-    description: t.dashboard.teacherSections.studentProgress.description,
-    action: t.dashboard.teacherSections.studentProgress.action,
+    key: "evaluation",
+    title: t.dashboard.teacherSections.evaluation.title,
+    description: t.dashboard.teacherSections.evaluation.description,
+    action: t.dashboard.teacherSections.evaluation.action,
   },
   {
     key: "announcements",

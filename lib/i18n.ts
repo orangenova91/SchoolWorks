@@ -6,7 +6,7 @@ export const defaultLocale: Locale = "ko";
 export const translations = {
   ko: {
     app: {
-      version: "Ver.33.3.0",
+      version: "Ver.33.3.2",
     },
     auth: {
       login: "로그인",
@@ -102,6 +102,11 @@ export const translations = {
           description: "학생별 성취도와 제출 현황을 확인할 수 있습니다.",
           action: "학생 리포트 보기",
         },
+        evaluation: {
+          title: "평가",
+          description: "평가 문항과 결과를 관리할 수 있습니다.",
+          action: "평가 보기",
+        },
         announcements: {
           title: "가정 안내문",
           description: "알림, 설문 조사, 동의서 등을 작성할 수 있습니다.",
@@ -159,7 +164,7 @@ export const translations = {
   },
   en: {
     app: {
-      version: "Ver.33.3.0",
+      version: "Ver.33.3.2",
     },
     auth: {
       login: "Login",
@@ -254,6 +259,11 @@ export const translations = {
           title: "Student Progress",
           description: "Monitor individual student performance and submissions.",
           action: "View Reports",
+        },
+        evaluation: {
+          title: "Evaluation",
+          description: "Manage evaluation items and results.",
+          action: "View Evaluation",
         },
         announcements: {
           title: "Announcements",
