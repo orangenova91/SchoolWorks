@@ -101,6 +101,8 @@ export async function PUT(
       description,
       academicYear,
       semester,
+      capacity,
+      totalSessions,
     } = body as {
       subject?: string;
       grade?: string;
@@ -112,6 +114,8 @@ export async function PUT(
       description?: string;
       academicYear?: string | null;
       semester?: string | null;
+      capacity?: number | string;
+      totalSessions?: number | string;
     };
 
     if (!subject || typeof subject !== "string" || subject.trim() === "") {
@@ -138,6 +142,13 @@ export async function PUT(
       return NextResponse.json({ error: "수정 권한이 없습니다." }, { status: 403 });
     }
 
+    const capNum =
+      capacity !== undefined && capacity !== "" ? parseInt(String(capacity), 10) : undefined;
+    const totalNum =
+      totalSessions !== undefined && totalSessions !== ""
+        ? parseInt(String(totalSessions), 10)
+        : undefined;
+
     const updated = await prisma.course.update({
       where: { id: courseId },
       data: {
@@ -151,6 +162,8 @@ export async function PUT(
         description: description ?? undefined,
         academicYear: academicYear ?? undefined,
         semester: semester ?? undefined,
+        capacity: capNum !== undefined && !isNaN(capNum) ? capNum : undefined,
+        totalSessions: totalNum !== undefined && !isNaN(totalNum) ? totalNum : undefined,
       },
     });
 

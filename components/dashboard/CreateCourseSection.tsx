@@ -40,6 +40,8 @@ export default function CreateCourseSection({ instructorName }: CreateCourseSect
     academicYear: "",
     semester: "",
     grade: "",
+    capacity: "",
+    totalSessions: "",
   });
   const [periodStart, setPeriodStart] = useState<string>("");
   const [periodEnd, setPeriodEnd] = useState<string>("");
@@ -118,6 +120,8 @@ export default function CreateCourseSection({ instructorName }: CreateCourseSect
             academicYear: updated.academicYear || "",
             semester: updated.semester || "",
             grade: updated.grade || "",
+            capacity: updated.capacity != null ? String(updated.capacity) : "",
+            totalSessions: updated.totalSessions != null ? String(updated.totalSessions) : "",
           });
         } else {
           // If the course was deleted/removed, close the detail modal
@@ -224,6 +228,8 @@ export default function CreateCourseSection({ instructorName }: CreateCourseSect
       academicYear: course.academicYear || "",
       semester: course.semester || "",
       grade: course.grade || "",
+      capacity: course.capacity != null ? String(course.capacity) : "",
+      totalSessions: course.totalSessions != null ? String(course.totalSessions) : "",
     });
     setIsEditingDetail(Boolean(options?.startEditing));
     // Initialize class-group fields.
@@ -326,6 +332,8 @@ export default function CreateCourseSection({ instructorName }: CreateCourseSect
           classroom: detailForm.classroom || "",
           description: detailForm.description || "",
           instructor: instructorName || "",
+          capacity: detailForm.capacity ? String(detailForm.capacity) : undefined,
+          totalSessions: detailForm.totalSessions ? String(detailForm.totalSessions) : undefined,
         };
         const res = await fetch("/api/classes", {
           method: "POST",
@@ -484,14 +492,14 @@ export default function CreateCourseSection({ instructorName }: CreateCourseSect
                     }
                   }}
                   disabled={periodLoading || Boolean(periodStart && periodEnd && new Date(periodEnd) < new Date(periodStart))}
-                  className="inline-flex items-center px-3 py-1 rounded-md bg-green-600 hover:bg-green-700 text-white text-sm disabled:opacity-50 whitespace-nowrap"
+                  className="inline-flex items-center px-3 py-1 rounded-md bg-green-600 hover:bg-green-700 text-white text-sm disabled:opacity-50"
                 >
                   {periodLoading ? "저장중..." : "저장"}
                 </button>
               </div>
             </div>
 
-            <Button onClick={handleOpen} className="bg-green-600 hover:bg-green-700 h-10 whitespace-nowrap">
+            <Button onClick={handleOpen} className="bg-green-600 hover:bg-green-700 h-10">
               강의 생성
             </Button>
           </div>
@@ -510,7 +518,7 @@ export default function CreateCourseSection({ instructorName }: CreateCourseSect
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-gray-200">
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">순</th>
+                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">번호</th>
                     <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">강좌명</th>
                     <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">스케줄</th>
                     <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">강사</th>
@@ -530,12 +538,12 @@ export default function CreateCourseSection({ instructorName }: CreateCourseSect
                       }}
                     >
                       <td className="py-3 px-4 text-sm text-gray-600">{idx + 1}</td>
-                      <td className="py-3 px-2 text-sm text-gray-900">
+                      <td className="py-3 px-4 text-sm text-gray-900">
                         <span className="line-clamp-2 break-words block min-w-0">{c.subject}</span>
                       </td>
-                      <td className="py-3 px-2 text-sm text-gray-600 text-center">{c.classGroupSchedule || "-"}</td>
-                      <td className="py-3 px-2 text-sm text-gray-600 whitespace-nowrap">{c.instructor}</td>
-                      <td className="py-3 px-2 text-sm text-gray-600">
+                      <td className="py-3 px-4 text-sm text-gray-600">{c.classGroupSchedule || "-"}</td>
+                      <td className="py-3 px-4 text-sm text-gray-600">{c.instructor}</td>
+                      <td className="py-3 px-4 text-sm text-gray-600">
                         <Button
                           type="button"
                           onClick={async (e) => {
@@ -569,7 +577,7 @@ export default function CreateCourseSection({ instructorName }: CreateCourseSect
                               alert("상태 변경 중 오류가 발생했습니다.");
                             }
                           }}
-                          className={`flex items-center justify-center px-2 h-7 rounded-md text-sm whitespace-nowrap ${
+                          className={`flex items-center justify-center px-2 h-7 rounded-md text-sm ${
                             c.enrollmentOpen ? "bg-green-600 hover:bg-green-700 text-white" : "bg-gray-200 text-gray-700"
                           }`}
                         >
@@ -577,9 +585,16 @@ export default function CreateCourseSection({ instructorName }: CreateCourseSect
                         </Button>
                       </td>
                       <td className="py-3 px-4 text-sm text-gray-600 text-center">
-                        {Array.isArray(c.firstClassGroupStudentIds) ? `${c.firstClassGroupStudentIds.length}명` : "0명"}
+                        {(() => {
+                          const enrolled = Array.isArray(c.firstClassGroupStudentIds) ? c.firstClassGroupStudentIds.length : 0;
+                          const cap = c.capacity != null ? Number(c.capacity) : null;
+                          if (cap != null && !Number.isNaN(cap)) {
+                            return `${enrolled}/${cap}명`;
+                          }
+                          return `${enrolled}명`;
+                        })()}
                       </td>
-                      <td className="py-3 px-2">
+                      <td className="py-3 px-4">
                         <div className="relative flex justify-end" onClick={(e) => e.stopPropagation()}>
                           <button
                             type="button"
@@ -666,7 +681,7 @@ export default function CreateCourseSection({ instructorName }: CreateCourseSect
             <div
               className="relative w-full max-w-2xl max-h-[92vh] rounded-xl bg-white shadow-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 flex flex-col"
               onClick={(e) => e.stopPropagation()}
-            >
+             >
               <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4 flex-shrink-0">
                 <h2 className="text-lg font-semibold text-gray-900">강의 상세</h2>
                 <button
@@ -683,6 +698,49 @@ export default function CreateCourseSection({ instructorName }: CreateCourseSect
                   e.preventDefault();
                   // Only allow submitting when in editing mode to avoid accidental submits
                   if (!isEditingDetail) return;
+                  // 필수 필드 검증
+                  if (!detailForm.academicYear?.trim()) {
+                    showToast?.("학년도를 입력해주세요.", "error");
+                    return;
+                  }
+                  if (!detailForm.semester?.trim()) {
+                    showToast?.("학기를 선택해주세요.", "error");
+                    return;
+                  }
+                  if (!detailForm.grade?.trim()) {
+                    showToast?.("대상 학년을 선택해주세요.", "error");
+                    return;
+                  }
+                  if (!detailForm.subject?.trim()) {
+                    showToast?.("강좌명을 입력해주세요.", "error");
+                    return;
+                  }
+                  if (!detailForm.classroom?.trim()) {
+                    showToast?.("강의실을 입력해주세요.", "error");
+                    return;
+                  }
+                  if (!detailForm.description?.trim()) {
+                    showToast?.("강의소개를 입력해주세요.", "error");
+                    return;
+                  }
+                  if (!detailForm.capacity?.trim() || parseInt(detailForm.capacity, 10) < 1) {
+                    showToast?.("정원을 입력해주세요.", "error");
+                    return;
+                  }
+                  if (!detailForm.totalSessions?.trim() || parseInt(detailForm.totalSessions, 10) < 1) {
+                    showToast?.("총 시수를 입력해주세요.", "error");
+                    return;
+                  }
+                  const periodNum = parseInt(cgPeriod, 10) || 0;
+                  if (!periodNum || periodNum < 1) {
+                    showToast?.("주당 차시를 입력해주세요.", "error");
+                    return;
+                  }
+                  const incomplete = cgSchedules.slice(0, periodNum).some((s) => !s.day || !s.period);
+                  if (incomplete) {
+                    showToast?.("모든 차시의 요일과 교시를 입력해주세요.", "error");
+                    return;
+                  }
                   const courseId = (detailLocalCourse?.id ?? selectedCourse?.id) as string | undefined;
                   if (courseId) {
                     handleUpdateCourse(courseId);
@@ -714,6 +772,7 @@ export default function CreateCourseSection({ instructorName }: CreateCourseSect
                               value={detailForm.academicYear}
                               onChange={handleDetailChange}
                               readOnly={!canEdit}
+                              required
                               className={inputClass}
                             />
                           </div>
@@ -745,7 +804,7 @@ export default function CreateCourseSection({ instructorName }: CreateCourseSect
                   <div className="flex flex-col sm:flex-row gap-4 sm:items-end">
                     <div className="sm:w-36 flex-shrink-0">
                       <label className="block text-sm font-medium text-gray-700 mb-2">
-                        대상 학년
+                        대상 학년 <span className="text-red-500">*</span>
                       </label>
                       <Select
                         name="grade"
@@ -762,6 +821,27 @@ export default function CreateCourseSection({ instructorName }: CreateCourseSect
                               : undefined
                         }
                       />
+                    </div>
+                    <div className="sm:w-24 flex-shrink-0">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">정원 <span className="text-red-500">*</span></label>
+                      {(() => {
+                        const canEdit = isEditingDetail;
+                        const inputClass = canEdit
+                          ? "w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                          : "w-full px-3 py-2 border border-gray-200 rounded-md bg-gray-50 text-gray-700";
+                        return (
+                          <input
+                            type="number"
+                            min={1}
+                            name="capacity"
+                            value={detailForm.capacity}
+                            onChange={handleDetailChange}
+                            readOnly={!canEdit}
+                            required
+                            className={inputClass}
+                          />
+                        );
+                      })()}
                     </div>
                     <div className="flex-1 min-w-0">
                       <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -785,7 +865,7 @@ export default function CreateCourseSection({ instructorName }: CreateCourseSect
                       })()}
                     </div>
                     <div className="sm:w-36 flex-shrink-0">
-                      <label className="block text-sm font-medium text-gray-700 mb-2">강사</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">강사 <span className="text-red-500">*</span></label>
                       <input
                         type="text"
                         readOnly
@@ -799,7 +879,7 @@ export default function CreateCourseSection({ instructorName }: CreateCourseSect
                   {/* description comes next; class-group section moved below description */}
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">강의실</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">강의실 <span className="text-red-500">*</span></label>
                     {(() => {
                       const canEdit = isEditingDetail;
                       const inputClass = canEdit
@@ -811,6 +891,7 @@ export default function CreateCourseSection({ instructorName }: CreateCourseSect
                           value={detailForm.classroom}
                           onChange={handleDetailChange}
                           readOnly={!canEdit}
+                          required
                           className={inputClass}
                         />
                       );
@@ -832,6 +913,7 @@ export default function CreateCourseSection({ instructorName }: CreateCourseSect
                           value={detailForm.description}
                           onChange={handleDetailChange}
                           readOnly={!canEdit}
+                          required
                           rows={4}
                           className={inputClass}
                         />
@@ -854,11 +936,32 @@ export default function CreateCourseSection({ instructorName }: CreateCourseSect
                           </label>
                           <div className="flex items-start gap-3">
                             <div className="flex-shrink-0">
+                              <label className="block text-xs text-gray-600 mb-1">총 시수 <span className="text-red-500">*</span></label>
+                              {(() => {
+                                const canEdit = isEditingDetail;
+                                const inputClass = canEdit
+                                  ? "w-20 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                                  : "w-20 px-3 py-2 border border-gray-200 rounded-md bg-gray-50 text-gray-700";
+                                return (
+                                  <input
+                                    type="number"
+                                    min={1}
+                                    name="totalSessions"
+                                    value={detailForm.totalSessions}
+                                    onChange={handleDetailChange}
+                                    readOnly={!canEdit}
+                                    required
+                                    className={inputClass}
+                                  />
+                                );
+                              })()}
+                            </div>
+                            <div className="flex-shrink-0">
                               <label
                                 htmlFor="cgPeriod"
                                 className="block text-xs text-gray-600 mb-1"
                               >
-                                차시
+                                주당 차시 <span className="text-red-500">*</span>
                               </label>
                               <Input
                                 id="cgPeriod"
