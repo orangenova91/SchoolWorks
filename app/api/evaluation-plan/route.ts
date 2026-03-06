@@ -12,6 +12,11 @@ const ALLOWED_TYPES = [
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
   "application/vnd.ms-excel",
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  // HWP/HWPX (환경에 따라 다르게 올라올 수 있어 여러 MIME 허용)
+  "application/haansofthwp",
+  "application/x-hwp",
+  "application/vnd.hancom.hwp",
+  "application/vnd.hancom.hwpx",
   "image/jpeg",
   "image/png",
   "image/gif",
@@ -118,10 +123,10 @@ export async function POST(request: NextRequest) {
     const allowed = ALLOWED_TYPES.some((t) => mime.startsWith(t.split("/")[0]) || mime === t);
     if (!allowed && !ALLOWED_TYPES.includes(mime)) {
       const ext = (file.name || "").split(".").pop()?.toLowerCase();
-      const allowedExts = ["pdf", "doc", "docx", "xls", "xlsx", "jpg", "jpeg", "png", "gif", "webp"];
+      const allowedExts = ["pdf", "doc", "docx", "xls", "xlsx", "hwp", "hwpx", "jpg", "jpeg", "png", "gif", "webp"];
       if (!ext || !allowedExts.includes(ext)) {
         return NextResponse.json(
-          { error: "PDF, Word, Excel, 이미지 파일만 업로드할 수 있습니다." },
+          { error: "PDF, Word, Excel, 한글(HWP/HWPX), 이미지 파일만 업로드할 수 있습니다." },
           { status: 400 }
         );
       }

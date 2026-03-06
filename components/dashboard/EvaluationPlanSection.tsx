@@ -205,7 +205,7 @@ export default function EvaluationPlanSection() {
                     <input
                       type="file"
                       className="hidden"
-                      accept=".pdf,.doc,.docx,.xls,.xlsx,.hwp,.ppt,.pptx,.jpg,.jpeg,.png"
+                      accept=".pdf,.doc,.docx,.xls,.xlsx,.hwp,.hwpx,.ppt,.pptx,.jpg,.jpeg,.png"
                       disabled={uploadingGrade !== null}
                       onChange={(e) => handleFileSelect(value, e)}
                     />
