@@ -6,8 +6,22 @@ import { Providers } from "@/components/providers/Providers";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "SchoolHub - 로그인",
+  title: "SchoolHub 학교를 잇다.",
   description: "SchoolHub 로그인 시스템",
+  icons: {
+    icon: "/logo/rounded-in-photoretrica.png",
+  },
+  openGraph: {
+    title: "SchoolHub 학교를 잇다.",
+    description: "SchoolHub 로그인 시스템",
+    images: ["/logo/rounded-in-photoretrica.png"],
+  },
+  twitter: {
+    card: "summary",
+    title: "SchoolHub 학교를 잇다.",
+    description: "SchoolHub 로그인 시스템",
+    images: ["/logo/rounded-in-photoretrica.png"],
+  },
 };
 
 export default function RootLayout({
