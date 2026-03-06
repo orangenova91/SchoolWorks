@@ -140,6 +140,8 @@ export async function GET(request: NextRequest) {
         grade: true,
         teacherId: true,
         createdAt: true,
+        capacity: true,
+        totalSessions: true,
       },
     });
 

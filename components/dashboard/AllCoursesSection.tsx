@@ -2,6 +2,7 @@
 
 import type React from "react";
 import { useEffect, useState } from "react";
+import { X } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
@@ -24,6 +25,8 @@ export default function AllCoursesSection({ currentUserId }: AllCoursesSectionPr
     grade: "",
     classroom: "",
     description: "",
+    capacity: "",
+    totalSessions: "",
   });
   const [cgPeriod, setCgPeriod] = useState("1");
   const [cgSchedules, setCgSchedules] = useState<Array<{ day: string; period: string }>>([
@@ -343,6 +346,8 @@ export default function AllCoursesSection({ currentUserId }: AllCoursesSectionPr
       grade: course.grade || "",
       classroom: course.classroom || "",
       description: course.description || "",
+      capacity: course.capacity != null ? String(course.capacity) : "",
+      totalSessions: course.totalSessions != null ? String(course.totalSessions) : "",
     });
     setEditError(null);
     setCgErrors({});
@@ -386,31 +391,53 @@ export default function AllCoursesSection({ currentUserId }: AllCoursesSectionPr
 
   const handleSave = async () => {
     if (!editingCourse) return;
+    // 필수 필드 검증
+    if (!editForm.academicYear?.trim()) {
+      setEditError("학년도를 입력해주세요.");
+      return;
+    }
+    if (!editForm.semester?.trim()) {
+      setEditError("학기를 선택해주세요.");
+      return;
+    }
+    if (!editForm.grade?.trim()) {
+      setEditError("대상 학년을 선택해주세요.");
+      return;
+    }
     if (!editForm.subject.trim()) {
       setEditError("강좌명을 입력해주세요.");
       return;
     }
-
-    // Validate schedule only when 차시가 입력된 경우
-    const periodNum = parseInt(cgPeriod, 10) || 0;
-    let shouldUpdateClassGroup = false;
-    let trimmedSchedules: Array<{ day: string; period: string }> = [];
-
-    if (periodNum > 0) {
-      shouldUpdateClassGroup = true;
-      const errors: { period?: string; schedules?: string } = {};
-      const slice = cgSchedules.slice(0, periodNum);
-      const incomplete = slice.some((s) => !s.day || !s.period);
-      if (incomplete) {
-        errors.schedules = "모든 차시의 요일과 교시를 입력해주세요.";
-      }
-      if (Object.keys(errors).length > 0) {
-        setCgErrors(errors);
-        setEditError("차시별 요일 및 교시 정보를 확인해주세요.");
-        return;
-      }
-      trimmedSchedules = slice.filter((s) => s.day && s.period);
+    if (!editForm.classroom?.trim()) {
+      setEditError("강의실을 입력해주세요.");
+      return;
     }
+    if (!editForm.description?.trim()) {
+      setEditError("강의소개를 입력해주세요.");
+      return;
+    }
+    if (!editForm.capacity?.trim() || parseInt(editForm.capacity, 10) < 1) {
+      setEditError("정원을 입력해주세요.");
+      return;
+    }
+    if (!editForm.totalSessions?.trim() || parseInt(editForm.totalSessions, 10) < 1) {
+      setEditError("총 시수를 입력해주세요.");
+      return;
+    }
+    const periodNum = parseInt(cgPeriod, 10) || 0;
+    if (!periodNum || periodNum < 1) {
+      setEditError("주당 차시를 입력해주세요.");
+      return;
+    }
+    const incomplete = cgSchedules.slice(0, periodNum).some((s) => !s.day || !s.period);
+    if (incomplete) {
+      setCgErrors({ schedules: "모든 차시의 요일과 교시를 입력해주세요." });
+      setEditError("차시별 요일 및 교시 정보를 확인해주세요.");
+      return;
+    }
+
+    let shouldUpdateClassGroup = true;
+    const trimmedSchedules = cgSchedules.slice(0, periodNum).filter((s) => s.day && s.period);
 
     try {
       setIsSaving(true);
@@ -426,6 +453,8 @@ export default function AllCoursesSection({ currentUserId }: AllCoursesSectionPr
           description: editForm.description || undefined,
           academicYear: editForm.academicYear || undefined,
           semester: editForm.semester || undefined,
+          capacity: editForm.capacity ? String(editForm.capacity) : undefined,
+          totalSessions: editForm.totalSessions ? String(editForm.totalSessions) : undefined,
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -475,6 +504,8 @@ export default function AllCoursesSection({ currentUserId }: AllCoursesSectionPr
                 description: editForm.description,
                 academicYear: editForm.academicYear,
                 semester: editForm.semester,
+                capacity: editForm.capacity ? parseInt(editForm.capacity, 10) : undefined,
+                totalSessions: editForm.totalSessions ? parseInt(editForm.totalSessions, 10) : undefined,
                 classGroupSchedule:
                   typeof updatedScheduleDisplay === "string"
                     ? updatedScheduleDisplay
@@ -669,23 +700,23 @@ export default function AllCoursesSection({ currentUserId }: AllCoursesSectionPr
       )}
       {editingCourse && (
         <div
-          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 px-4 py-8"
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 px-4 py-8 sm:py-8"
           role="dialog"
           aria-modal="true"
           onClick={closeEdit}
         >
           <div
-            className="relative w-full max-w-lg max-h-[90vh] rounded-xl bg-white shadow-xl flex flex-col"
+            className="relative w-full max-w-2xl max-h-[92vh] rounded-xl bg-white shadow-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 flex flex-col"
             onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
-              <h2 className="text-base font-semibold text-gray-900">강의 정보 수정</h2>
+           >
+            <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4 flex-shrink-0">
+              <h2 className="text-lg font-semibold text-gray-900">강의 정보 수정</h2>
               <button
                 type="button"
                 onClick={closeEdit}
-                className="text-sm text-gray-500 hover:text-gray-700"
+                className="text-sm text-gray-500 hover:text-gray-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 rounded-md px-2 py-1"
               >
-                닫기
+                <X className="h-5 w-5" />
               </button>
             </div>
             <form
@@ -695,23 +726,25 @@ export default function AllCoursesSection({ currentUserId }: AllCoursesSectionPr
                   handleSave();
                 }
               }}
-              className="px-6 py-4 space-y-4 overflow-y-auto flex-1 min-h-0"
+              className="px-6 py-6 overflow-y-auto flex-1 min-h-0"
             >
               {editError && <p className="text-sm text-red-600">{editError}</p>}
+              <div className="space-y-6">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    학년도
+                    학년도 <span className="text-red-500">*</span>
                   </label>
                   <Input
                     name="academicYear"
                     value={editForm.academicYear}
                     onChange={handleEditChange}
+                    required
                   />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    학기
+                    학기 <span className="text-red-500">*</span>
                   </label>
                   <Select
                     name="semester"
@@ -725,7 +758,7 @@ export default function AllCoursesSection({ currentUserId }: AllCoursesSectionPr
               <div className="flex flex-col sm:flex-row gap-4 sm:items-end">
                 <div className="sm:w-36 flex-shrink-0">
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    대상 학년
+                    대상 학년 <span className="text-red-500">*</span>
                   </label>
                   <Select
                     name="grade"
@@ -733,6 +766,20 @@ export default function AllCoursesSection({ currentUserId }: AllCoursesSectionPr
                     onChange={handleEditChange}
                     options={gradeOptions}
                     placeholder="대상 학년 선택"
+                  />
+                </div>
+                <div className="sm:w-24 flex-shrink-0">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    정원 <span className="text-red-500">*</span>
+                  </label>
+                  <Input
+                    type="number"
+                    min={1}
+                    name="capacity"
+                    value={editForm.capacity}
+                    onChange={handleEditChange}
+                    required
+                    className="w-full"
                   />
                 </div>
                 <div className="flex-1 min-w-0">
@@ -746,40 +793,68 @@ export default function AllCoursesSection({ currentUserId }: AllCoursesSectionPr
                     required
                   />
                 </div>
+                <div className="sm:w-36 flex-shrink-0">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    강사 <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    readOnly
+                    aria-readonly="true"
+                    value={editingCourse?.instructor ?? ""}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-md bg-gray-50 text-gray-700 shadow-sm"
+                  />
+                </div>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  강의실
+                  강의실 <span className="text-red-500">*</span>
                 </label>
                 <Input
                   name="classroom"
                   value={editForm.classroom}
                   onChange={handleEditChange}
+                  required
                 />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  강의소개
+                  강의소개 <span className="text-red-500">*</span>
                 </label>
                 <textarea
                   name="description"
                   value={editForm.description}
                   onChange={handleEditChange}
+                  required
                   rows={4}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
                 />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  차시별 요일 및 교시
+                  차시별 요일 및 교시 <span className="text-red-500">*</span>
                 </label>
                 <div className="flex items-start gap-3">
+                  <div className="flex-shrink-0">
+                    <label className="block text-xs text-gray-600 mb-1">
+                      총 시수 <span className="text-red-500">*</span>
+                    </label>
+                    <Input
+                      type="number"
+                      min={1}
+                      name="totalSessions"
+                      value={editForm.totalSessions}
+                      onChange={handleEditChange}
+                      required
+                      className="w-20"
+                    />
+                  </div>
                   <div className="flex-shrink-0">
                     <label
                       htmlFor="cgPeriod"
                       className="block text-xs text-gray-600 mb-1"
                     >
-                      차시
+                      주당 차시 <span className="text-red-500">*</span>
                     </label>
                     <Input
                       id="cgPeriod"
@@ -881,6 +956,7 @@ export default function AllCoursesSection({ currentUserId }: AllCoursesSectionPr
                     {isSaving ? "저장 중..." : "저장"}
                   </Button>
                 </div>
+              </div>
               </div>
             </form>
           </div>

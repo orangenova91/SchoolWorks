@@ -45,6 +45,8 @@ const createClassSchema = z
       .min(1, "강의소개를 입력하세요")
       .max(1000, "강의소개는 1000자 이하여야 합니다"),
     instructor: z.string().trim().optional(),
+    capacity: z.union([z.number().int().positive(), z.string()]).optional(),
+    totalSessions: z.union([z.number().int().positive(), z.string()]).optional(),
   })
   .superRefine((data, ctx) => {
     const courseType = data.courseType ?? "regular";
@@ -102,6 +104,17 @@ export async function POST(request: NextRequest) {
 
     const joinCode = await generateUniqueJoinCode();
 
+    const capacityNum =
+      data.capacity !== undefined && data.capacity !== ""
+        ? (typeof data.capacity === "number" ? data.capacity : parseInt(String(data.capacity), 10))
+        : undefined;
+    const totalSessionsNum =
+      data.totalSessions !== undefined && data.totalSessions !== ""
+        ? (typeof data.totalSessions === "number"
+            ? data.totalSessions
+            : parseInt(String(data.totalSessions), 10))
+        : undefined;
+
     const newClass = await prisma.course.create({
       data: {
         courseType,
@@ -115,6 +128,8 @@ export async function POST(request: NextRequest) {
         instructor: instructorName,
         classroom: data.classroom ?? "",
         description: data.description,
+        capacity: capacityNum !== undefined && !isNaN(capacityNum) ? capacityNum : undefined,
+        totalSessions: totalSessionsNum !== undefined && !isNaN(totalSessionsNum) ? totalSessionsNum : undefined,
         joinCode,
         teacherId: session.user.id,
       },

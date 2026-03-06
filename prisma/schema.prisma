@@ -105,6 +105,8 @@ model Course {
   instructor          String
   classroom           String
   description         String               @default("")
+  capacity            Int?
+  totalSessions       Int?
   joinCode            String?
   enrollmentOpen      Boolean              @default(true)
   teacherId           String?              @db.ObjectId
