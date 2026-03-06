@@ -15,9 +15,11 @@ const sanitizeFileName = (name: string) => {
 };
 
 const encodeContentDisposition = (fileName: string) => {
-  // RFC 5987
-  const utf8 = encodeURIComponent(fileName);
-  const asciiFallback = fileName.replace(/[^\x20-\x7E]+/g, "_");
+  // HTTP header value must be a ByteString (no raw non-ASCII).
+  // Put UTF-8 filename in filename* (RFC 5987) and keep filename as ASCII fallback.
+  const safeName = sanitizeFileName(fileName).replace(/[\r\n"]/g, "_");
+  const asciiFallback = safeName.replace(/[^\x20-\x7E]+/g, "_");
+  const utf8 = encodeURIComponent(safeName);
   return `attachment; filename="${asciiFallback}"; filename*=UTF-8''${utf8}`;
 };
 
