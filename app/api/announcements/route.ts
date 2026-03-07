@@ -12,6 +12,7 @@ const BOARD_TYPES = [
   "board_students",
   "board_parents",
   "board_class",
+  "board_homeroom",
   "board_after_school",
   "board_work_guide",
   "board_evaluation",
@@ -334,6 +335,7 @@ export async function GET(request: NextRequest) {
     const courseId = searchParams.get("courseId");
     const includeScheduled = searchParams.get("includeScheduled") === "true";
     const boardType = searchParams.get("boardType");
+    const classKey = searchParams.get("classKey"); // 담임반 게시판용 e.g. "1-3"
 
     // 예약된 공지사항 중 발행 시간이 지난 항목 자동 발행
     const now = new Date();
@@ -643,6 +645,34 @@ export async function GET(request: NextRequest) {
           return false;
         }
       });
+    }
+
+    // 담임반 게시판: 교사가 자신의 담임반 공지만 조회 (classKey 없으면 해당 게시판 미사용으로 빈 목록)
+    if (session.user.role === "teacher" && boardType === "board_homeroom" && !classKey) {
+      announcements = [];
+    } else if (session.user.role === "teacher" && boardType === "board_homeroom" && classKey) {
+      const normalizeNumber = (value: string) => value.trim().replace(/^0+/, "");
+      const [homeroomGrade, homeroomClassNumber] = classKey.split("-").map((s) => normalizeNumber(s?.trim() || ""));
+      if (homeroomGrade && homeroomClassNumber) {
+        announcements = announcements.filter((announcement: any) => {
+          if (!announcement.selectedClasses) return false;
+          try {
+            const selected = JSON.parse(announcement.selectedClasses) as Array<{
+              grade: string;
+              classNumber: string;
+            }>;
+            if (!Array.isArray(selected) || selected.length === 0) return false;
+            return selected.some(
+              (cls: { grade: string; classNumber: string }) =>
+                normalizeNumber(cls.grade) === homeroomGrade &&
+                normalizeNumber(cls.classNumber) === homeroomClassNumber
+            );
+          } catch (error) {
+            console.error("Error parsing selectedClasses for board_homeroom:", error);
+            return false;
+          }
+        });
+      }
     }
 
     // 클라이언트 측에서 정렬: publishedAt 우선, 없으면 publishAt, 없으면 createdAt

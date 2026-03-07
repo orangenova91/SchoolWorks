@@ -61,7 +61,7 @@ export function ToastComponent({ toast, onClose }: ToastProps) {
 export function ToastContainer({ toasts, onClose }: { toasts: Toast[]; onClose: (id: string) => void }) {
   return (
     <div
-      className="fixed top-4 right-4 z-50 flex flex-col gap-2"
+      className="fixed top-4 right-4 z-[10000] flex flex-col gap-2"
       role="region"
       aria-label="Notifications"
     >

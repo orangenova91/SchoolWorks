@@ -5,6 +5,11 @@ import { AnnouncementHeader } from "@/components/dashboard/AnnouncementHeader";
 import { AnnouncementSection } from "@/components/dashboard/AnnouncementSection";
 import { AnnouncementList } from "@/components/dashboard/AnnouncementList";
 
+interface SelectedClass {
+  grade: string;
+  classNumber: string;
+}
+
 interface AnnouncementPageClientProps {
   title: string;
   description: string;
@@ -13,6 +18,10 @@ interface AnnouncementPageClientProps {
   audience?: string;
   boardType?: string;
   courseId?: string;
+  /** 담임반 게시판에서 해당 학급만 조회 (e.g. "1-3") */
+  homeroomClassKey?: string;
+  /** 담임반 게시판 작성 시 선택 고정 학급 */
+  restrictedSelectedClasses?: SelectedClass[];
   showGradeTabs?: boolean;
 }
 
@@ -24,6 +33,8 @@ export function AnnouncementPageClient({
   audience,
   boardType,
   courseId,
+  homeroomClassKey,
+  restrictedSelectedClasses,
   showGradeTabs = false
 }: AnnouncementPageClientProps) {
   const [isOpen, setIsOpen] = useState(false);
@@ -71,6 +82,7 @@ export function AnnouncementPageClient({
           onAnnouncementCreated={handleAnnouncementCreated}
           editId={editId}
           restrictedAudience={audience}
+          restrictedSelectedClasses={restrictedSelectedClasses}
         />
       </header>
       
@@ -82,6 +94,7 @@ export function AnnouncementPageClient({
           audience={audience}
           boardType={boardType}
           courseId={courseId}
+          homeroomClassKey={homeroomClassKey}
           showGradeTabs={showGradeTabs}
           onEdit={handleEdit}
           showEditButton={true}

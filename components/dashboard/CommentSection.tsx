@@ -18,6 +18,7 @@ interface Comment {
   createdAt: string;
   updatedAt: string;
   parentId: string | null;
+  deletedAt: string | null; // 소프트 삭제 시각 (부모 댓글만, 대댓글은 유지)
   replies: Comment[];
 }
 
@@ -118,6 +119,7 @@ export function CommentSection({ announcementId }: CommentSectionProps) {
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         parentId: null,
+        deletedAt: null,
         replies: [],
       };
 
@@ -239,6 +241,7 @@ export function CommentSection({ announcementId }: CommentSectionProps) {
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         parentId,
+        deletedAt: null,
         replies: [],
       };
 
@@ -271,15 +274,16 @@ export function CommentSection({ announcementId }: CommentSectionProps) {
             return {
               ...comment,
               replies: comment.replies.map((r) =>
-                r.id === tempReply.id ? { ...data.comment, replies: [] } : r
+                r.id === tempReply.id ? { ...data.comment, deletedAt: (data.comment as any).deletedAt ?? null, replies: [] } : r
               ),
             };
           }
           if (comment.replies && comment.replies.length > 0) {
             return {
               ...comment,
-              replies: replaceReplyRecursively(comment.replies, parentId, {
+              replies:               replaceReplyRecursively(comment.replies, parentId, {
                 ...data.comment,
+                deletedAt: (data.comment as any).deletedAt ?? null,
                 replies: [],
               }),
             };
@@ -391,18 +395,22 @@ export function CommentSection({ announcementId }: CommentSectionProps) {
     }
   };
 
+  const removeReplyFromTree = (comments: Comment[], replyId: string): Comment[] => {
+    return comments.map((comment) => ({
+      ...comment,
+      replies: comment.replies
+        .filter((r) => r.id !== replyId)
+        .map((r) => ({ ...r, replies: removeReplyFromTree(r.replies, replyId) })),
+    }));
+  };
+
   const handleDeleteComment = async (commentId: string, isReply: boolean = false) => {
     if (!confirm("정말로 이 댓글을 삭제하시겠습니까?")) return;
 
     try {
-      // Optimistic UI 업데이트
+      // Optimistic UI: 대댓글이면 트리에서 제거, 부모면 목록에서 제거(소프트 삭제 시 서버가 업데이트된 댓글 반환)
       if (isReply) {
-        setComments((prev) =>
-          prev.map((comment) => ({
-            ...comment,
-            replies: comment.replies.filter((reply) => reply.id !== commentId),
-          }))
-        );
+        setComments((prev) => removeReplyFromTree(prev, commentId));
       } else {
         setComments((prev) => prev.filter((comment) => comment.id !== commentId));
         setTotalCount((prev) => Math.max(0, prev - 1));
@@ -410,19 +418,34 @@ export function CommentSection({ announcementId }: CommentSectionProps) {
 
       const response = await fetch(
         `/api/announcements/${announcementId}/comments/${commentId}`,
-        {
-          method: "DELETE",
-        }
+        { method: "DELETE" }
       );
 
+      const data = await response.json().catch(() => ({}));
+
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || "댓글 삭제에 실패했습니다.");
+        throw new Error(data.error || "댓글 삭제에 실패했습니다.");
       }
 
-      showToast("댓글이 삭제되었습니다.", "success");
+      // 소프트 삭제된 경우(하위 대댓글이 있음): 서버가 업데이트된 댓글 반환 → 목록에 반영
+      if (data.comment) {
+        const c = data.comment as Comment;
+        if (c.parentId) {
+          // 대댓글 소프트 삭제: 트리 구조이므로 목록 다시 불러오기
+          await fetchComments(currentPage, false);
+        } else {
+          // 부모 댓글 소프트 삭제: 최상위 목록만 갱신
+          setComments((prev) => {
+            const merged = prev.some((x) => x.id === c.id)
+              ? prev.map((comment) => (comment.id === c.id ? { ...c, replies: c.replies } : comment))
+              : [c, ...prev];
+            return merged.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+          });
+        }
+      }
+
+      showToast(data.message || "댓글이 삭제되었습니다.", "success");
     } catch (error: any) {
-      // Optimistic UI 롤백
       fetchComments(currentPage, false);
       showToast(error.message || "댓글 삭제 중 오류가 발생했습니다.", "error");
     }
@@ -580,41 +603,44 @@ function CommentItem({
   const isAuthor = comment.authorId === session?.user?.id;
   const isTeacher = session?.user?.role === "teacher";
   const isEditing = editingId === comment.id;
+  const isDeleted = Boolean(comment.deletedAt);
 
   return (
     <div className="border-b border-gray-100 pb-4 last:border-b-0">
       <div className="flex items-start gap-3">
         <div className="flex-1">
-          <div className="flex items-center gap-2 mb-1">
-            {comment.authorRole === "teacher" && (
-              <span className="text-xs px-1.5 py-0.5 rounded bg-blue-100 text-blue-800">
-                교사
+          {!isDeleted && (
+            <div className="flex items-center gap-2 mb-1">
+              {comment.authorRole === "teacher" && (
+                <span className="text-xs px-1.5 py-0.5 rounded bg-blue-100 text-blue-800">
+                  교사
+                </span>
+              )}
+              {comment.authorRole === "student" && (
+                <span className="text-xs px-1.5 py-0.5 rounded bg-green-100 text-green-800">
+                  학생
+                </span>
+              )}
+              {comment.authorRole === "parent" && (
+                <span className="text-xs px-1.5 py-0.5 rounded bg-purple-100 text-purple-800">
+                  학부모
+                </span>
+              )}
+              <span className="font-medium text-sm text-gray-900">
+                {comment.authorRole === "student" && comment.studentId
+                  ? `${comment.studentId} ${comment.author}`
+                  : comment.authorRole === "parent" && comment.childStudentId
+                  ? `${comment.childStudentId} ${comment.author}`
+                  : comment.author}
               </span>
-            )}
-            {comment.authorRole === "student" && (
-              <span className="text-xs px-1.5 py-0.5 rounded bg-green-100 text-green-800">
-                학생
-              </span>
-            )}
-            {comment.authorRole === "parent" && (
-              <span className="text-xs px-1.5 py-0.5 rounded bg-purple-100 text-purple-800">
-                학부모
-              </span>
-            )}
-            <span className="font-medium text-sm text-gray-900">
-              {comment.authorRole === "student" && comment.studentId
-                ? `${comment.studentId} ${comment.author}`
-                : comment.authorRole === "parent" && comment.childStudentId
-                ? `${comment.childStudentId} ${comment.author}`
-                : comment.author}
-            </span>
-            <span className="text-xs text-gray-500">{formatDate(comment.createdAt)}</span>
-            {comment.updatedAt !== comment.createdAt && (
-              <span className="text-xs text-gray-400">(수정됨)</span>
-            )}
-          </div>
+              <span className="text-xs text-gray-500">{formatDate(comment.createdAt)}</span>
+              {comment.updatedAt !== comment.createdAt && (
+                <span className="text-xs text-gray-400">(수정됨)</span>
+              )}
+            </div>
+          )}
 
-          {isEditing ? (
+          {!isDeleted && isEditing ? (
             <div className="space-y-2">
               <textarea
                 value={editContent}
@@ -644,10 +670,12 @@ function CommentItem({
               </div>
             </div>
           ) : (
-            <p className="text-sm text-gray-700 whitespace-pre-wrap">{comment.content}</p>
+            <p className={cn("text-sm whitespace-pre-wrap", isDeleted ? "text-gray-400 italic" : "text-gray-700")}>
+              {isDeleted ? "삭제된 댓글입니다." : comment.content}
+            </p>
           )}
 
-          {!isEditing && (
+          {!isEditing && !isDeleted && (
             <div className="flex items-center gap-2 mt-2">
               <button
                 onClick={() => onReplyClick(comment.id)}
@@ -818,7 +846,8 @@ function ReplyItem({
   const isTeacher = session?.user?.role === "teacher";
   const isEditing = editingId === reply.id;
   const isReplying = replyingTo === reply.id;
-  
+  const isDeleted = Boolean(reply.deletedAt);
+
   // depth에 따라 들여쓰기 클래스 결정
   const getIndentClass = (d: number) => {
     switch (d) {
@@ -841,36 +870,38 @@ function ReplyItem({
     <div>
       <div className="flex items-start gap-2">
         <div className="flex-1">
-          <div className="flex items-center gap-2 mb-1">
-            {reply.authorRole === "teacher" && (
-              <span className="text-xs px-1 py-0.5 rounded bg-blue-100 text-blue-800">
-                교사
+          {!isDeleted && (
+            <div className="flex items-center gap-2 mb-1">
+              {reply.authorRole === "teacher" && (
+                <span className="text-xs px-1 py-0.5 rounded bg-blue-100 text-blue-800">
+                  교사
+                </span>
+              )}
+              {reply.authorRole === "student" && (
+                <span className="text-xs px-1 py-0.5 rounded bg-green-100 text-green-800">
+                  학생
+                </span>
+              )}
+              {reply.authorRole === "parent" && (
+                <span className="text-xs px-1 py-0.5 rounded bg-purple-100 text-purple-800">
+                  학부모
+                </span>
+              )}
+              <span className="font-medium text-xs text-gray-900">
+                {reply.authorRole === "student" && reply.studentId
+                  ? `${reply.studentId} ${reply.author}`
+                  : reply.authorRole === "parent" && reply.childStudentId
+                  ? `${reply.childStudentId} ${reply.author}`
+                  : reply.author}
               </span>
-            )}
-            {reply.authorRole === "student" && (
-              <span className="text-xs px-1 py-0.5 rounded bg-green-100 text-green-800">
-                학생
-              </span>
-            )}
-            {reply.authorRole === "parent" && (
-              <span className="text-xs px-1 py-0.5 rounded bg-purple-100 text-purple-800">
-                학부모
-              </span>
-            )}
-            <span className="font-medium text-xs text-gray-900">
-              {reply.authorRole === "student" && reply.studentId
-                ? `${reply.studentId} ${reply.author}`
-                : reply.authorRole === "parent" && reply.childStudentId
-                ? `${reply.childStudentId} ${reply.author}`
-                : reply.author}
-            </span>
-            <span className="text-xs text-gray-500">{formatDate(reply.createdAt)}</span>
-            {reply.updatedAt !== reply.createdAt && (
-              <span className="text-xs text-gray-400">(수정됨)</span>
-            )}
-          </div>
+              <span className="text-xs text-gray-500">{formatDate(reply.createdAt)}</span>
+              {reply.updatedAt !== reply.createdAt && (
+                <span className="text-xs text-gray-400">(수정됨)</span>
+              )}
+            </div>
+          )}
 
-          {isEditing ? (
+          {!isDeleted && isEditing ? (
             <div className="space-y-2">
               <textarea
                 value={editContent}
@@ -900,10 +931,12 @@ function ReplyItem({
               </div>
             </div>
           ) : (
-            <p className="text-xs text-gray-700 whitespace-pre-wrap">{reply.content}</p>
+            <p className={cn("text-xs whitespace-pre-wrap", isDeleted ? "text-gray-400 italic" : "text-gray-700")}>
+              {isDeleted ? "삭제된 댓글입니다." : reply.content}
+            </p>
           )}
 
-          {!isEditing && (
+          {!isEditing && !isDeleted && (
             <div className="flex items-center gap-2 mt-1">
               <button
                 onClick={() => onReplyClick(reply.id)}

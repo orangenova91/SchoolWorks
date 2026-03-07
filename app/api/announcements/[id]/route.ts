@@ -12,6 +12,7 @@ const BOARD_TYPES = [
   "board_students",
   "board_parents",
   "board_class",
+  "board_homeroom",
   "board_after_school",
   "board_work_guide",
   "board_evaluation",
@@ -575,6 +576,7 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  const id = params.id;
   try {
     const session = await getServerSession(authOptions);
 
@@ -587,7 +589,7 @@ export async function DELETE(
 
     // 기존 안내문 조회
     const existingAnnouncement = await (prisma as any).announcement.findUnique({
-      where: { id: params.id },
+      where: { id },
     });
 
     if (!existingAnnouncement) {
@@ -610,18 +612,42 @@ export async function DELETE(
       return NextResponse.json({ error: "권한이 없습니다." }, { status: 403 });
     }
 
+    // 연관 데이터를 순서대로 삭제 (Comment는 self-relation이라 리프부터 삭제)
+    const p = prisma as any;
+    for (;;) {
+      const all = await p.comment.findMany({
+        where: { announcementId: id },
+        select: { id: true },
+      });
+      if (all.length === 0) break;
+      const asParent = await p.comment.findMany({
+        where: { announcementId: id, parentId: { not: null } },
+        select: { parentId: true },
+      });
+      const parentIds = new Set(asParent.map((r: { parentId: string | null }) => r.parentId).filter(Boolean));
+      const leafIds = all.filter((c: { id: string }) => !parentIds.has(c.id)).map((c: { id: string }) => c.id);
+      if (leafIds.length === 0) break;
+      await p.comment.deleteMany({
+        where: { id: { in: leafIds } },
+      });
+    }
+    await p.announcementView.deleteMany({ where: { announcementId: id } });
+    await p.announcementConsent.deleteMany({ where: { announcementId: id } });
+    await p.announcementSurveyResponse.deleteMany({ where: { announcementId: id } });
+
     // 안내문 삭제
-    await (prisma as any).announcement.delete({
-      where: { id: params.id },
+    await p.announcement.delete({
+      where: { id },
     });
 
     return NextResponse.json({
       message: "안내문이 삭제되었습니다.",
     });
-  } catch (error) {
+  } catch (error: any) {
+    const message = error?.message ?? "안내문 삭제 중 오류가 발생했습니다.";
     console.error("Delete announcement error:", error);
     return NextResponse.json(
-      { error: "안내문 삭제 중 오류가 발생했습니다." },
+      { error: message },
       { status: 500 }
     );
   }

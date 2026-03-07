@@ -97,19 +97,22 @@ export default async function AdminSystemPage() {
       })
     : [];
 
-  const adminSchools = !normalizedSchoolName
-    ? await prisma.school.findMany({
-        where: { adminUserId: session.user.id },
-        select: { id: true, name: true, logoUrl: true, updatedAt: true },
-        orderBy: { updatedAt: "desc" },
-      })
-    : [];
+  const adminSchools = await prisma.school.findMany({
+    where: { adminUserId: session.user.id },
+    select: { id: true, name: true, logoUrl: true, updatedAt: true },
+    orderBy: { updatedAt: "desc" },
+  });
 
+  const seenIds = new Set<string>();
   const schoolCandidates = [
     ...(primarySchool ? [primarySchool] : []),
     ...nameSchools,
     ...adminSchools,
-  ];
+  ].filter((s) => {
+    if (seenIds.has(s.id)) return false;
+    seenIds.add(s.id);
+    return true;
+  });
 
   const schoolWithLogo = schoolCandidates.find((item) => item.logoUrl);
   const school = schoolWithLogo ?? schoolCandidates[0] ?? null;
@@ -198,6 +201,7 @@ export default async function AdminSystemPage() {
       </section>
 
       <SchoolLogoManager
+        schoolId={school?.id ?? null}
         schoolName={school?.name ?? null}
         initialLogoUrl={school?.logoUrl ?? null}
       />

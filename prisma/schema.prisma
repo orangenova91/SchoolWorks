@@ -298,6 +298,8 @@ model StudentProfile {
   major                      String?
   sex                        String?
   classOfficer               String?
+  officerAssists             String[]  @default([]) // 부서원으로 참여하는 역할 1개만 (학급 내 중복·담당과 겹침 불가)
+  studentCouncilRole         String?   // 학생회 직위 1개 (학교 단위, 담당만)
   specialEducation           String?
   phoneNumber                String?
   siblings                   String?
@@ -571,7 +573,8 @@ model Comment {
   announcement   Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
   authorId       String       @db.ObjectId
   author         User         @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  content        String       // 댓글 내용
+  content        String       // 댓글 내용 (삭제된 경우 "삭제된 댓글입니다."로 저장)
+  deletedAt      DateTime?    // 소프트 삭제 시각 (대댓글이 있을 때 부모 삭제 시 사용)
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
   parentId       String?      @db.ObjectId // 대댓글을 위한 부모 댓글 ID
@@ -707,4 +710,35 @@ model SupervisionMealConfig {
   @@unique([school, year, month])
   @@index([school])
   @@map("supervision_meal_configs")
+}
+
+// 학교별 학급·학생회 조직 명칭 설정 (학급직 등 드롭다운 옵션)
+model OrganizationRoleConfig {
+  id                   String   @id @default(auto()) @map("_id") @db.ObjectId
+  school               String   @unique // 학교 (User.school과 동일)
+  classOfficerRoles    String[] @default([]) // 학급 조직 명칭 목록 (예: 반장, 부반장, 총무)
+  studentCouncilRoles  String[] @default([]) // 학생회 조직 명칭 목록 (예: 학생회장, 부회장)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@map("organization_role_configs")
+}
+
+model CounselingRecord {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  studentId   String   @db.ObjectId
+  teacherId   String   @db.ObjectId
+  counseledAt DateTime
+  type        String?  // "학습", "생활", "진로", "학부모", "기타"
+  summary     String?
+  content     String
+  isPrivate   Boolean  @default(false)
+  attachments String?  // JSON: [{url, name}]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([studentId])
+  @@index([teacherId])
+  @@index([counseledAt])
+  @@map("counseling_records")
 }

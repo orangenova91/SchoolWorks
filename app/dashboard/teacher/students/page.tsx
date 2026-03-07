@@ -54,6 +54,8 @@ export default async function TeacherStudentsPage() {
           section: true,
           sex: true,
           phoneNumber: true,
+          classOfficer: true,
+          studentCouncilRole: true,
         },
       })
     : [];
@@ -66,6 +68,8 @@ export default async function TeacherStudentsPage() {
     section: string | null;
     sex: string | null;
     phoneNumber: string | null;
+    classOfficer: string | null;
+    studentCouncilRole: string | null;
   };
 
   const profileMap = new Map<string, StudentProfileSummary>(
@@ -88,6 +92,8 @@ export default async function TeacherStudentsPage() {
       section: profile?.section ?? "-",
       sex: profile?.sex ?? "-",
       phoneNumber: profile?.phoneNumber ?? "-",
+      classOfficer: profile?.classOfficer ?? "-",
+      studentCouncilRole: profile?.studentCouncilRole ?? "-",
       createdAt: student.createdAt,
     };
 // ... existing code ...

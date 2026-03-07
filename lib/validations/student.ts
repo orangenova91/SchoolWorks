@@ -16,6 +16,7 @@ export const updateStudentProfileSchema = z.object({
   major: z.string().max(100, "전공은 100자 이하여야 합니다").optional().nullable(),
   sex: z.string().max(10, "성별은 10자 이하여야 합니다").optional().nullable(),
   classOfficer: z.string().max(50, "학급직은 50자 이하여야 합니다").optional().nullable(),
+  studentCouncilRole: z.string().max(50, "학생회 직위는 50자 이하여야 합니다").optional().nullable(),
   specialEducation: z.string().max(100, "특수교육은 100자 이하여야 합니다").optional().nullable(),
   phoneNumber: z.string().max(20, "전화번호는 20자 이하여야 합니다").optional().nullable(),
   siblings: z.string().max(100, "형제관계는 100자 이하여야 합니다").optional().nullable(),

@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useMemo } from "react";
 import { useSession } from "next-auth/react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useToastContext } from "@/components/providers/ToastProvider";
 import { Eye, ChevronLeft, ChevronRight, Paperclip } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -45,6 +46,8 @@ interface AnnouncementListProps {
   audience?: string;
   courseId?: string;
   boardType?: string;
+  /** 담임반 게시판에서 해당 학급만 조회할 때 사용 (e.g. "1-3") */
+  homeroomClassKey?: string;
   showGradeTabs?: boolean;
   refreshKey?: number;
   onEdit?: (id: string) => void;
@@ -321,9 +324,14 @@ const getStudentGradeBadges = (announcement: Announcement): Array<{ label: strin
   }
 };
 
-export function AnnouncementList({ includeScheduled = false, audience, courseId, boardType, showGradeTabs = false, refreshKey, onEdit, showEditButton = false, onDelete, showDeleteButton = false }: AnnouncementListProps) {
+export function AnnouncementList({ includeScheduled = false, audience, courseId, boardType, homeroomClassKey, showGradeTabs = false, refreshKey, onEdit, showEditButton = false, onDelete, showDeleteButton = false }: AnnouncementListProps) {
   const { data: session } = useSession();
   const { showToast } = useToastContext();
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const announcementIdFromUrl = searchParams.get("announcement");
+
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -353,6 +361,9 @@ export function AnnouncementList({ includeScheduled = false, audience, courseId,
       if (boardType) {
         params.append("boardType", boardType);
       }
+      if (homeroomClassKey) {
+        params.append("classKey", homeroomClassKey);
+      }
 
       const response = await fetch(`/api/announcements?${params.toString()}`);
       const data = await response.json();
@@ -376,12 +387,44 @@ export function AnnouncementList({ includeScheduled = false, audience, courseId,
   useEffect(() => {
     fetchAnnouncements();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [includeScheduled, audience, boardType, refreshKey]);
+  }, [includeScheduled, audience, boardType, homeroomClassKey, refreshKey]);
 
   // 페이지당 항목 수 변경 시 첫 페이지로 이동
   useEffect(() => {
     setCurrentPage(1);
   }, [itemsPerPage]);
+
+  // URL 쿼리(?announcement=id)가 있으면 해당 안내문 모달 열기
+  useEffect(() => {
+    if (!announcementIdFromUrl || isLoading) return;
+
+    const found = announcements.find((a) => a.id === announcementIdFromUrl);
+    if (found) {
+      setSelectedAnnouncement(found);
+      return;
+    }
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/announcements/${announcementIdFromUrl}`);
+        const data = await res.json();
+        if (cancelled) return;
+        if (!res.ok) {
+          showToast(data.error || "안내문을 불러올 수 없습니다.", "error");
+          return;
+        }
+        if (data.announcement) {
+          setSelectedAnnouncement(data.announcement as Announcement);
+        }
+      } catch {
+        if (!cancelled) showToast("안내문을 불러오는 중 오류가 발생했습니다.", "error");
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [announcementIdFromUrl, isLoading, announcements, showToast]);
 
   // 클라이언트 측 검색 필터링 및 내가 쓴 글 필터
   const filteredAnnouncements = useMemo(() => {
@@ -507,7 +550,10 @@ export function AnnouncementList({ includeScheduled = false, audience, courseId,
 
   const handleAnnouncementClick = async (announcement: Announcement) => {
     setSelectedAnnouncement(announcement);
-    
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("announcement", announcement.id);
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+
     // 조회수 증가 API 호출
     try {
       const response = await fetch(`/api/announcements/${announcement.id}`, {
@@ -969,7 +1015,13 @@ export function AnnouncementList({ includeScheduled = false, audience, courseId,
       <AnnouncementDetailModal
         isOpen={selectedAnnouncement !== null}
         announcement={selectedAnnouncement}
-        onClose={() => setSelectedAnnouncement(null)}
+        onClose={() => {
+          setSelectedAnnouncement(null);
+          const params = new URLSearchParams(searchParams.toString());
+          params.delete("announcement");
+          const query = params.toString();
+          router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+        }}
         onEdit={onEdit}
         onDelete={onDelete}
         showEditButton={showEditButton}

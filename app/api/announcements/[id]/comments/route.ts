@@ -182,6 +182,7 @@ export async function GET(
           createdAt: reply.createdAt.toISOString(),
           updatedAt: reply.updatedAt.toISOString(),
           parentId: reply.parentId,
+          deletedAt: reply.deletedAt?.toISOString() ?? null,
           replies: reply.replies ? await transformReplies(reply.replies) : [],
         };
       }));
@@ -205,6 +206,7 @@ export async function GET(
           createdAt: comment.createdAt.toISOString(),
           updatedAt: comment.updatedAt.toISOString(),
           parentId: comment.parentId,
+          deletedAt: comment.deletedAt?.toISOString() ?? null,
           replies: await transformReplies(comment.replies || []),
         };
       }));
