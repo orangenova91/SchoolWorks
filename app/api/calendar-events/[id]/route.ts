@@ -18,7 +18,7 @@ const updateEventSchema = z.object({
   scheduleArea: z.enum(["창의적 체험활동", "교과", "개인일정(나만 보기)"]).optional(),
   gradeLevels: z.array(z.enum(GRADE_VALUES)).optional(),
   periods: z.array(z.enum(PERIOD_VALUES)).optional(),
-  activityContent: z.string().trim().max(500, "활동 내용은 500자 이하여야 합니다").optional(),
+  activityContent: z.string().trim().max(500, "활동 내용은 500자 이하여야 합니다").optional().nullable(),
 });
 
 export const dynamic = 'force-dynamic';

@@ -9,6 +9,7 @@ import CourseTabs from "@/components/dashboard/CourseTabs";
 import StudentListTable from "@/components/dashboard/StudentListTable";
 import AttendanceManagement from "@/components/dashboard/teacher/AttendanceManagement";
 import CounselingManagement from "@/components/dashboard/teacher/CounselingManagement";
+import LifeRecordManagement from "@/components/dashboard/teacher/LifeRecordManagement";
 import UpdateHomeroomModalButton from "@/components/dashboard/UpdateHomeroomModalButton";
 
 const AnnouncementPageClient = dynamic(
@@ -272,19 +273,7 @@ export default async function ClassManagementPage() {
                 />
               </div>
             </article>,
-            <article
-              key="record"
-              className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm space-y-4"
-            >
-              <header className="flex items-center justify-between">
-                <h2 className="text-lg font-semibold text-gray-900">생활기록부 관리</h2>
-              </header>
-              <div className="space-y-4">
-                <div className="text-sm text-gray-600">
-                  <p>서비스 준비중입니다. 빠른 시일 내에 추가 예정입니다.</p>
-                </div>
-              </div>
-            </article>,
+            <LifeRecordManagement key="record" students={homeroomStudents} />,
           ]}
         </CourseTabs>
       </section>

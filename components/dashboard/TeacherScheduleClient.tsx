@@ -7,6 +7,7 @@ import CalendarView, { CalendarEvent, CalendarViewHandle } from "./CalendarView"
 import { Button } from "@/components/ui/Button";
 import BulkUploadButton from "@/components/dashboard/BulkUploadButton";
 import ActivityInputModal from "./ActivityInputModal";
+import ActivitySheetModal from "./ActivitySheetModal";
 
 type TeacherScheduleClientProps = {
   initialEvents: CalendarEvent[];
@@ -172,6 +173,10 @@ export default function TeacherScheduleClient({
     title: string;
     activityContent: string;
   } | null>(null);
+  const [activitySheetModalEvent, setActivitySheetModalEvent] = useState<{
+    id: string;
+    title: string;
+  } | null>(null);
 
   const handleActivitySaved = useCallback((eventId: string, activityContent: string) => {
     setEvents((prev) =>
@@ -186,6 +191,24 @@ export default function TeacherScheduleClient({
         ? prev.map((e) =>
             e.id === eventId
               ? { ...e, extendedProps: { ...e.extendedProps, activityContent } }
+              : e
+          )
+        : prev
+    );
+  }, []);
+
+  const handleActivitySheetSaved = useCallback((eventId: string, questionCount: number) => {
+    setCreativeTabEvents((prev) =>
+      prev
+        ? prev.map((e) =>
+            e.id === eventId
+              ? {
+                  ...e,
+                  extendedProps: {
+                    ...e.extendedProps,
+                    activityQuestionCount: questionCount,
+                  },
+                }
               : e
           )
         : prev
@@ -695,115 +718,142 @@ export default function TeacherScheduleClient({
             <p className="text-sm text-gray-500">창의적 체험활동 일정이 없습니다.</p>
           ) : (
             <>
-              {/* 열 헤더 (sm 이상에서 표시) */}
-              <div className="hidden sm:flex items-center gap-3 text-xs text-gray-500 mt-4 mb-2 pl-3 pr-2">
-                <span className="flex items-center justify-center whitespace-nowrap w-[80px] shrink-0">날짜</span>
-                <span className="flex items-center justify-center min-w-[80px] shrink-0 text-center">교시</span>
-                <span className="flex items-center justify-center flex-1 min-w-0">제목</span>
-                <span className="flex items-center justify-center w-[70px] shrink-0 text-right">부서</span>
-                <span className="flex items-center justify-center w-[70px] shrink-0 text-right">담당자</span>
-                <span className="flex items-center justify-center w-[70px] shrink-0 text-center">학년</span>
-                <span className="flex items-center justify-center w-[70px] shrink-0 text-center">구분</span>
-                <span className="flex items-center justify-center flex-1 min-w-[100px] shrink-0 text-center">활동</span>
-              </div>
-
               {/* 모바일(작은 화면)에서는 간단한 레이블만 표시 */}
-              <div className="sm:hidden text-xs text-gray-500 mb-2 pl-3 pr-2">
+              <div className="sm:hidden text-xs text-gray-500 mb-2 pl-3 pr-2 mt-4">
                 <span>창의적 체험활동 일정 목록</span>
               </div>
 
-              <ul className="space-y-3 flex-1 overflow-y-auto pr-2 max-h-[600px]">
-                {creativeEvents.map((event) => {
-                  const { startDate, ...eventData } = event;
-                  return (
-                    <li
-                      key={event.id}
-                      className="rounded-md border border-gray-100 p-3 hover:bg-gray-50 transition cursor-pointer"
-                      role="button"
-                      tabIndex={0}
-                      onClick={() => calendarRef.current?.openEventModal(eventData)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" || e.key === " ") {
-                          e.preventDefault();
-                          calendarRef.current?.openEventModal(eventData);
-                        }
-                      }}
-                    >
-                      <div className="flex items-center gap-3 text-sm text-gray-600 min-w-0">
-                        {(() => {
-                          const eventType = event.extendedProps.eventType || "교과";
-                          const colors: Record<string, string> = {
-                            "자율*자치": "#dc2626",
-                            "동아리": "#2563eb",
-                            "진로": "#16a34a",
-                            "봉사": "#ca8a04",
-                            "학사행사": "#9333ea",
-                            "개인 일정": "#0d9488",
-                          };
-                          const eventColor = eventType in colors ? colors[eventType] : "#6b7280";
+              <div className="flex-1 overflow-auto pr-2 max-h-[600px] mt-4">
+                <table className="w-full border-collapse table-fixed min-w-[720px]">
+                  <colgroup>
+                    <col style={{ width: "9%" }} />
+                    <col style={{ width: "9%" }} />
+                    <col style={{ width: "20%" }} />
+                    <col style={{ width: "9%" }} />
+                    <col style={{ width: "9%" }} />
+                    <col style={{ width: "9%" }} />
+                    <col style={{ width: "9%" }} />
+                    <col style={{ width: "13%" }} />
+                    <col style={{ width: "13%" }} />
+                  </colgroup>
+                  <thead className="hidden sm:table-header-group">
+                    <tr className="border-b border-gray-200">
+                      <th className="px-2 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">날짜</th>
+                      <th className="px-2 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">교시</th>
+                      <th className="px-2 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">제목</th>
+                      <th className="px-2 py-2 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">부서</th>
+                      <th className="px-2 py-2 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">담당자</th>
+                      <th className="px-2 py-2 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">학년</th>
+                      <th className="px-2 py-2 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">구분</th>
+                      <th className="px-2 py-2 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">활동 내용</th>
+                      <th className="px-2 py-2 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">활동지</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {creativeEvents.map((event) => {
+                      const { startDate, ...eventData } = event;
+                      const eventType = event.extendedProps.eventType || "교과";
+                      const colors: Record<string, string> = {
+                        "자율*자치": "#dc2626",
+                        "동아리": "#2563eb",
+                        "진로": "#16a34a",
+                        "봉사": "#ca8a04",
+                        "학사행사": "#9333ea",
+                        "개인 일정": "#0d9488",
+                      };
+                      const eventColor = eventType in colors ? colors[eventType] : "#6b7280";
+                      const activityContent = (event.extendedProps as { activityContent?: string })?.activityContent;
+                      const activityQuestionCount = (event.extendedProps as { activityQuestionCount?: number })?.activityQuestionCount ?? 0;
 
-                          return (
-                            <>
-                              <span className="whitespace-nowrap w-[80px] shrink-0">{formatDate(startDate)}</span>
-                              <span className="text-xs text-gray-500 whitespace-nowrap min-w-[80px] shrink-0">
-                                {event.extendedProps.periods?.length
-                                  ? `${event.extendedProps.periods.join(", ")}교시`
-                                  : "-"}
+                      return (
+                        <tr
+                          key={event.id}
+                          className="hover:bg-gray-50 transition cursor-pointer"
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => calendarRef.current?.openEventModal(eventData)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault();
+                              calendarRef.current?.openEventModal(eventData);
+                            }
+                          }}
+                        >
+                          <td className="px-2 py-3 text-sm text-gray-600 whitespace-nowrap">{formatDate(startDate)}</td>
+                          <td className="px-2 py-3 text-xs text-gray-500 whitespace-nowrap">
+                            {event.extendedProps.periods?.length
+                              ? `${event.extendedProps.periods.join(", ")}교시`
+                              : "-"}
+                          </td>
+                          <td className="px-2 py-3 text-sm text-gray-900 font-medium min-w-0 break-words">{event.title}</td>
+                          <td className="px-2 py-3 text-xs text-gray-500 text-right truncate max-w-0">{event.extendedProps.department || "-"}</td>
+                          <td className="px-2 py-3 text-xs text-gray-500 text-right truncate max-w-0">{event.extendedProps.responsiblePerson || "-"}</td>
+                          <td className="px-2 py-3 text-xs text-gray-500 text-center whitespace-nowrap">
+                            {event.extendedProps.gradeLevels?.length
+                              ? `${event.extendedProps.gradeLevels.join(", ")}학년`
+                              : "-"}
+                          </td>
+                          <td className="px-2 py-3 text-center">
+                            <span
+                              className="inline-block text-xs px-2 py-0.5 rounded-full whitespace-nowrap border"
+                              style={{ backgroundColor: eventColor, borderColor: eventColor, color: "#ffffff" }}
+                            >
+                              {eventType}
+                            </span>
+                          </td>
+                          <td
+                            className="px-2 py-3 text-xs text-center align-middle"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setActivityModalEvent({
+                                id: event.id,
+                                title: event.title,
+                                activityContent: activityContent || "",
+                              });
+                            }}
+                          >
+                            {activityContent ? (
+                              <span className="text-gray-600 cursor-pointer hover:text-blue-600 line-clamp-2 block">
+                                {activityContent}
                               </span>
-                              <span className="text-gray-900 font-medium flex-1 min-w-0 break-words">
-                                {event.title}
-                              </span>
-                              <span className="text-xs text-gray-500 truncate w-[70px] shrink-0 text-right">
-                                {event.extendedProps.department || "-"}
-                              </span>
-                              <span className="text-xs text-gray-500 truncate w-[70px] shrink-0 text-right">
-                                {event.extendedProps.responsiblePerson || "-"}
-                              </span>
-                              <span className="text-xs text-gray-500 whitespace-nowrap w-[70px] shrink-0 text-center">
-                                {event.extendedProps.gradeLevels?.length
-                                  ? `${event.extendedProps.gradeLevels.join(", ")}학년`
-                                  : "-"}
-                              </span>
-                              <span
-                                className="text-xs px-2 py-0.5 rounded-full whitespace-nowrap border w-[70px] shrink-0 text-center"
-                                style={{ backgroundColor: eventColor, borderColor: eventColor, color: "#ffffff" }}
+                            ) : (
+                              <button
+                                type="button"
+                                className="text-blue-600 hover:text-blue-700 text-xs font-medium cursor-pointer"
                               >
-                                {eventType}
+                                활동 입력
+                              </button>
+                            )}
+                          </td>
+                          <td
+                            className="px-2 py-3 text-xs text-center align-middle"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setActivitySheetModalEvent({
+                                id: event.id,
+                                title: event.title,
+                              });
+                            }}
+                          >
+                            {activityQuestionCount > 0 ? (
+                              <span className="text-gray-600 cursor-pointer hover:text-blue-600">
+                                {activityQuestionCount}개 질문
                               </span>
-                              <span
-                                className="text-xs flex-1 min-w-[100px] shrink-0 line-clamp-2 flex items-center"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setActivityModalEvent({
-                                    id: event.id,
-                                    title: event.title,
-                                    activityContent: (event.extendedProps as any).activityContent || "",
-                                  });
-                                }}
+                            ) : (
+                              <button
+                                type="button"
+                                className="text-blue-600 hover:text-blue-700 text-xs font-medium cursor-pointer"
                               >
-                                {(event.extendedProps as any).activityContent ? (
-                                  <span className="text-gray-600 cursor-pointer hover:text-blue-600 flex justify-center w-full text-center">
-                                    {(event.extendedProps as any).activityContent}
-                                  </span>
-                                ) : (
-                                  <span className="flex justify-center w-full">
-                                    <button
-                                      type="button"
-                                      className="text-blue-600 hover:text-blue-700 text-xs font-medium cursor-pointer"
-                                    >
-                                      활동 입력
-                                    </button>
-                                  </span>
-                                )}
-                              </span>
-                            </>
-                          );
-                        })()}
-                      </div>
-                    </li>
-                  );
-                })}
-              </ul>
+                                활동지 입력
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             </>
           )}
         </div>
@@ -816,6 +866,13 @@ export default function TeacherScheduleClient({
         eventTitle={activityModalEvent?.title ?? ""}
         initialValue={activityModalEvent?.activityContent ?? ""}
         onSaved={handleActivitySaved}
+      />
+      <ActivitySheetModal
+        isOpen={!!activitySheetModalEvent}
+        onClose={() => setActivitySheetModalEvent(null)}
+        eventId={activitySheetModalEvent?.id ?? ""}
+        eventTitle={activitySheetModalEvent?.title ?? ""}
+        onSaved={handleActivitySheetSaved}
       />
     </div>
   );

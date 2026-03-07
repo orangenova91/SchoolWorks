@@ -381,11 +381,11 @@ export default function ClassGroupList({
                     </Button>
                   </div>
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-1">
                   {groupStudents.map((student) => (
                     <div
                       key={student.id}
-                      className="flex items-center justify-between py-2 px-3 border border-gray-200 rounded-md hover:bg-gray-50"
+                      className="flex items-center justify-between py-1 px-3 border border-gray-200 rounded-md hover:bg-gray-50"
                     >
                       <span className="text-sm text-gray-900">
                         {student.name ?? student.email}

@@ -99,6 +99,23 @@ export async function GET(request: NextRequest) {
       periods: string[];
     }>;
 
+    const eventIds = events.map((e) => e.id);
+    let questionCountMap: Record<string, number> = {};
+    if (eventIds.length > 0) {
+      const counts = await (prisma as any).activitySheetQuestion.groupBy({
+        by: ["calendarEventId"],
+        _count: { id: true },
+        where: { calendarEventId: { in: eventIds } },
+      });
+      questionCountMap = counts.reduce(
+        (acc: Record<string, number>, c: { calendarEventId: string; _count: { id: number } }) => {
+          acc[c.calendarEventId] = c._count.id;
+          return acc;
+        },
+        {}
+      );
+    }
+
     // FullCalendar 형식으로 변환
     const formattedEvents = events.map((event) => ({
       id: event.id,
@@ -118,6 +135,7 @@ export async function GET(request: NextRequest) {
         gradeLevels: event.gradeLevels || [],
         periods: event.periods || [],
         activityContent: (event as any).activityContent ?? null,
+        activityQuestionCount: questionCountMap[event.id] ?? 0,
       },
     }));
 

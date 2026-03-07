@@ -373,6 +373,17 @@ model CalendarEvent {
   @@map("calendar_events")
 }
 
+model ActivitySheetQuestion {
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  calendarEventId String   @db.ObjectId
+  questionText    String   // 서술형 질문 문장
+  order           Int      @default(0) // 정렬 순서
+  createdAt       DateTime @default(now())
+
+  @@index([calendarEventId])
+  @@map("activity_sheet_questions")
+}
+
 model Announcement {
   id                    String             @id @default(auto()) @map("_id") @db.ObjectId
   title                 String
