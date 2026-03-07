@@ -33,7 +33,8 @@ function toStudentOptions(items: StudentItem[]): { id: string; name: string; ema
 export default function OrganizationRoles() {
   const { showToast } = useToastContext();
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const [savingClassOfficer, setSavingClassOfficer] = useState(false);
+  const [savingStudentCouncil, setSavingStudentCouncil] = useState(false);
   const [classOfficerRoles, setClassOfficerRoles] = useState<string[]>([]);
   const [savedClassOfficerRoles, setSavedClassOfficerRoles] = useState<string[]>([]); // 저장된 것만 아래 테이블에 사용
   const [studentCouncilRoles, setStudentCouncilRoles] = useState<string[]>([]);
@@ -117,30 +118,58 @@ export default function OrganizationRoles() {
     setStudentCouncilRoles((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const save = async () => {
-    setSaving(true);
+  const saveClassOfficerRoles = async () => {
+    setSavingClassOfficer(true);
     try {
       const res = await fetch("/api/academic-preparation/organization-roles", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          classOfficerRoles,
-          studentCouncilRoles,
-        }),
+        body: JSON.stringify({ classOfficerRoles }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         throw new Error(data?.error ?? "저장에 실패했습니다.");
       }
-      showToast("설정이 저장되었습니다.", "success");
+      showToast("학급 조직 설정이 저장되었습니다.", "success");
       setSavedClassOfficerRoles(classOfficerRoles);
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : "저장에 실패했습니다.", "error");
+    } finally {
+      setSavingClassOfficer(false);
+    }
+  };
+
+  const saveStudentCouncilRoles = async () => {
+    setSavingStudentCouncil(true);
+    try {
+      const res = await fetch("/api/academic-preparation/organization-roles", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ studentCouncilRoles }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data?.error ?? "저장에 실패했습니다.");
+      }
+      showToast("학생회 조직 설정이 저장되었습니다.", "success");
       setSavedStudentCouncilRoles(studentCouncilRoles);
     } catch (e) {
       showToast(e instanceof Error ? e.message : "저장에 실패했습니다.", "error");
     } finally {
-      setSaving(false);
+      setSavingStudentCouncil(false);
     }
   };
+
+  // 변경 여부: 현재 편집값과 저장된 값이 다르면 true
+  const hasClassOfficerChanges = useMemo(() => {
+    if (classOfficerRoles.length !== savedClassOfficerRoles.length) return true;
+    return classOfficerRoles.some((r, i) => r !== savedClassOfficerRoles[i]);
+  }, [classOfficerRoles, savedClassOfficerRoles]);
+
+  const hasStudentCouncilChanges = useMemo(() => {
+    if (studentCouncilRoles.length !== savedStudentCouncilRoles.length) return true;
+    return studentCouncilRoles.some((r, i) => r !== savedStudentCouncilRoles[i]);
+  }, [studentCouncilRoles, savedStudentCouncilRoles]);
 
   // 학년 목록 (학생 데이터에서 추출, 정렬)
   const grades = useMemo(() => {
@@ -460,8 +489,25 @@ export default function OrganizationRoles() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* 학급 조직 설정 */}
         <section className="rounded-xl border border-gray-200 bg-gray-50/50 p-4 sm:p-5">
-          <h3 className="text-base font-medium text-gray-900 mb-3">학급 조직 설정</h3>
-          <p className="text-sm text-gray-600 mb-4">학급에서 사용할 직위 명칭을 추가하거나 삭제하세요.</p>
+          {/* 헤더 부분: 제목/설명과 버튼을 양 옆으로 배치 */}
+          <div className="flex flex-col sm:flex-row justify-between items-start gap-4 mb-4">
+            <div>
+              <h3 className="text-base font-medium text-gray-900 mb-1">학급 조직 설정</h3>
+              <p className="text-sm text-gray-600">
+                학급에서 사용할 직위 명칭을 추가하거나 삭제하세요.
+              </p>
+            </div>
+            <Button 
+              onClick={saveClassOfficerRoles} 
+              disabled={savingClassOfficer || !hasClassOfficerChanges} 
+              isLoading={savingClassOfficer}
+              className="shrink-0"
+            >
+              설정 저장
+            </Button>
+          </div>
+
+          {/* 역할 태그 목록 */}
           <div className="flex flex-wrap gap-2 mb-3">
             {classOfficerRoles.map((role, index) => (
               <span
@@ -480,6 +526,8 @@ export default function OrganizationRoles() {
               </span>
             ))}
           </div>
+
+          {/* 입력 영역 */}
           <div className="flex flex-wrap items-center gap-2">
             <div className="w-full sm:w-48">
               <Input
@@ -499,8 +547,25 @@ export default function OrganizationRoles() {
 
         {/* 학생회 조직 설정 */}
         <section className="rounded-xl border border-gray-200 bg-gray-50/50 p-4 sm:p-5">
-          <h3 className="text-base font-medium text-gray-900 mb-3">학생회 조직 설정</h3>
-          <p className="text-sm text-gray-600 mb-4">학생회에서 사용할 직위 명칭을 추가하거나 삭제하세요.</p>
+          {/* 헤더 부분: 제목/설명과 버튼을 양 옆으로 배치 */}
+          <div className="flex flex-col sm:flex-row justify-between items-start gap-4 mb-4">
+            <div>
+              <h3 className="text-base font-medium text-gray-900 mb-1">학생회 조직 설정</h3>
+              <p className="text-sm text-gray-600">
+                학생회에서 사용할 직위 명칭을 추가하거나 삭제하세요.
+              </p>
+            </div>
+            <Button 
+              onClick={saveStudentCouncilRoles} 
+              disabled={savingStudentCouncil || !hasStudentCouncilChanges} 
+              isLoading={savingStudentCouncil}
+              className="shrink-0"
+            >
+              설정 저장
+            </Button>
+          </div>
+
+          {/* 학생회 역할 태그 목록 */}
           <div className="flex flex-wrap gap-2 mb-3">
             {studentCouncilRoles.map((role, index) => (
               <span
@@ -519,6 +584,8 @@ export default function OrganizationRoles() {
               </span>
             ))}
           </div>
+
+          {/* 입력 영역 */}
           <div className="flex flex-wrap items-center gap-2">
             <div className="w-full sm:w-48">
               <Input
@@ -535,12 +602,6 @@ export default function OrganizationRoles() {
             </Button>
           </div>
         </section>
-      </div>
-
-      <div className="flex justify-end">
-        <Button onClick={save} disabled={saving} isLoading={saving}>
-          설정 저장
-        </Button>
       </div>
 
       {/* 학급별 학급 조직 배치 */}
