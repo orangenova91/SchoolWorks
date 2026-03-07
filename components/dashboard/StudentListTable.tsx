@@ -132,16 +132,16 @@ export default function StudentListTable({
           <tbody className="bg-white divide-y divide-gray-200">
             {students.map((student, index) => (
               <tr key={student.id} className="hover:bg-gray-50">
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                  {index + 1}
+                <td className="px-6 py-2 whitespace-nowrap text-sm text-gray-900">
+                  {index + 1} 
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                <td className="px-6 py-2 whitespace-nowrap text-sm text-gray-900">
                   {student.studentProfile?.studentId || "-"}
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                <td className="px-6 py-2 whitespace-nowrap text-sm font-medium text-gray-900">
                   {student.name || "-"}
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm">
+                <td className="px-6 py-2 whitespace-nowrap text-sm">
                   <button
                     type="button"
                     onClick={() => handleEmailClick(student.email, student.name)}
@@ -151,16 +151,16 @@ export default function StudentListTable({
                     {student.email}
                   </button>
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                <td className="px-6 py-2 whitespace-nowrap text-sm text-gray-900">
                   {student.studentProfile?.classOfficer || "-"}
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                <td className="px-6 py-2 whitespace-nowrap text-sm text-gray-900">
                   {student.studentProfile?.major || "-"}
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                <td className="px-6 py-2 whitespace-nowrap text-sm text-gray-900">
                   {student.studentProfile?.phoneNumber || "-"}
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                <td className="px-6 py-2 whitespace-nowrap text-right text-sm font-medium">
                   <Button
                     variant="outline"
                     size="sm"

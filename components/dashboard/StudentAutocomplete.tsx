@@ -17,6 +17,8 @@ interface StudentAutocompleteProps {
   onChange: (studentId: string) => void;
   students: StudentOption[];
   disabledStudentIds: string[];
+  /** 비활성 옵션 옆에 표시할 텍스트. id → 라벨 (예: 역할명 "학생회장"). 없으면 "(선택됨)" 사용 */
+  disabledLabels?: Record<string, string>;
   placeholder?: string;
   className?: string;
   inputClassName?: string;
@@ -43,6 +45,7 @@ export function StudentAutocomplete({
   onChange,
   students,
   disabledStudentIds,
+  disabledLabels,
   placeholder = "학생 선택",
   className,
   inputClassName,
@@ -149,7 +152,7 @@ export function StudentAutocomplete({
   const showDropdown = isOpen;
 
   return (
-    <div ref={containerRef} className={cn("relative w-[160px]", className)}>
+    <div ref={containerRef} className={cn("relative w-full min-w-[160px]", className)}>
       <div className="relative">
         <input
           ref={inputRef}
@@ -159,7 +162,7 @@ export function StudentAutocomplete({
           onFocus={handleInputFocus}
           placeholder={placeholder}
           className={cn(
-            "w-full px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white",
+            "w-full px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 bg-white",
             !value ? "text-gray-400" : "text-black",
             inputClassName
           )}
@@ -194,6 +197,9 @@ export function StudentAutocomplete({
             ) : (
               filteredStudents.map((student) => {
                 const isDisabled = disabledStudentIds.includes(student.id);
+                const disabledSuffix = isDisabled
+                  ? (disabledLabels?.[student.id] ? ` (${disabledLabels[student.id]})` : " (선택됨)")
+                  : "";
                 return (
                   <button
                     key={student.id}
@@ -207,7 +213,7 @@ export function StudentAutocomplete({
                     )}
                   >
                     {getStudentDisplay(student)}
-                    {isDisabled && " (선택됨)"}
+                    {disabledSuffix}
                   </button>
                 );
               })

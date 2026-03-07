@@ -21,6 +21,7 @@ export async function POST(request: NextRequest) {
 
     const formData = await request.formData();
     const file = formData.get("file") as File | null;
+    const bodySchoolId = formData.get("schoolId") as string | null;
 
     if (!file) {
       return NextResponse.json(
@@ -61,24 +62,46 @@ export async function POST(request: NextRequest) {
       currentUser?.school?.trim() ||
       null;
 
-    const school = currentUser?.adminProfile?.schoolId
-      ? await prisma.school.findUnique({
-          where: { id: currentUser.adminProfile.schoolId },
-          select: { id: true },
-        })
-      : normalizedSchoolName
-      ? await prisma.school.findFirst({
-          where: { name: normalizedSchoolName },
-          select: { id: true },
-        })
-      : await prisma.school.findFirst({
-          where: { adminUserId: session.user.id },
-          select: { id: true },
-        });
+    // 클라이언트에서 전달한 schoolId가 있으면 권한 검증 후 사용
+    let school: { id: string } | null = null;
+    if (bodySchoolId?.trim()) {
+      const candidate = await prisma.school.findUnique({
+        where: { id: bodySchoolId.trim() },
+        select: { id: true, adminUserId: true, name: true },
+      });
+      const allowed =
+        candidate &&
+        (candidate.adminUserId === session.user.id ||
+          candidate.id === currentUser?.adminProfile?.schoolId ||
+          (!!normalizedSchoolName && candidate.name?.trim() === normalizedSchoolName));
+      if (allowed) {
+        school = { id: candidate.id };
+      }
+    }
+
+    // 여러 경로로 학교 후보 탐색 (하나가 실패해도 다음 방법 시도)
+    if (!school && currentUser?.adminProfile?.schoolId) {
+      school = await prisma.school.findUnique({
+        where: { id: currentUser.adminProfile.schoolId },
+        select: { id: true },
+      });
+    }
+    if (!school && normalizedSchoolName) {
+      school = await prisma.school.findFirst({
+        where: { name: normalizedSchoolName },
+        select: { id: true },
+      });
+    }
+    if (!school) {
+      school = await prisma.school.findFirst({
+        where: { adminUserId: session.user.id },
+        select: { id: true },
+      });
+    }
 
     if (!school) {
       return NextResponse.json(
-        { error: "연결된 학교 정보를 찾을 수 없습니다." },
+        { error: "연결된 학교 정보를 찾을 수 없습니다. 관리자 계정이 학교에 연결되어 있는지 확인해주세요." },
         { status: 404 }
       );
     }
@@ -115,7 +138,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-export async function DELETE() {
+export async function DELETE(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
 
@@ -125,6 +148,9 @@ export async function DELETE() {
         { status: 403 }
       );
     }
+
+    const { searchParams } = new URL(request.url);
+    const querySchoolId = searchParams.get("schoolId");
 
     const currentUser = await prisma.user.findUnique({
       where: { id: session.user.id },
@@ -150,12 +176,32 @@ export async function DELETE() {
       updatedAt: Date;
     }> = [];
 
+    // 쿼리로 전달된 schoolId가 있으면 권한 검증 후 후보에 추가
+    if (querySchoolId?.trim()) {
+      const candidate = await prisma.school.findUnique({
+        where: { id: querySchoolId.trim() },
+        select: { id: true, logoUrl: true, updatedAt: true, adminUserId: true, name: true },
+      });
+      const allowed =
+        candidate &&
+        (candidate.adminUserId === session.user.id ||
+          candidate.id === currentUser?.adminProfile?.schoolId ||
+          (!!normalizedSchoolName && candidate.name?.trim() === normalizedSchoolName));
+      if (allowed) {
+        schoolCandidates.push({
+          id: candidate.id,
+          logoUrl: candidate.logoUrl,
+          updatedAt: candidate.updatedAt,
+        });
+      }
+    }
+
     if (currentUser?.adminProfile?.schoolId) {
       const primarySchool = await prisma.school.findUnique({
         where: { id: currentUser.adminProfile.schoolId },
         select: { id: true, logoUrl: true, updatedAt: true },
       });
-      if (primarySchool) {
+      if (primarySchool && !schoolCandidates.some((s) => s.id === primarySchool.id)) {
         schoolCandidates.push(primarySchool);
       }
     }
@@ -166,8 +212,11 @@ export async function DELETE() {
         select: { id: true, logoUrl: true, updatedAt: true },
         orderBy: { updatedAt: "desc" },
       });
-      schoolCandidates.push(...nameSchools);
-    } else if (!schoolCandidates.length) {
+      for (const s of nameSchools) {
+        if (!schoolCandidates.some((c) => c.id === s.id)) schoolCandidates.push(s);
+      }
+    }
+    if (!schoolCandidates.length) {
       const adminSchools = await prisma.school.findMany({
         where: { adminUserId: session.user.id },
         select: { id: true, logoUrl: true, updatedAt: true },
@@ -181,7 +230,7 @@ export async function DELETE() {
 
     if (!school) {
       return NextResponse.json(
-        { error: "연결된 학교 정보를 찾을 수 없습니다." },
+        { error: "연결된 학교 정보를 찾을 수 없습니다. 관리자 계정이 학교에 연결되어 있는지 확인해주세요." },
         { status: 404 }
       );
     }

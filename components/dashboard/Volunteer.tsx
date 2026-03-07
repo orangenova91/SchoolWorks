@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { Edit2, Trash2, Download, HelpCircle } from "lucide-react";
+import React, { useState, useEffect, useMemo } from "react";
+import { Edit2, Trash2, Download, HelpCircle, ChevronUp, ChevronDown } from "lucide-react";
 
 interface Teacher {
   id: string;
@@ -48,6 +48,16 @@ export default function Volunteer() {
   // 각 봉사활동의 각 학반별 학생 선택 상태: { [volunteerId-classLabel]: string[] }
   const [studentSelectionsByClass, setStudentSelectionsByClass] = useState<Record<string, string[]>>({});
   const [showHelpTooltip, setShowHelpTooltip] = useState(false);
+
+  // 담임 선발 테이블 정렬
+  type HomeroomSortKey = "department" | "teacher" | "activityName" | "volunteerArea" | "activityContent" | "startDate" | "endDate" | "grade" | "selectionCount" | "volunteerHours" | "location";
+  const [homeroomSortKey, setHomeroomSortKey] = useState<HomeroomSortKey | null>(null);
+  const [homeroomSortDir, setHomeroomSortDir] = useState<"asc" | "desc">("asc");
+
+  // 담당자 선발 테이블 정렬
+  type ManagerSortKey = "department" | "teacher" | "activityName" | "volunteerArea" | "activityContent" | "startDate" | "endDate" | "grade" | "selectionCount" | "volunteerHours" | "location";
+  const [managerSortKey, setManagerSortKey] = useState<ManagerSortKey | null>(null);
+  const [managerSortDir, setManagerSortDir] = useState<"asc" | "desc">("asc");
   
   // 담당자 선발용 상태
   const [managerVolunteers, setManagerVolunteers] = useState<VolunteerItem[]>([]);
@@ -118,6 +128,90 @@ export default function Volunteer() {
     "캠페인 활동",
     "기타(직접 입력)",
   ];
+
+  function getHomeroomSortValue(item: VolunteerItem, key: HomeroomSortKey): string | number {
+    switch (key) {
+      case "department": return item.department ?? "";
+      case "teacher": return item.teacher ?? "";
+      case "activityName": return item.activityName ?? "";
+      case "volunteerArea": return item.volunteerArea ?? "";
+      case "activityContent": return item.activityContent ?? "";
+      case "startDate": return item.startDate ?? "";
+      case "endDate": return item.endDate ?? "";
+      case "grade": return item.grade ?? "";
+      case "selectionCount": return item.selectionCount ?? 0;
+      case "volunteerHours": return item.volunteerHours ?? 0;
+      case "location": return item.location ?? "";
+      default: return "";
+    }
+  }
+
+  const sortedHomeroomVolunteers = useMemo(() => {
+    if (!homeroomSortKey) return [...volunteers];
+    return [...volunteers].sort((a, b) => {
+      const va = getHomeroomSortValue(a, homeroomSortKey);
+      const vb = getHomeroomSortValue(b, homeroomSortKey);
+      const mul = homeroomSortDir === "asc" ? 1 : -1;
+      const emptyA = va === null || va === "";
+      const emptyB = vb === null || vb === "";
+      if (emptyA && emptyB) return 0;
+      if (emptyA) return mul;
+      if (emptyB) return -mul;
+      if (typeof va === "number" && typeof vb === "number") return mul * (va - vb);
+      return mul * String(va).localeCompare(String(vb));
+    });
+  }, [volunteers, homeroomSortKey, homeroomSortDir]);
+
+  function getManagerSortValue(item: VolunteerItem, key: ManagerSortKey): string | number {
+    switch (key) {
+      case "department": return item.department ?? "";
+      case "teacher": return item.teacher ?? "";
+      case "activityName": return item.activityName ?? "";
+      case "volunteerArea": return item.volunteerArea ?? "";
+      case "activityContent": return item.activityContent ?? "";
+      case "startDate": return item.startDate ?? "";
+      case "endDate": return item.endDate ?? "";
+      case "grade": return item.grade ?? "";
+      case "selectionCount": return item.selectionCount ?? 0;
+      case "volunteerHours": return item.volunteerHours ?? 0;
+      case "location": return item.location ?? "";
+      default: return "";
+    }
+  }
+
+  const sortedManagerVolunteers = useMemo(() => {
+    if (!managerSortKey) return [...managerVolunteers];
+    return [...managerVolunteers].sort((a, b) => {
+      const va = getManagerSortValue(a, managerSortKey);
+      const vb = getManagerSortValue(b, managerSortKey);
+      const mul = managerSortDir === "asc" ? 1 : -1;
+      const emptyA = va === null || va === "";
+      const emptyB = vb === null || vb === "";
+      if (emptyA && emptyB) return 0;
+      if (emptyA) return mul;
+      if (emptyB) return -mul;
+      if (typeof va === "number" && typeof vb === "number") return mul * (va - vb);
+      return mul * String(va).localeCompare(String(vb));
+    });
+  }, [managerVolunteers, managerSortKey, managerSortDir]);
+
+  const handleHomeroomSort = (key: HomeroomSortKey) => {
+    if (homeroomSortKey === key) {
+      setHomeroomSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setHomeroomSortKey(key);
+      setHomeroomSortDir("asc");
+    }
+  };
+
+  const handleManagerSort = (key: ManagerSortKey) => {
+    if (managerSortKey === key) {
+      setManagerSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setManagerSortKey(key);
+      setManagerSortDir("asc");
+    }
+  };
 
   useEffect(() => {
     fetchTeachers();
@@ -1380,17 +1474,106 @@ export default function Volunteer() {
                 <thead>
                   <tr className="border-b border-gray-200">
                     <th className="text-center py-0 px-0 font-semibold text-gray-700 w-10">순</th>
-                    <th className="text-center py-0 px-0 font-semibold text-gray-700 w-20">부서명</th>
-                    <th className="text-center py-0 px-0 font-semibold text-gray-700 w-24">담당교사</th>
-                    <th className="text-center py-0 px-0 font-semibold text-gray-700 w-32">봉사활동명</th>
-                    <th className="text-center py-0 px-0 font-semibold text-gray-700 w-24">봉사 영역</th>
-                    <th className="text-center py-0 px-0 font-semibold text-gray-700" style={{ minWidth: "180px" }}>활동 내용</th>
-                    <th className="text-center py-0 px-0 font-semibold text-gray-700 w-24">시작 날짜</th>
-                    <th className="text-center py-0 px-0 font-semibold text-gray-700 w-24">종료 날짜</th>
-                    <th className="text-center py-0 px-0 font-semibold text-gray-700 w-20">활동 학년</th>
-                    <th className="text-center py-0 px-0 font-semibold text-gray-700 w-20">선발 인원</th>
-                    <th className="text-center py-0 px-0 font-semibold text-gray-700 w-20">봉사 시간</th>
-                    <th className="text-center py-0 px-0 font-semibold text-gray-700 w-24">활동 장소</th>
+                    <th
+                      className="text-center py-0 px-0 font-semibold text-gray-700 w-20 cursor-pointer hover:bg-gray-100 select-none"
+                      onClick={() => handleHomeroomSort("department")}
+                    >
+                      <span className="inline-flex items-center gap-0.5">
+                        부서명
+                        {homeroomSortKey === "department" && (homeroomSortDir === "asc" ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />)}
+                      </span>
+                    </th>
+                    <th
+                      className="text-center py-0 px-0 font-semibold text-gray-700 w-24 cursor-pointer hover:bg-gray-100 select-none"
+                      onClick={() => handleHomeroomSort("teacher")}
+                    >
+                      <span className="inline-flex items-center gap-0.5">
+                        담당교사
+                        {homeroomSortKey === "teacher" && (homeroomSortDir === "asc" ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />)}
+                      </span>
+                    </th>
+                    <th
+                      className="text-center py-0 px-0 font-semibold text-gray-700 w-32 cursor-pointer hover:bg-gray-100 select-none"
+                      onClick={() => handleHomeroomSort("activityName")}
+                    >
+                      <span className="inline-flex items-center gap-0.5">
+                        봉사활동명
+                        {homeroomSortKey === "activityName" && (homeroomSortDir === "asc" ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />)}
+                      </span>
+                    </th>
+                    <th
+                      className="text-center py-0 px-0 font-semibold text-gray-700 w-24 cursor-pointer hover:bg-gray-100 select-none"
+                      onClick={() => handleHomeroomSort("volunteerArea")}
+                    >
+                      <span className="inline-flex items-center gap-0.5">
+                        봉사 영역
+                        {homeroomSortKey === "volunteerArea" && (homeroomSortDir === "asc" ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />)}
+                      </span>
+                    </th>
+                    <th
+                      className="text-center py-0 px-0 font-semibold text-gray-700 cursor-pointer hover:bg-gray-100 select-none"
+                      style={{ minWidth: "180px" }}
+                      onClick={() => handleHomeroomSort("activityContent")}
+                    >
+                      <span className="inline-flex items-center gap-0.5">
+                        활동 내용
+                        {homeroomSortKey === "activityContent" && (homeroomSortDir === "asc" ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />)}
+                      </span>
+                    </th>
+                    <th
+                      className="text-center py-0 px-0 font-semibold text-gray-700 w-24 cursor-pointer hover:bg-gray-100 select-none"
+                      onClick={() => handleHomeroomSort("startDate")}
+                    >
+                      <span className="inline-flex items-center gap-0.5">
+                        시작 날짜
+                        {homeroomSortKey === "startDate" && (homeroomSortDir === "asc" ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />)}
+                      </span>
+                    </th>
+                    <th
+                      className="text-center py-0 px-0 font-semibold text-gray-700 w-24 cursor-pointer hover:bg-gray-100 select-none"
+                      onClick={() => handleHomeroomSort("endDate")}
+                    >
+                      <span className="inline-flex items-center gap-0.5">
+                        종료 날짜
+                        {homeroomSortKey === "endDate" && (homeroomSortDir === "asc" ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />)}
+                      </span>
+                    </th>
+                    <th
+                      className="text-center py-0 px-0 font-semibold text-gray-700 w-20 cursor-pointer hover:bg-gray-100 select-none"
+                      onClick={() => handleHomeroomSort("grade")}
+                    >
+                      <span className="inline-flex items-center gap-0.5">
+                        활동 학년
+                        {homeroomSortKey === "grade" && (homeroomSortDir === "asc" ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />)}
+                      </span>
+                    </th>
+                    <th
+                      className="text-center py-0 px-0 font-semibold text-gray-700 w-20 cursor-pointer hover:bg-gray-100 select-none"
+                      onClick={() => handleHomeroomSort("selectionCount")}
+                    >
+                      <span className="inline-flex items-center gap-0.5">
+                        선발 인원
+                        {homeroomSortKey === "selectionCount" && (homeroomSortDir === "asc" ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />)}
+                      </span>
+                    </th>
+                    <th
+                      className="text-center py-0 px-0 font-semibold text-gray-700 w-20 cursor-pointer hover:bg-gray-100 select-none"
+                      onClick={() => handleHomeroomSort("volunteerHours")}
+                    >
+                      <span className="inline-flex items-center gap-0.5">
+                        봉사 시간
+                        {homeroomSortKey === "volunteerHours" && (homeroomSortDir === "asc" ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />)}
+                      </span>
+                    </th>
+                    <th
+                      className="text-center py-0 px-0 font-semibold text-gray-700 w-24 cursor-pointer hover:bg-gray-100 select-none"
+                      onClick={() => handleHomeroomSort("location")}
+                    >
+                      <span className="inline-flex items-center gap-0.5">
+                        활동 장소
+                        {homeroomSortKey === "location" && (homeroomSortDir === "asc" ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />)}
+                      </span>
+                    </th>
                     <th className="text-center py-0 px-0 font-semibold text-gray-700 w-28">작업</th>
                   </tr>
                 </thead>
@@ -1581,7 +1764,7 @@ export default function Volunteer() {
                       </td>
                     </tr>
                   )}
-                  {volunteers.map((item, idx) => (
+                  {sortedHomeroomVolunteers.map((item, idx) => (
                     <React.Fragment key={item.id}>
                     {editingId === item.id ? (
                       <tr className="border-b border-gray-200 bg-blue-50">
@@ -1949,17 +2132,106 @@ export default function Volunteer() {
                 <thead>
                   <tr className="border-b border-gray-200">
                     <th className="text-center py-0 px-0 font-semibold text-gray-700 w-10">순</th>
-                    <th className="text-center py-0 px-0 font-semibold text-gray-700 w-20">부서명</th>
-                    <th className="text-center py-0 px-0 font-semibold text-gray-700 w-24">담당교사</th>
-                    <th className="text-center py-0 px-0 font-semibold text-gray-700 w-32">봉사활동명</th>
-                    <th className="text-center py-0 px-0 font-semibold text-gray-700 w-24">봉사 영역</th>
-                    <th className="text-center py-0 px-0 font-semibold text-gray-700" style={{ minWidth: "180px" }}>활동 내용</th>
-                    <th className="text-center py-0 px-0 font-semibold text-gray-700 w-24">시작 날짜</th>
-                    <th className="text-center py-0 px-0 font-semibold text-gray-700 w-24">종료 날짜</th>
-                    <th className="text-center py-0 px-0 font-semibold text-gray-700 w-20">활동 학년</th>
-                    <th className="text-center py-0 px-0 font-semibold text-gray-700 w-20">선발 인원</th>
-                    <th className="text-center py-0 px-0 font-semibold text-gray-700 w-20">봉사 시간</th>
-                    <th className="text-center py-0 px-0 font-semibold text-gray-700 w-24">활동 장소</th>
+                    <th
+                      className="text-center py-0 px-0 font-semibold text-gray-700 w-20 cursor-pointer hover:bg-gray-100 select-none"
+                      onClick={() => handleManagerSort("department")}
+                    >
+                      <span className="inline-flex items-center gap-0.5">
+                        부서명
+                        {managerSortKey === "department" && (managerSortDir === "asc" ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />)}
+                      </span>
+                    </th>
+                    <th
+                      className="text-center py-0 px-0 font-semibold text-gray-700 w-24 cursor-pointer hover:bg-gray-100 select-none"
+                      onClick={() => handleManagerSort("teacher")}
+                    >
+                      <span className="inline-flex items-center gap-0.5">
+                        담당교사
+                        {managerSortKey === "teacher" && (managerSortDir === "asc" ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />)}
+                      </span>
+                    </th>
+                    <th
+                      className="text-center py-0 px-0 font-semibold text-gray-700 w-32 cursor-pointer hover:bg-gray-100 select-none"
+                      onClick={() => handleManagerSort("activityName")}
+                    >
+                      <span className="inline-flex items-center gap-0.5">
+                        봉사활동명
+                        {managerSortKey === "activityName" && (managerSortDir === "asc" ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />)}
+                      </span>
+                    </th>
+                    <th
+                      className="text-center py-0 px-0 font-semibold text-gray-700 w-24 cursor-pointer hover:bg-gray-100 select-none"
+                      onClick={() => handleManagerSort("volunteerArea")}
+                    >
+                      <span className="inline-flex items-center gap-0.5">
+                        봉사 영역
+                        {managerSortKey === "volunteerArea" && (managerSortDir === "asc" ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />)}
+                      </span>
+                    </th>
+                    <th
+                      className="text-center py-0 px-0 font-semibold text-gray-700 cursor-pointer hover:bg-gray-100 select-none"
+                      style={{ minWidth: "180px" }}
+                      onClick={() => handleManagerSort("activityContent")}
+                    >
+                      <span className="inline-flex items-center gap-0.5">
+                        활동 내용
+                        {managerSortKey === "activityContent" && (managerSortDir === "asc" ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />)}
+                      </span>
+                    </th>
+                    <th
+                      className="text-center py-0 px-0 font-semibold text-gray-700 w-24 cursor-pointer hover:bg-gray-100 select-none"
+                      onClick={() => handleManagerSort("startDate")}
+                    >
+                      <span className="inline-flex items-center gap-0.5">
+                        시작 날짜
+                        {managerSortKey === "startDate" && (managerSortDir === "asc" ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />)}
+                      </span>
+                    </th>
+                    <th
+                      className="text-center py-0 px-0 font-semibold text-gray-700 w-24 cursor-pointer hover:bg-gray-100 select-none"
+                      onClick={() => handleManagerSort("endDate")}
+                    >
+                      <span className="inline-flex items-center gap-0.5">
+                        종료 날짜
+                        {managerSortKey === "endDate" && (managerSortDir === "asc" ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />)}
+                      </span>
+                    </th>
+                    <th
+                      className="text-center py-0 px-0 font-semibold text-gray-700 w-20 cursor-pointer hover:bg-gray-100 select-none"
+                      onClick={() => handleManagerSort("grade")}
+                    >
+                      <span className="inline-flex items-center gap-0.5">
+                        활동 학년
+                        {managerSortKey === "grade" && (managerSortDir === "asc" ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />)}
+                      </span>
+                    </th>
+                    <th
+                      className="text-center py-0 px-0 font-semibold text-gray-700 w-20 cursor-pointer hover:bg-gray-100 select-none"
+                      onClick={() => handleManagerSort("selectionCount")}
+                    >
+                      <span className="inline-flex items-center gap-0.5">
+                        선발 인원
+                        {managerSortKey === "selectionCount" && (managerSortDir === "asc" ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />)}
+                      </span>
+                    </th>
+                    <th
+                      className="text-center py-0 px-0 font-semibold text-gray-700 w-20 cursor-pointer hover:bg-gray-100 select-none"
+                      onClick={() => handleManagerSort("volunteerHours")}
+                    >
+                      <span className="inline-flex items-center gap-0.5">
+                        봉사 시간
+                        {managerSortKey === "volunteerHours" && (managerSortDir === "asc" ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />)}
+                      </span>
+                    </th>
+                    <th
+                      className="text-center py-0 px-0 font-semibold text-gray-700 w-24 cursor-pointer hover:bg-gray-100 select-none"
+                      onClick={() => handleManagerSort("location")}
+                    >
+                      <span className="inline-flex items-center gap-0.5">
+                        활동 장소
+                        {managerSortKey === "location" && (managerSortDir === "asc" ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />)}
+                      </span>
+                    </th>
                     <th className="text-center py-0 px-0 font-semibold text-gray-700 w-28">작업</th>
                   </tr>
                 </thead>
@@ -2150,7 +2422,7 @@ export default function Volunteer() {
                       </td>
                     </tr>
                   )}
-                  {managerVolunteers.map((item, idx) => (
+                  {sortedManagerVolunteers.map((item, idx) => (
                     <React.Fragment key={item.id}>
                     {managerEditingId === item.id ? (
                       <tr className="border-b border-gray-200 bg-blue-50">

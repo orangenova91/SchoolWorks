@@ -52,6 +52,14 @@ export async function PUT(
       );
     }
 
+    // 삭제된 댓글(소프트 삭제)은 수정 불가
+    if ((comment as any).deletedAt) {
+      return NextResponse.json(
+        { error: "삭제된 댓글은 수정할 수 없습니다." },
+        { status: 400 }
+      );
+    }
+
     const body = await request.json();
     const validatedData = updateCommentSchema.parse(body);
 
@@ -172,8 +180,109 @@ export async function DELETE(
       );
     }
 
-    // 댓글 삭제 (대댓글도 함께 삭제됨 - Cascade)
-    await (prisma as any).comment.delete({
+    const commentModel = (prisma as any).comment;
+
+    // 이미 소프트 삭제된 댓글은 실제 삭제만 허용 (수정 불가 상태이므로)
+    if (comment.deletedAt) {
+      await commentModel.delete({
+        where: { id: params.commentId },
+      });
+      return NextResponse.json({
+        message: "댓글이 삭제되었습니다.",
+      });
+    }
+
+    // 대댓글이 있는 부모 댓글: 소프트 삭제 (내용만 "삭제된 댓글입니다."로 변경, 대댓글은 유지)
+    const replyCount = await commentModel.count({
+      where: { parentId: params.commentId },
+    });
+
+    if (replyCount > 0) {
+      const updated = await commentModel.update({
+        where: { id: params.commentId },
+        data: {
+          content: "삭제된 댓글입니다.",
+          deletedAt: new Date(),
+        },
+        include: {
+          author: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              role: true,
+              studentProfile: { select: { studentId: true } },
+              parentProfile: { select: { studentIds: true } },
+            },
+          },
+          replies: {
+            include: {
+              author: {
+                select: {
+                  id: true,
+                  name: true,
+                  email: true,
+                  role: true,
+                  studentProfile: { select: { studentId: true } },
+                  parentProfile: { select: { studentIds: true } },
+                },
+              },
+            },
+            orderBy: { createdAt: "asc" as const },
+          },
+        },
+      });
+
+      const getChildStudentId = async (parentProfile: any): Promise<string | null> => {
+        if (!parentProfile?.studentIds?.length) return null;
+        const firstChildId = parentProfile.studentIds[0];
+        const child = await (prisma as any).studentProfile.findFirst({
+          where: { userId: firstChildId },
+          select: { studentId: true },
+        });
+        return child?.studentId ?? null;
+      };
+
+      const mapReply = async (reply: any) => ({
+        id: reply.id,
+        content: reply.content,
+        authorId: reply.authorId,
+        author: reply.author?.name || reply.author?.email,
+        authorRole: reply.author?.role,
+        studentId: reply.author?.studentProfile?.studentId ?? null,
+        childStudentId: reply.author?.role === "parent" && reply.author?.parentProfile
+          ? await getChildStudentId(reply.author.parentProfile)
+          : null,
+        createdAt: reply.createdAt.toISOString(),
+        updatedAt: reply.updatedAt.toISOString(),
+        parentId: reply.parentId,
+        deletedAt: reply.deletedAt?.toISOString() ?? null,
+        replies: [],
+      });
+
+      return NextResponse.json({
+        message: "댓글이 삭제되었습니다. 대댓글은 그대로 표시됩니다.",
+        comment: {
+          id: updated.id,
+          content: updated.content,
+          authorId: updated.authorId,
+          author: updated.author?.name || updated.author?.email,
+          authorRole: updated.author?.role,
+          studentId: updated.author?.studentProfile?.studentId ?? null,
+          childStudentId: updated.author?.role === "parent" && updated.author?.parentProfile
+            ? await getChildStudentId(updated.author.parentProfile)
+            : null,
+          createdAt: updated.createdAt.toISOString(),
+          updatedAt: updated.updatedAt.toISOString(),
+          parentId: updated.parentId,
+          deletedAt: updated.deletedAt?.toISOString() ?? null,
+          replies: await Promise.all((updated.replies || []).map(mapReply)),
+        },
+      });
+    }
+
+    // 대댓글 없음: 실제 삭제
+    await commentModel.delete({
       where: { id: params.commentId },
     });
 

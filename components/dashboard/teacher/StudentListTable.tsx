@@ -4,7 +4,7 @@ import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
-import { Download, Edit2 } from "lucide-react";
+import { Download, Edit2, ArrowUp, ArrowDown } from "lucide-react";
 import { EditStudentModal, type StudentWithProfile } from "./EditStudentModal";
 
 type StudentListTableProps = {
@@ -26,6 +26,9 @@ export default function StudentListTable({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState<number | "all">(initialPageSize);
+  type SortKey = "studentId" | "name" | "sex" | "studentCouncilRole" | "classOfficer" | "email" | "phoneNumber";
+  const [sortKey, setSortKey] = useState<SortKey | null>(null);
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
 
   const normalizedOptions = Array.from(new Set(pageSizeOptions.concat(initialPageSize))).sort(
     (a, b) => a - b,
@@ -109,17 +112,48 @@ export default function StudentListTable({
     return result;
   }, [students, searchQuery, selectedGradeFilter, selectedClassLabelFilter]);
 
+  // 정렬된 학생 목록 (컬럼 헤더 클릭 시 사용)
+  const sortedStudents = useMemo(() => {
+    if (!sortKey) return filteredStudents;
+    const key = sortKey;
+    return [...filteredStudents].sort((a, b) => {
+      const aVal = String((a as Record<string, unknown>)[key] ?? "").trim();
+      const bVal = String((b as Record<string, unknown>)[key] ?? "").trim();
+      // 학번은 숫자로 변환 가능하면 숫자 순
+      if (key === "studentId") {
+        const aNum = parseInt(aVal, 10);
+        const bNum = parseInt(bVal, 10);
+        if (!Number.isNaN(aNum) && !Number.isNaN(bNum)) {
+          const diff = aNum - bNum;
+          return sortOrder === "asc" ? diff : -diff;
+        }
+      }
+      const cmp = aVal.localeCompare(bVal, "ko");
+      return sortOrder === "asc" ? cmp : -cmp;
+    });
+  }, [filteredStudents, sortKey, sortOrder]);
+
+  const handleSort = (key: SortKey) => {
+    if (sortKey === key) {
+      setSortOrder((o) => (o === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(key);
+      setSortOrder("asc");
+    }
+    setCurrentPage(1);
+  };
+
   // 페이지네이션 계산
   const totalPages = useMemo(() => {
     if (pageSize === "all") return 1;
-    return Math.max(1, Math.ceil(filteredStudents.length / (pageSize as number)));
-  }, [filteredStudents.length, pageSize]);
+    return Math.max(1, Math.ceil(sortedStudents.length / (pageSize as number)));
+  }, [sortedStudents.length, pageSize]);
 
   const paginatedStudents = useMemo(() => {
-    if (pageSize === "all") return filteredStudents;
+    if (pageSize === "all") return sortedStudents;
     const start = (currentPage - 1) * (pageSize as number);
-    return filteredStudents.slice(start, start + (pageSize as number));
-  }, [filteredStudents, currentPage, pageSize]);
+    return sortedStudents.slice(start, start + (pageSize as number));
+  }, [sortedStudents, currentPage, pageSize]);
 
   // 필터 변경 시 첫 페이지로 이동
   const handleSearchChange = (value: string) => {
@@ -171,12 +205,12 @@ export default function StudentListTable({
   // CSV 다운로드 함수
   const handleDownloadCSV = () => {
     // CSV 헤더
-    const headers = ["학번", "이름", "성별", "학반", "이메일", "연락처"];
+    const headers = ["학번", "이름", "성별", "학생회직", "학급직", "학반", "이메일", "연락처"];
     
     // CSV 데이터 생성 (Excel 날짜 변환 방지)
     const csvRows = [
       headers.map(h => `"${h}"`).join(","),
-      ...filteredStudents.map((student) => {
+      ...sortedStudents.map((student) => {
         // CSV에서 특수문자 처리 및 Excel 날짜 변환 방지
         const escapeCSV = (value: string, preventDateConversion = false) => {
           if (value === "-") return '""';
@@ -200,6 +234,8 @@ export default function StudentListTable({
           escapeCSV(student.studentId, true), // 학번: 텍스트로 강제
           escapeCSV(student.name),
           escapeCSV(student.sex),
+          escapeCSV(student.studentCouncilRole === "-" ? "" : student.studentCouncilRole),
+          escapeCSV(student.classOfficer === "-" ? "" : student.classOfficer),
           escapeCSV(student.classLabel, true), // 학반: 텍스트로 강제 (날짜 변환 방지)
           escapeCSV(student.email),
           escapeCSV(student.phoneNumber, true), // 연락처: 텍스트로 강제
@@ -330,28 +366,87 @@ export default function StudentListTable({
       </div>
 
       <div className="overflow-x-auto">
-        <table className="w-full border-collapse">
+        <table className="w-full border-collapse table-fixed">
+          <colgroup>
+            <col style={{ width: "4%" }} />
+            <col style={{ width: "10%" }} />
+            <col style={{ width: "10%" }} />
+            <col style={{ width: "6%" }} />
+            <col style={{ width: "10%" }} />
+            <col style={{ width: "10%" }} />
+            <col style={{ width: "20%" }} />
+            <col style={{ width: "15%" }} />
+            <col style={{ width: "15%" }} />
+          </colgroup>
           <thead>
             <tr className="border-b border-gray-200">
-              <th className="px-4 py-3 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider w-12">
+              <th className="px-4 py-3 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider">
                 순
               </th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                학번
+              <th
+                className="px-4 py-3 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none overflow-hidden text-ellipsis"
+                onClick={() => handleSort("studentId")}
+              >
+                <span className="inline-flex items-center gap-1 min-w-0">
+                  <span className="truncate">학번</span>
+                  {sortKey === "studentId" && (sortOrder === "asc" ? <ArrowUp className="w-3.5 h-3.5 shrink-0" /> : <ArrowDown className="w-3.5 h-3.5 shrink-0" />)}
+                </span>
               </th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                이름
+              <th
+                className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none overflow-hidden text-ellipsis"
+                onClick={() => handleSort("name")}
+              >
+                <span className="inline-flex items-center gap-1 min-w-0">
+                  <span className="truncate">이름</span>
+                  {sortKey === "name" && (sortOrder === "asc" ? <ArrowUp className="w-3.5 h-3.5 shrink-0" /> : <ArrowDown className="w-3.5 h-3.5 shrink-0" />)}
+                </span>
               </th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                성별
+              <th
+                className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none overflow-hidden text-ellipsis"
+                onClick={() => handleSort("sex")}
+              >
+                <span className="inline-flex items-center gap-1 min-w-0">
+                  <span className="truncate">성별</span>
+                  {sortKey === "sex" && (sortOrder === "asc" ? <ArrowUp className="w-3.5 h-3.5 shrink-0" /> : <ArrowDown className="w-3.5 h-3.5 shrink-0" />)}
+                </span>
               </th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                이메일
+              <th
+                className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none overflow-hidden text-ellipsis"
+                onClick={() => handleSort("studentCouncilRole")}
+              >
+                <span className="inline-flex items-center gap-1 min-w-0">
+                  <span className="truncate">학생회직</span>
+                  {sortKey === "studentCouncilRole" && (sortOrder === "asc" ? <ArrowUp className="w-3.5 h-3.5 shrink-0" /> : <ArrowDown className="w-3.5 h-3.5 shrink-0" />)}
+                </span>
               </th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                연락처
+              <th
+                className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none overflow-hidden text-ellipsis"
+                onClick={() => handleSort("classOfficer")}
+              >
+                <span className="inline-flex items-center gap-1 min-w-0">
+                  <span className="truncate">학급직</span>
+                  {sortKey === "classOfficer" && (sortOrder === "asc" ? <ArrowUp className="w-3.5 h-3.5 shrink-0" /> : <ArrowDown className="w-3.5 h-3.5 shrink-0" />)}
+                </span>
               </th>
-              <th className="px-4 py-3 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider w-24">
+              <th
+                className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none overflow-hidden text-ellipsis"
+                onClick={() => handleSort("email")}
+              >
+                <span className="inline-flex items-center gap-1 min-w-0">
+                  <span className="truncate">이메일</span>
+                  {sortKey === "email" && (sortOrder === "asc" ? <ArrowUp className="w-3.5 h-3.5 shrink-0" /> : <ArrowDown className="w-3.5 h-3.5 shrink-0" />)}
+                </span>
+              </th>
+              <th
+                className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none overflow-hidden text-ellipsis"
+                onClick={() => handleSort("phoneNumber")}
+              >
+                <span className="inline-flex items-center gap-1 min-w-0">
+                  <span className="truncate">연락처</span>
+                  {sortKey === "phoneNumber" && (sortOrder === "asc" ? <ArrowUp className="w-3.5 h-3.5 shrink-0" /> : <ArrowDown className="w-3.5 h-3.5 shrink-0" />)}
+                </span>
+              </th>
+              <th className="px-4 py-3 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider">
                 작업
               </th>
             </tr>
@@ -359,7 +454,7 @@ export default function StudentListTable({
           <tbody className="divide-y divide-gray-200">
             {paginatedStudents.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-sm text-gray-500">
+                <td colSpan={9} className="px-4 py-8 text-center text-sm text-gray-500">
                   {searchQuery.trim() || selectedGradeFilter || selectedClassLabelFilter
                     ? "검색 결과가 없습니다."
                     : "등록된 학생이 없습니다."}
@@ -367,13 +462,13 @@ export default function StudentListTable({
               </tr>
             ) : (
               paginatedStudents.map((student, index) => {
-                const rowNumber = (currentPage - 1) * (pageSize === "all" ? filteredStudents.length : (pageSize as number)) + index + 1;
+                const rowNumber = (currentPage - 1) * (pageSize === "all" ? sortedStudents.length : (pageSize as number)) + index + 1;
                 return (
                   <tr key={student.id} className="hover:bg-gray-50">
                     <td className="px-4 py-3 text-sm text-center text-gray-600">
                       {rowNumber}
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-900">
+                    <td className="px-4 py-3 text-sm text-center text-gray-900">
                       {student.studentId}
                     </td>
                     <td className="px-4 py-3 text-sm font-medium text-gray-900">
@@ -381,6 +476,12 @@ export default function StudentListTable({
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-700">
                       {student.sex}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-700">
+                      {student.studentCouncilRole && student.studentCouncilRole !== "-" ? student.studentCouncilRole : "-"}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-700">
+                      {student.classOfficer && student.classOfficer !== "-" ? student.classOfficer : "-"}
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-600">
                       {student.email}

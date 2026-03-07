@@ -210,7 +210,7 @@ export default async function DashboardLayout({
           },
           {
             href: "/dashboard/teacher/developer-contact",
-            label: "개발자 연락하기",
+            label: "기능제안 및 버그신고",
             icon: <MessageSquare className="w-5 h-5" />,
             iconName: "MessageSquare",
           },

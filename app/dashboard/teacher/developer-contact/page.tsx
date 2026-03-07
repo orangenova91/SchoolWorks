@@ -1,6 +1,6 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from  '@/components/ui/Card';
-import { Button } from "@/components/ui/Button";
-import { Mail, MessageSquare, Github, ExternalLink } from "lucide-react";
+import { Mail, MessageSquare } from "lucide-react";
+import { DeveloperContactForm } from "@/components/dashboard/DeveloperContactForm";
 
 export default function DeveloperContactPage() {
   return (
@@ -82,44 +82,8 @@ export default function DeveloperContactPage() {
           </CardContent>
         </Card>
 
-        {/* 연락 버튼들 */}
-        <Card>
-          <CardHeader>
-            <CardTitle>연락 방법</CardTitle>
-            <CardDescription>
-              아래 버튼을 클릭하시면 해당 채널로 바로 연결됩니다
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid sm:grid-cols-2 gap-4">
-              <a
-                href="mailto:support@schoolhub.com"
-                className="w-full h-12 text-base bg-blue-600 text-white hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none inline-flex items-center justify-center rounded-md font-medium transition-colors px-8 py-2"
-              >
-                <Mail className="w-5 h-5 mr-2" />
-                이메일로 연락하기
-                <ExternalLink className="w-4 h-4 ml-2" />
-              </a>
-
-              <a
-                href="https://github.com/schoolhub-team/support"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="w-full h-12 text-base border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none inline-flex items-center justify-center rounded-md font-medium transition-colors px-8 py-2"
-              >
-                <Github className="w-5 h-5 mr-2" />
-                GitHub Issues
-                <ExternalLink className="w-4 h-4 ml-2" />
-              </a>
-            </div>
-
-            <div className="mt-4 p-3 bg-gray-50 rounded-lg">
-              <p className="text-xs text-gray-500 text-center">
-                연락주신 내용은 24시간 이내에 검토하여 답변드리겠습니다.
-              </p>
-            </div>
-          </CardContent>
-        </Card>
+        {/* 연락 방법: 제안 폼 */}
+        <DeveloperContactForm />
       </div>
     </div>
   );

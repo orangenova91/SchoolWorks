@@ -1,4 +1,5 @@
 "use client";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -7,6 +8,8 @@ import { Select } from "@/components/ui/Select";
 import { Button } from "@/components/ui/Button";
 import { useToastContext } from "@/components/providers/ToastProvider";
 import { updateStudentProfileSchema } from "@/lib/validations/student";
+
+type SelectOption = { value: string; label: string };
 
 type FormValues = z.infer<typeof updateStudentProfileSchema>;
 
@@ -24,6 +27,7 @@ type Student = {
     major: string | null;
     sex: string | null;
     classOfficer: string | null;
+    studentCouncilRole: string | null;
     specialEducation: string | null;
     phoneNumber: string | null;
     siblings: string | null;
@@ -63,11 +67,17 @@ const sexOptions = [
   { value: "여", label: "여" },
 ];
 
-const classOfficerOptions = [
+const DEFAULT_CLASS_OFFICER_OPTIONS: SelectOption[] = [
   { value: "", label: "학급직 선택" },
   { value: "반장", label: "반장" },
   { value: "부반장", label: "부반장" },
-  { value: "학급회장", label: "학급회장" },
+  { value: "없음", label: "없음" },
+];
+
+const DEFAULT_STUDENT_COUNCIL_OPTIONS: SelectOption[] = [
+  { value: "", label: "학생회 직위 선택" },
+  { value: "학생회장", label: "학생회장" },
+  { value: "부회장", label: "부회장" },
   { value: "없음", label: "없음" },
 ];
 
@@ -76,6 +86,38 @@ export default function EditStudentForm({
   onSuccess,
 }: EditStudentFormProps) {
   const { showToast } = useToastContext();
+  const [classOfficerOptions, setClassOfficerOptions] = useState<SelectOption[]>(
+    DEFAULT_CLASS_OFFICER_OPTIONS
+  );
+  const [studentCouncilOptions, setStudentCouncilOptions] = useState<SelectOption[]>(
+    DEFAULT_STUDENT_COUNCIL_OPTIONS
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/academic-preparation/organization-roles")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: { classOfficerRoles?: string[]; studentCouncilRoles?: string[] } | null) => {
+        if (cancelled || !data) return;
+        if (data.classOfficerRoles?.length) {
+          setClassOfficerOptions([
+            { value: "", label: "학급직 선택" },
+            ...data.classOfficerRoles.map((role) => ({ value: role, label: role })),
+          ]);
+        }
+        if (data.studentCouncilRoles?.length) {
+          setStudentCouncilOptions([
+            { value: "", label: "학생회 직위 선택" },
+            ...data.studentCouncilRoles.map((role) => ({ value: role, label: role })),
+          ]);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const {
     register,
     handleSubmit,
@@ -93,6 +135,7 @@ export default function EditStudentForm({
       major: student.studentProfile?.major || "",
       sex: student.studentProfile?.sex || "",
       classOfficer: student.studentProfile?.classOfficer || "",
+      studentCouncilRole: student.studentProfile?.studentCouncilRole || "",
       specialEducation: student.studentProfile?.specialEducation || "",
       phoneNumber: student.studentProfile?.phoneNumber || "",
       siblings: student.studentProfile?.siblings || "",
@@ -233,6 +276,12 @@ export default function EditStudentForm({
             label="학급직"
             options={classOfficerOptions}
             error={errors.classOfficer?.message}
+          />
+          <Select
+            {...register("studentCouncilRole")}
+            label="학생회 직위"
+            options={studentCouncilOptions}
+            error={errors.studentCouncilRole?.message}
           />
         </div>
         <div className="grid gap-6 sm:grid-cols-2">

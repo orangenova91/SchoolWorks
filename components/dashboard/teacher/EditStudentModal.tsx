@@ -15,6 +15,8 @@ export type StudentWithProfile = {
   section: string;
   sex: string;
   phoneNumber: string;
+  classOfficer: string;
+  studentCouncilRole: string;
   createdAt: Date;
 };
 

@@ -6,11 +6,13 @@ import { UploadCloud, Trash2 } from "lucide-react";
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 
 interface SchoolLogoManagerProps {
+  schoolId?: string | null;
   schoolName: string | null;
   initialLogoUrl?: string | null;
 }
 
 export function SchoolLogoManager({
+  schoolId,
   schoolName,
   initialLogoUrl,
 }: SchoolLogoManagerProps) {
@@ -72,6 +74,9 @@ export function SchoolLogoManager({
     try {
       const formData = new FormData();
       formData.append("file", selectedFile);
+      if (schoolId) {
+        formData.append("schoolId", schoolId);
+      }
 
       const response = await fetch("/api/admin/school/logo", {
         method: "POST",
@@ -104,7 +109,10 @@ export function SchoolLogoManager({
     setSuccess(null);
 
     try {
-      const response = await fetch("/api/admin/school/logo", {
+      const url = schoolId
+        ? `/api/admin/school/logo?schoolId=${encodeURIComponent(schoolId)}`
+        : "/api/admin/school/logo";
+      const response = await fetch(url, {
         method: "DELETE",
       });
 

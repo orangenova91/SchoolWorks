@@ -25,18 +25,28 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    // StudentProfile에서 studentId와 classLabel 가져오기
+    // StudentProfile에서 studentId, grade, classLabel, classOfficer, officerAssists, studentCouncilRole 포함
     const studentIds = students.map(s => s.id);
     const prismaAny = prisma as any;
     const studentProfiles = studentIds.length > 0
       ? await prismaAny.studentProfile.findMany({
           where: { userId: { in: studentIds } },
-          select: { userId: true, studentId: true, classLabel: true },
+          select: { userId: true, studentId: true, grade: true, classLabel: true, classOfficer: true, officerAssists: true, studentCouncilRole: true },
         })
       : [];
 
     const profileMap = new Map(
-      studentProfiles.map((p: any) => [p.userId, { studentId: p.studentId, classLabel: p.classLabel }])
+      studentProfiles.map((p: any) => [
+        p.userId,
+        {
+          studentId: p.studentId,
+          grade: p.grade ?? null,
+          classLabel: p.classLabel ?? null,
+          classOfficer: p.classOfficer ?? null,
+          officerAssists: Array.isArray(p.officerAssists) ? p.officerAssists : [],
+          studentCouncilRole: p.studentCouncilRole ?? null,
+        },
+      ])
     );
 
     const studentsWithId = students.map(student => {
@@ -46,7 +56,11 @@ export async function GET(request: NextRequest) {
         name: student.name,
         email: student.email,
         studentId: profile?.studentId || null,
-        classLabel: profile?.classLabel || null,
+        grade: profile?.grade ?? null,
+        classLabel: profile?.classLabel ?? null,
+        classOfficer: profile?.classOfficer ?? null,
+        officerAssists: profile?.officerAssists ?? [],
+        studentCouncilRole: profile?.studentCouncilRole ?? null,
       };
     });
 

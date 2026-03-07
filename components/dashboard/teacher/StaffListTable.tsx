@@ -435,79 +435,77 @@ export default function StaffListTable({
       </div>
 
       <div className="overflow-x-auto">
-        <table className="w-full border-collapse">
+        <table className="w-full border-collapse table-fixed">
+          <colgroup>
+            <col style={{ width: "4%" }} />
+            <col style={{ width: "10%" }} />
+            <col style={{ width: "10%" }} />
+            <col style={{ width: "18%" }} />
+            <col style={{ width: "12%" }} />
+            <col style={{ width: "18%" }} />
+            <col style={{ width: "13%" }} />
+            <col style={{ width: "15%" }} />
+          </colgroup>
           <thead>
             <tr className="border-b border-gray-200">
-              <th className="px-4 py-3 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider w-12">
+              <th className="px-4 py-3 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider">
                 순
               </th>
-              <th 
-                className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-50 select-none"
+              <th
+                className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-50 select-none overflow-hidden text-ellipsis"
                 onClick={() => handleSort("roleLabel")}
               >
-                <div className="flex items-center gap-1">
-                  직책
-                  {sortColumn === "roleLabel" && (
-                    sortDirection === "asc" ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />
-                  )}
-                </div>
+                <span className="inline-flex items-center gap-1 min-w-0">
+                  <span className="truncate">직책</span>
+                  {sortColumn === "roleLabel" && (sortDirection === "asc" ? <ArrowUp className="w-3 h-3 shrink-0" /> : <ArrowDown className="w-3 h-3 shrink-0" />)}
+                </span>
               </th>
-              <th 
-                className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-50 select-none"
+              <th
+                className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-50 select-none overflow-hidden text-ellipsis"
                 onClick={() => handleSort("name")}
               >
-                <div className="flex items-center gap-1">
-                  이름
-                  {sortColumn === "name" && (
-                    sortDirection === "asc" ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />
-                  )}
-                </div>
+                <span className="inline-flex items-center gap-1 min-w-0">
+                  <span className="truncate">이름</span>
+                  {sortColumn === "name" && (sortDirection === "asc" ? <ArrowUp className="w-3 h-3 shrink-0" /> : <ArrowDown className="w-3 h-3 shrink-0" />)}
+                </span>
               </th>
-              <th 
-                className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-50 select-none"
+              <th
+                className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-50 select-none overflow-hidden text-ellipsis"
                 onClick={() => handleSort("major")}
               >
-                <div className="flex items-center gap-1">
-                  담당 과목/분야
-                  {sortColumn === "major" && (
-                    sortDirection === "asc" ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />
-                  )}
-                </div>
+                <span className="inline-flex items-center gap-1 min-w-0">
+                  <span className="truncate">담당 과목/분야</span>
+                  {sortColumn === "major" && (sortDirection === "asc" ? <ArrowUp className="w-3 h-3 shrink-0" /> : <ArrowDown className="w-3 h-3 shrink-0" />)}
+                </span>
               </th>
-              <th 
-                className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-50 select-none"
+              <th
+                className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-50 select-none overflow-hidden text-ellipsis"
                 onClick={() => handleSort("classLabel")}
               >
-                <div className="flex items-center gap-1">
-                  담당 학반
-                  {sortColumn === "classLabel" && (
-                    sortDirection === "asc" ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />
-                  )}
-                </div>
+                <span className="inline-flex items-center gap-1 min-w-0">
+                  <span className="truncate">담당 학반</span>
+                  {sortColumn === "classLabel" && (sortDirection === "asc" ? <ArrowUp className="w-3 h-3 shrink-0" /> : <ArrowDown className="w-3 h-3 shrink-0" />)}
+                </span>
               </th>
-              <th 
-                className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-50 select-none"
+              <th
+                className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-50 select-none overflow-hidden text-ellipsis"
                 onClick={() => handleSort("email")}
               >
-                <div className="flex items-center gap-1">
-                  이메일
-                  {sortColumn === "email" && (
-                    sortDirection === "asc" ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />
-                  )}
-                </div>
+                <span className="inline-flex items-center gap-1 min-w-0">
+                  <span className="truncate">이메일</span>
+                  {sortColumn === "email" && (sortDirection === "asc" ? <ArrowUp className="w-3 h-3 shrink-0" /> : <ArrowDown className="w-3 h-3 shrink-0" />)}
+                </span>
               </th>
-              <th 
-                className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-50 select-none"
+              <th
+                className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-50 select-none overflow-hidden text-ellipsis"
                 onClick={() => handleSort("phoneNumber")}
               >
-                <div className="flex items-center gap-1">
-                  전화번호
-                  {sortColumn === "phoneNumber" && (
-                    sortDirection === "asc" ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />
-                  )}
-                </div>
+                <span className="inline-flex items-center gap-1 min-w-0">
+                  <span className="truncate">전화번호</span>
+                  {sortColumn === "phoneNumber" && (sortDirection === "asc" ? <ArrowUp className="w-3 h-3 shrink-0" /> : <ArrowDown className="w-3 h-3 shrink-0" />)}
+                </span>
               </th>
-              <th className="px-4 py-3 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider w-24">
+              <th className="px-4 py-3 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider">
                 작업
               </th>
             </tr>

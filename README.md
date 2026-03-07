@@ -54,6 +54,13 @@ GOOGLE_CLIENT_SECRET="your-google-client-secret"
 
 # 이메일 인증 (옵션)
 ENABLE_EMAIL_VERIFICATION="false" # true로 설정하면 이메일 인증 활성화
+
+# 개발자 연락 제안 메일 발송 (교사 대시 > 개발자 연락하기)
+DEVELOPER_CONTACT_EMAIL="받을 이메일 주소"
+SMTP_HOST="smtp.gmail.com"
+SMTP_PORT="587"
+SMTP_USER="발신용 Gmail 주소"
+SMTP_PASS="Gmail 앱 비밀번호" # Google 계정 > 보안 > 2단계 인증 > 앱 비밀번호
 ```
 
 ### 3. 데이터베이스 설정

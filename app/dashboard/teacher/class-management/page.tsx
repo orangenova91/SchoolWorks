@@ -1,5 +1,6 @@
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
+import dynamic from "next/dynamic";
 
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -7,7 +8,13 @@ import { getTranslations } from "@/lib/i18n";
 import CourseTabs from "@/components/dashboard/CourseTabs";
 import StudentListTable from "@/components/dashboard/StudentListTable";
 import AttendanceManagement from "@/components/dashboard/teacher/AttendanceManagement";
+import CounselingManagement from "@/components/dashboard/teacher/CounselingManagement";
 import UpdateHomeroomModalButton from "@/components/dashboard/UpdateHomeroomModalButton";
+
+const AnnouncementPageClient = dynamic(
+  () => import("../announcements/AnnouncementPageClient").then((mod) => mod.AnnouncementPageClient),
+  { ssr: false, loading: () => <div className="rounded-2xl border border-gray-200 bg-white p-6">로딩 중...</div> }
+);
 
 export default async function ClassManagementPage() {
   const session = await getServerSession(authOptions);
@@ -126,6 +133,26 @@ export default async function ClassManagementPage() {
 
   const homeroomTitle = "담임반 관리";
 
+  // 담임반 공지 게시판용 학급 키 및 선택 고정 학급 (API·작성 폼에서 사용)
+  let homeroomGrade = teacherProfile?.grade?.trim() || "";
+  let homeroomClassNumber = teacherProfile?.section?.trim() || "";
+  if (!homeroomClassNumber && teacherProfile?.classLabel) {
+    const match = teacherProfile.classLabel.trim().match(/(\d+)\s*[-학년\s]*(\d+)\s*반?/);
+    if (match) {
+      if (!homeroomGrade) homeroomGrade = match[1];
+      homeroomClassNumber = match[2];
+    }
+  }
+  const normalizeNumber = (v: string) => (v || "").trim().replace(/^0+/, "");
+  const homeroomClassKey =
+    homeroomGrade && homeroomClassNumber
+      ? `${normalizeNumber(homeroomGrade)}-${normalizeNumber(homeroomClassNumber)}`
+      : undefined;
+  const restrictedSelectedClasses =
+    homeroomClassKey && homeroomGrade && homeroomClassNumber
+      ? [{ grade: homeroomGrade, classNumber: homeroomClassNumber }]
+      : undefined;
+
   return (
     <div className="space-y-6">
       <header className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm space-y-4">
@@ -169,32 +196,34 @@ export default async function ClassManagementPage() {
       <section>
         <CourseTabs
           tabs={[
-            { id: "dashboard", label: "대시보드" },
+            { id: "announcements", label: "공지사항" },
             { id: "students", label: "학생 관리" },
             { id: "attendance", label: "출결 관리" },
-            { id: "announcements", label: "공지사항" },
             { id: "counseling", label: "상담기록" },
-            { id: "statistics", label: "통계" },
+            { id: "record", label: "생활기록부 관리" },
           ]}
         >
           {[
             <article
-              key="dashboard"
-              className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm space-y-4"
+              key="announcements"
+              className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm"
             >
-              <header className="flex items-center justify-between">
-                <h2 className="text-lg font-semibold text-gray-900">대시보드</h2>
-              </header>
-              <div className="space-y-4">
-                <div className="text-sm text-gray-600">
-                  <p>대시보드 내용이 여기에 표시됩니다.</p>
-                </div>
-              </div>
+              <AnnouncementPageClient
+                title="담임반 공지사항"
+                description="담임반 학생에게 전달할 공지사항을 작성하고 확인하세요."
+                authorName={session.user.name ?? session.user.email ?? "담당 교사"}
+                includeScheduled={true}
+                audience="students"
+                boardType="board_homeroom"
+                homeroomClassKey={homeroomClassKey}
+                restrictedSelectedClasses={restrictedSelectedClasses}
+              />
             </article>,
+            
             <article
               key="students"
               className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm space-y-4"
-            >
+             >
               <header className="flex items-center justify-between">
                 <h2 className="text-lg font-semibold text-gray-900">학생 관리</h2>
                 {homeroomStudents.length > 0 && (
@@ -229,41 +258,30 @@ export default async function ClassManagementPage() {
               </div>
             </article>,
             <article
-              key="announcements"
-              className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm space-y-4"
-            >
-              <header className="flex items-center justify-between">
-                <h2 className="text-lg font-semibold text-gray-900">공지사항</h2>
-              </header>
-              <div className="space-y-4">
-                <div className="text-sm text-gray-600">
-                  <p>공지사항 내용이 여기에 표시됩니다.</p>
-                </div>
-              </div>
-            </article>,
-            <article
               key="counseling"
-              className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm space-y-4"
+              className="flex min-h-[60vh] flex-col rounded-2xl border border-gray-200 bg-white p-6 shadow-sm"
             >
-              <header className="flex items-center justify-between">
+              <header className="flex shrink-0 items-center justify-between">
                 <h2 className="text-lg font-semibold text-gray-900">상담기록</h2>
               </header>
-              <div className="space-y-4">
-                <div className="text-sm text-gray-600">
-                  <p>상담기록 내용이 여기에 표시됩니다.</p>
-                </div>
+              <div className="mt-4 min-h-0 flex-1">
+                <CounselingManagement
+                  hasHomeroom={!!teacherProfile?.classLabel}
+                  students={homeroomStudents}
+                  classLabel={teacherProfile?.classLabel ?? ""}
+                />
               </div>
             </article>,
             <article
-              key="statistics"
+              key="record"
               className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm space-y-4"
             >
               <header className="flex items-center justify-between">
-                <h2 className="text-lg font-semibold text-gray-900">통계</h2>
+                <h2 className="text-lg font-semibold text-gray-900">생활기록부 관리</h2>
               </header>
               <div className="space-y-4">
                 <div className="text-sm text-gray-600">
-                  <p>통계 내용이 여기에 표시됩니다.</p>
+                  <p>서비스 준비중입니다. 빠른 시일 내에 추가 예정입니다.</p>
                 </div>
               </div>
             </article>,
