@@ -46,9 +46,9 @@ export default async function AfterSchoolPage() {
         <CourseTabs
           tabs={[
             { id: "announcements", label: "공지사항" },
-            { id: "student-enroll", label: "강의 신청 및 생성" },
+            { id: "student-enroll", label: "강의 생성" },
             { id: "teacher-create", label: "전체 강의 보기" },
-            { id: "course-apply", label: "수강 신청(학생)" },
+            { id: "course-apply", label: "내 강의 수강생" },
             { id: "classroom", label: "강의실" },
           ]}
         >

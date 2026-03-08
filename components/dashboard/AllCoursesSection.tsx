@@ -466,12 +466,14 @@ export default function AllCoursesSection({ currentUserId }: AllCoursesSectionPr
 
       if (shouldUpdateClassGroup && trimmedSchedules.length > 0) {
         const courseId = editingCourse.id as string;
-        const payload = {
+        const payload: { name: string; period: string | null; schedules: typeof trimmedSchedules; studentIds?: string[] } = {
           name: editForm.subject.trim(),
           period: cgPeriod.trim() || null,
           schedules: trimmedSchedules,
-          studentIds: [] as string[],
         };
+        if (!classGroupId) {
+          payload.studentIds = [];
+        }
 
         const cgRes = await fetch(
           classGroupId
@@ -518,7 +520,11 @@ export default function AllCoursesSection({ currentUserId }: AllCoursesSectionPr
       closeEdit();
     } catch (err) {
       console.error(err);
-      setEditError(err instanceof Error ? err.message : "강의 수정 중 오류가 발생했습니다.");
+      const errMessage = err instanceof Error ? err.message : "강의 수정 중 오류가 발생했습니다.";
+      if (errMessage.includes("겹칩니다")) {
+        window.alert(errMessage);
+      }
+      setEditError(errMessage);
     } finally {
       setIsSaving(false);
     }
@@ -600,8 +606,15 @@ export default function AllCoursesSection({ currentUserId }: AllCoursesSectionPr
                   <td className="py-3 px-4 text-sm text-gray-600">{c.semester || "-"}</td>
                   <td className="py-3 px-2 text-sm text-gray-600 text-center">{c.classGroupSchedule || "-"}</td>
                   <td className="py-3 px-2 text-sm text-gray-600">{c.instructor}</td>
-                  <td className="py-3 px-2 text-sm text-gray-600">
-                    {Array.isArray(c.firstClassGroupStudentIds) ? `${c.firstClassGroupStudentIds.length}명` : "0명"}
+                  <td className="py-3 px-2 text-sm text-gray-600 text-center">
+                    {(() => {
+                      const enrolled = Array.isArray(c.firstClassGroupStudentIds) ? c.firstClassGroupStudentIds.length : 0;
+                      const cap = c.capacity != null ? Number(c.capacity) : null;
+                      if (cap != null && !Number.isNaN(cap)) {
+                        return `${enrolled}/${cap}명`;
+                      }
+                      return `${enrolled}명`;
+                    })()}
                   </td>
                 </tr>
               );

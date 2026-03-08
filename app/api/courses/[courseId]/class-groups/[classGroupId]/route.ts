@@ -14,7 +14,7 @@ const updateClassGroupSchema = z.object({
       period: z.string(),
     })
   ),
-  studentIds: z.array(z.string()),
+  studentIds: z.array(z.string()).optional(),
 });
 
 // 학반 수정
@@ -63,6 +63,7 @@ export async function PUT(
         id: params.classGroupId,
         courseId: params.courseId,
       },
+      select: { id: true, studentIds: true },
     });
 
     if (!existingClassGroup) {
@@ -82,17 +83,86 @@ export async function PUT(
       name: validatedData.name,
       period: validatedData.period,
       schedulesCount: validatedData.schedules.length,
-      studentIdsCount: validatedData.studentIds.length,
+      studentIdsCount: validatedData.studentIds?.length ?? "(유지)",
     });
 
-    // 학반 수정
+    // 수정하려는 스케줄이 수강생의 다른 방과후 수업과 겹치는지 검사 (옵션 A: 겹치면 수정 거부)
+    const newSchedules = validatedData.schedules || [];
+    const currentStudentIds: string[] = Array.isArray((existingClassGroup as any).studentIds)
+      ? (existingClassGroup as any).studentIds
+      : [];
+
+    if (newSchedules.length > 0 && currentStudentIds.length > 0) {
+      const otherGroups = await (prisma as any).classGroup.findMany({
+        where: {
+          id: { not: params.classGroupId },
+          OR: currentStudentIds.map((sid: string) => ({ studentIds: { has: sid } })),
+        },
+        select: {
+          id: true,
+          studentIds: true,
+          schedules: true,
+          course: { select: { courseType: true, subject: true } },
+        },
+      });
+
+      type Conflict = { studentId: string; courseSubject: string | null; day: string; period: string };
+      let conflict: Conflict | null = null;
+
+      for (const group of otherGroups) {
+        if (group.course && group.course.courseType !== "after_school") continue;
+
+        let otherSchedules: Array<{ day: string; period: string }> = [];
+        try {
+          const parsed = JSON.parse(group.schedules || "[]");
+          if (Array.isArray(parsed)) otherSchedules = parsed;
+        } catch {
+          /* ignore */
+        }
+
+        for (const ns of newSchedules) {
+          for (const os of otherSchedules) {
+            if (ns.day === os.day && ns.period === os.period) {
+              const groupStudentIds: string[] = Array.isArray(group.studentIds) ? group.studentIds : [];
+              const overlapStudentId = currentStudentIds.find((id) => groupStudentIds.includes(id));
+              if (overlapStudentId) {
+                conflict = {
+                  studentId: overlapStudentId,
+                  courseSubject: group.course?.subject ?? null,
+                  day: ns.day,
+                  period: ns.period,
+                };
+                break;
+              }
+            }
+          }
+          if (conflict) break;
+        }
+        if (conflict) break;
+      }
+
+      if (conflict) {
+        const conflictUser = await (prisma as any).user.findFirst({
+          where: { id: conflict.studentId },
+          select: { name: true },
+        });
+        const studentName = conflictUser?.name?.trim() || "수강생";
+        const otherCourseLabel = conflict.courseSubject ? `${conflict.courseSubject}강의` : "다른 방과후 수업";
+        const timeLabel = `${conflict.day} ${conflict.period}교시`;
+        const errorMessage = `수정하려는 스케줄이 일부 수강생의 다른 방과후 수업과 겹칩니다. (예: ${studentName} - ${otherCourseLabel}와 ${timeLabel} 겹침) 스케줄을 조정하거나 해당 수강생에게 안내 후 수정해 주세요.`;
+
+        return NextResponse.json({ error: errorMessage }, { status: 400 });
+      }
+    }
+
+    // 학반 수정 (studentIds 미제공 시 기존 수강생 목록 유지)
     const classGroup = await prisma.classGroup.update({
       where: { id: params.classGroupId },
       data: {
         name: validatedData.name,
         period: validatedData.period,
         schedules: JSON.stringify(validatedData.schedules),
-        studentIds: validatedData.studentIds,
+        ...(validatedData.studentIds !== undefined && { studentIds: validatedData.studentIds }),
       },
     });
 
