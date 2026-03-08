@@ -116,13 +116,17 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // FullCalendar는 end를 exclusive로 사용하므로, 사용자 선택 종료일(inclusive)을 다음날 00:00으로 넘김
+    const toExclusiveEnd = (d: Date): string =>
+      new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 1)).toISOString();
+
     // FullCalendar 형식으로 변환
     const formattedEvents = events.map((event) => ({
       id: event.id,
       title: event.title,
       description: event.description,
       start: event.startDate.toISOString(),
-      end: event.endDate ? event.endDate.toISOString() : null,
+      end: event.endDate ? toExclusiveEnd(event.endDate) : null,
       // Multi-day events as allDay so FullCalendar does not show "오전 12시" for midnight start
       allDay: !event.endDate || event.startDate.toDateString() === event.endDate.toDateString() || (!!event.endDate && event.startDate.toDateString() !== event.endDate.toDateString()),
       extendedProps: {

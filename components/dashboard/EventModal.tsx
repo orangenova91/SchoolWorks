@@ -127,7 +127,11 @@ export default function EventModal({
   useEffect(() => {
     if (event) {
       const startDate = new Date(event.start);
-      const endDate = event.end ? new Date(event.end) : null;
+      // event.end는 FullCalendar용 exclusive(다음날 00:00)이므로, 폼 표시용으로 하루를 빼서 inclusive로 변환
+      let endDate = event.end ? new Date(event.end) : null;
+      if (endDate && event.allDay) {
+        endDate.setDate(endDate.getDate() - 1);
+      }
 
       // 로컬 날짜를 사용하여 타임존 문제 방지
       const formatLocalDate = (date: Date) => {
