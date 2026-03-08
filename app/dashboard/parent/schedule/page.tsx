@@ -98,6 +98,7 @@ export default async function ParentSchedulePage() {
         allowedScheduleAreas={["개인일정(나만 보기)"]}
         editableScopes={["personal"]}
         showAddButton={false}
+        canEditActivity={false}
       />
     </div>
   );

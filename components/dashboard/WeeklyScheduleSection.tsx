@@ -17,6 +17,8 @@ type WeeklyScheduleEvent = {
   scope: string;
   responsiblePerson?: string;
   dateLabel: string;
+  gradeLevels?: string[];
+  periods?: string[];
 };
 
 type SupervisionMealInfo = {
@@ -206,9 +208,17 @@ export default function WeeklyScheduleSection({
                           type="button"
                           className="w-full text-left rounded-lg border py-2 px-3 shadow-sm transition focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 border-gray-100 bg-white/50 hover:bg-white hover:border-blue-200"
                         >
-                          <p className="text-sm font-semibold text-gray-900 line-clamp-2">
-                            {event.title}
-                          </p>
+                          <div className="flex items-center gap-2">
+                            {event.periods?.length ? (
+                              <span className="text-xs text-gray-500">
+                                {event.periods.join(", ")}교시
+                              </span>
+                            ) : null}
+
+                            <span className="text-sm font-semibold text-gray-900 line-clamp-1">
+                              {event.title}
+                            </span>
+                          </div>
                         </button>
                       </div>
                     );
@@ -301,8 +311,8 @@ export default function WeeklyScheduleSection({
               
               <div className="text-xs text-gray-600 space-y-1">
                 <div><span className="font-medium text-gray-700">구분: </span>{hoverTooltip.event.eventType ?? "교과"}</div>
-                <div><span className="font-medium text-gray-700">학년: </span>{(hoverTooltip.event as any).gradeLevels?.join(", ") ?? "-"}</div>
-                <div><span className="font-medium text-gray-700">교시: </span>{(hoverTooltip.event as any).periods?.join(", ") ?? "-"}</div>
+                <div><span className="font-medium text-gray-700">학년: </span>{hoverTooltip.event.gradeLevels?.join(", ") ?? "-"}</div>
+                <div><span className="font-medium text-gray-700">교시: </span>{hoverTooltip.event.periods?.join(", ") ?? "-"}</div>
                 <div><span className="font-medium text-gray-700">부서: </span>{hoverTooltip.event.department ?? "-"}</div>
                 <div><span className="font-medium text-gray-700">담당자: </span>{hoverTooltip.event.responsiblePerson ?? "-"}</div>
               </div>

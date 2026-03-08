@@ -85,7 +85,8 @@ export default async function TeacherSchedulePage({
     description: event.description || undefined,
     start: event.startDate.toISOString(),
     end: event.endDate ? event.endDate.toISOString() : null,
-    allDay: !event.endDate || event.startDate.toDateString() === event.endDate.toDateString(),
+    // Multi-day events as allDay so FullCalendar does not show "오전 12시" for midnight start
+    allDay: !event.endDate || event.startDate.toDateString() === event.endDate.toDateString() || (!!event.endDate && event.startDate.toDateString() !== event.endDate.toDateString()),
     extendedProps: {
       eventType: event.eventType,
       scope: event.scope,
@@ -101,11 +102,12 @@ export default async function TeacherSchedulePage({
 
   return (
     <div className="space-y-6">
-      <TeacherScheduleClient 
+      <TeacherScheduleClient
         initialEvents={formattedEvents}
         title={t.dashboard.teacherScheduleTitle}
         description="학교 운영(창의적 체험활동 포함) 및 개인 일정을 확인하고 관리할 수 있습니다."
         initialActiveTab={tab === "creative" ? "creative" : "academic"}
+        canEditActivity={true}
       />
     </div>
   );

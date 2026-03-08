@@ -176,9 +176,9 @@ export default function AfterSchoolCourseList() {
       {/* 강의 생성 섹션 (버튼 없음) */}
       <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
         <div className="flex items-center justify-between mb-3" style={{ minHeight: '2.5rem' }}>
-          <h2 className="text-lg font-semibold text-gray-900">강의 생성</h2>
+          <h2 className="text-lg font-semibold text-gray-900">수강 신청</h2>
           <span className="inline-flex items-center px-3 py-1 rounded-full bg-gray-100 border border-gray-200 shadow-sm">
-            <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">강의 생성 기간</span>
+            <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">수강 신청 기간</span>
             <span className="mx-2 w-px h-3 bg-gray-300" /> {/* 수직 구분선 추가 (선택사항) */}
             <span className="text-sm font-medium text-gray-800">
               {periodStart || "미설정"}
@@ -186,7 +186,13 @@ export default function AfterSchoolCourseList() {
             </span>
           </span>
         </div>
-        <p className="text-sm text-gray-600">신청 목록을 보고 교사가 강의를 생성할 수 있습니다.</p>
+        <p className="text-sm text-gray-600">
+          아래 개설된 강의 목록에서 
+          <span className="ml-1 rounded-md bg-orange-100 px-2 py-0.5 text-xs font-medium text-orange-700">
+            수강 신청
+          </span>
+          하세요.
+        </p>
       </div>
 
       {/* 생성된 강의 목록 */}
@@ -234,7 +240,7 @@ export default function AfterSchoolCourseList() {
                     <td className="py-3 px-4 text-sm text-gray-600">{idx + 1}</td>
                     <td className="py-3 px-4 text-sm text-gray-900 font-medium">{course.subject}</td>
                     <td className="py-3 px-4 text-sm text-gray-600">{course.classGroupSchedule || "-"}</td>
-                    <td className="py-3 px-4 text-sm text-gray-600">{course.instructor}</td>
+                    <td className="py-3 px-4 text-sm text-gray-600 whitespace-nowrap">{course.instructor}</td>
                     <td className="py-3 px-4 text-sm text-gray-600" onClick={(e) => e.stopPropagation()}>
                       {currentUserRole === "student" && course.firstClassGroupId ? (
                         (() => {
@@ -327,7 +333,7 @@ export default function AfterSchoolCourseList() {
                                   ? "현재는 강의 생성 기간이 아닙니다."
                                   : undefined
                               }
-                              className={`flex items-center justify-center px-1 h-6 rounded-sm text-xs ${
+                              className={`flex items-center justify-center px-1 h-6 rounded-sm text-xs whitespace-nowrap ${
                                 !isPeriodOpen || (isFull && !joined)
                                   ? "bg-gray-200 text-gray-500 cursor-not-allowed"
                                   : joined
