@@ -375,7 +375,7 @@ export default function CreateCourseSection({ instructorName }: CreateCourseSect
         } else {
           try {
             if (detailClassGroupId) {
-              // update existing
+              // update existing (studentIds 생략 시 API가 기존 수강생 유지)
               const cgRes = await fetch(`/api/courses/${courseIdToUse}/class-groups/${detailClassGroupId}`, {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
@@ -383,11 +383,12 @@ export default function CreateCourseSection({ instructorName }: CreateCourseSect
                   name: detailForm.subject.trim(),
                   period: cgPeriod.trim() || null,
                   schedules: cgSchedules.slice(0, periodNum).filter((s) => s.day && s.period),
-                  studentIds: [],
                 }),
               });
               if (!cgRes.ok) {
-                showToast?.("학반 수정에 실패했습니다. 수동으로 확인해 주세요.", "warning");
+                const cgData = await cgRes.json().catch(() => ({}));
+                const message = typeof cgData?.error === "string" ? cgData.error : "학반 수정에 실패했습니다. 수동으로 확인해 주세요.";
+                window.alert(message);
               } else {
                 showToast?.("학반이 수정되었습니다.", "success");
               }
@@ -523,7 +524,7 @@ export default function CreateCourseSection({ instructorName }: CreateCourseSect
                     <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">스케줄</th>
                     <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">강사</th>
                     <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">수강 신청</th>
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">수강생 수</th>
+                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 whitespace-nowrap min-w-fit flex-shrink-0">수강생 수</th>
                     <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">편집</th>
                   </tr>
                 </thead>
@@ -542,7 +543,7 @@ export default function CreateCourseSection({ instructorName }: CreateCourseSect
                         <span className="line-clamp-2 break-words block min-w-0">{c.subject}</span>
                       </td>
                       <td className="py-3 px-4 text-sm text-gray-600">{c.classGroupSchedule || "-"}</td>
-                      <td className="py-3 px-4 text-sm text-gray-600">{c.instructor}</td>
+                      <td className="py-3 px-4 text-sm text-gray-600 whitespace-nowrap">{c.instructor}</td>
                       <td className="py-3 px-4 text-sm text-gray-600">
                         <Button
                           type="button"
@@ -577,7 +578,7 @@ export default function CreateCourseSection({ instructorName }: CreateCourseSect
                               alert("상태 변경 중 오류가 발생했습니다.");
                             }
                           }}
-                          className={`flex items-center justify-center px-2 h-7 rounded-md text-sm ${
+                          className={`flex items-center justify-center px-2 h-7 rounded-md text-sm whitespace-nowrap min-w-fit flex-shrink-0 ${
                             c.enrollmentOpen ? "bg-green-600 hover:bg-green-700 text-white" : "bg-gray-200 text-gray-700"
                           }`}
                         >

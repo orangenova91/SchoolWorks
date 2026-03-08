@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { Plus, Trash2, Download } from "lucide-react";
+import { Plus, Trash2, Download, Check } from "lucide-react";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { Select } from "@/components/ui/Select";
@@ -212,6 +212,26 @@ export default function OrganizationRoles() {
         s.classLabel?.trim() === selectedClass.classLabel
     );
   }, [students, selectedClass]);
+
+  // 학반별 역할 배정 완료 여부 (해당 학반 모든 학생이 담당 또는 부서원으로 배정된 경우)
+  const classCompletionMap = useMemo(() => {
+    const map = new Map<string, boolean>();
+    for (const { grade, classLabel } of classList) {
+      const list = students.filter(
+        (s) =>
+          s.grade?.trim() === grade && s.classLabel?.trim() === classLabel
+      );
+      const isComplete =
+        list.length > 0 &&
+        list.every(
+          (s) =>
+            (s.classOfficer?.trim() ?? "") !== "" ||
+            (s.officerAssists?.length ?? 0) > 0
+        );
+      map.set(`${grade}-${classLabel}`, isComplete);
+    }
+    return map;
+  }, [classList, students]);
 
   // 학급직 선택 변경 시 즉시 PATCH 후 로컬 상태 반영
   const handleClassOfficerChange = async (
@@ -648,18 +668,32 @@ export default function OrganizationRoles() {
                     const isSelected =
                       selectedClass?.grade === grade &&
                       selectedClass?.classLabel === classLabel;
+                    const isComplete =
+                      classCompletionMap.get(`${grade}-${classLabel}`) ?? false;
                     return (
                       <button
                         key={`${grade}-${classLabel}`}
                         type="button"
                         onClick={() => setSelectedClass({ grade, classLabel })}
-                        className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
+                        className={`inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
                           isSelected
                             ? "bg-blue-600 text-white"
-                            : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                            : isComplete
+                              ? "border border-green-300 bg-green-50 text-green-800 hover:bg-green-100"
+                              : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                         }`}
                       >
-                        {classLabel}반
+                        <span>{classLabel}반</span>
+                        {isComplete && (
+                          <span
+                            className={`inline-flex shrink-0 ${
+                              isSelected ? "text-white" : "text-green-600"
+                            }`}
+                            aria-hidden
+                          >
+                            <Check className="w-3.5 h-3.5" strokeWidth={2.5} />
+                          </span>
+                        )}
                       </button>
                     );
                   })}

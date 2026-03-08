@@ -13,6 +13,9 @@ interface Course {
   firstClassGroupId?: string | null;
   firstClassGroupStudentIds?: string[];
   enrollmentOpen?: boolean;
+  description?: string | null;
+  classroom?: string | null;
+  capacity?: number | string | null;
 }
 
 function isCourseVisibleForStudentGrade(course: Course, studentGrade: string | null) {
@@ -26,6 +29,15 @@ function isCourseVisibleForStudentGrade(course: Course, studentGrade: string | n
   return g === studentGrade;
 }
 
+function DetailRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-start gap-4 py-3 border-b border-gray-100 last:border-b-0">
+      <dt className="shrink-0 w-24 text-sm font-medium text-gray-500">{label}</dt>
+      <dd className="text-sm text-gray-900 flex-1 min-w-0">{value}</dd>
+    </div>
+  );
+}
+
 export default function AfterSchoolCourseList() {
   const [courses, setCourses] = useState<Course[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
@@ -35,6 +47,7 @@ export default function AfterSchoolCourseList() {
   const [error, setError] = useState<string | null>(null);
   const [periodStart, setPeriodStart] = useState<string>("");
   const [periodEnd, setPeriodEnd] = useState<string>("");
+  const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
   // Period state helpers (derive early so other code can use)
   const todayStr = new Date().toISOString().slice(0, 10);
   const isPeriodSet = Boolean(periodStart && periodEnd);
@@ -112,6 +125,16 @@ export default function AfterSchoolCourseList() {
     }, 30000); // 30 seconds
     return () => clearInterval(interval);
   }, []);
+
+  // ESC to close course detail modal
+  useEffect(() => {
+    if (!selectedCourse) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setSelectedCourse(null);
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [selectedCourse]);
 
   const fetchCourses = async () => {
     try {
@@ -195,12 +218,24 @@ export default function AfterSchoolCourseList() {
               </thead>
               <tbody>
                 {visibleCourses.map((course, idx) => (
-                  <tr key={course.id} className="border-b border-gray-100 hover:bg-gray-50">
+                  <tr
+                    key={course.id}
+                    role="button"
+                    tabIndex={0}
+                    className="border-b border-gray-100 hover:bg-gray-50 cursor-pointer"
+                    onClick={() => setSelectedCourse(course)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        setSelectedCourse(course);
+                      }
+                    }}
+                  >
                     <td className="py-3 px-4 text-sm text-gray-600">{idx + 1}</td>
-                    <td className="py-3 px-4 text-sm text-gray-900">{course.subject}</td>
+                    <td className="py-3 px-4 text-sm text-gray-900 font-medium">{course.subject}</td>
                     <td className="py-3 px-4 text-sm text-gray-600">{course.classGroupSchedule || "-"}</td>
                     <td className="py-3 px-4 text-sm text-gray-600">{course.instructor}</td>
-                    <td className="py-3 px-4 text-sm text-gray-600">
+                    <td className="py-3 px-4 text-sm text-gray-600" onClick={(e) => e.stopPropagation()}>
                       {currentUserRole === "student" && course.firstClassGroupId ? (
                         (() => {
                           const joined =
@@ -208,6 +243,9 @@ export default function AfterSchoolCourseList() {
                             currentUserId &&
                             (course as any).firstClassGroupStudentIds.includes(currentUserId);
                           const open = course.enrollmentOpen ?? true;
+                          const enrolled = Array.isArray((course as any).firstClassGroupStudentIds) ? (course as any).firstClassGroupStudentIds.length : 0;
+                          const cap = course.capacity != null ? Number(course.capacity) : null;
+                          const isFull = cap != null && !Number.isNaN(cap) && enrolled >= cap;
                           // If enrollment is closed, show disabled "강의 닫힘"
                           if (!open) {
                             return (
@@ -221,12 +259,26 @@ export default function AfterSchoolCourseList() {
                               </button>
                             );
                           }
+                          // If capacity is full, show disabled "정원마감"
+                          if (isFull && !joined) {
+                            return (
+                              <button
+                                type="button"
+                                disabled
+                                className="flex items-center justify-center px-1 h-6 rounded-sm text-xs bg-gray-200 text-gray-500 cursor-not-allowed whitespace-nowrap"
+                                title="정원이 마감되었습니다."
+                              >
+                                정원마감
+                              </button>
+                            );
+                          }
                           return (
                             <Button
                               type="button"
-                              disabled={!isPeriodOpen}
+                              disabled={!isPeriodOpen || (isFull && !joined)}
                               onClick={async (e) => {
                                 e.stopPropagation();
+                                if (isFull && !joined) return;
                                 if (!isPeriodOpen) {
                                   alert(!isPeriodSet ? "교사가 강의 생성 기간을 설정하지 않았습니다." : "현재는 강의 생성 기간이 아닙니다.");
                                   return;
@@ -267,15 +319,16 @@ export default function AfterSchoolCourseList() {
                                 }
                               }}
                               title={
-                                !isPeriodSet
+                                isFull && !joined
+                                  ? "정원이 마감되었습니다."
+                                  : !isPeriodSet
                                   ? "교사가 강의 생성 기간을 설정하지 않았습니다."
                                   : !isPeriodOpen
                                   ? "현재는 강의 생성 기간이 아닙니다."
                                   : undefined
                               }
                               className={`flex items-center justify-center px-1 h-6 rounded-sm text-xs ${
-                                // style difference if joined or disabled
-                                !isPeriodOpen
+                                !isPeriodOpen || (isFull && !joined)
                                   ? "bg-gray-200 text-gray-500 cursor-not-allowed"
                                   : joined
                                   ? "bg-gray-200 text-gray-700 cursor-pointer"
@@ -287,21 +340,48 @@ export default function AfterSchoolCourseList() {
                           );
                         })()
                       ) : (
-                        <Button
-                          type="button"
-                          onClick={() => {
-                            const ok = window.confirm("해당 강좌에 신청하시겠습니까? (학생 계정으로 신청해야 합니다.)");
-                            if (!ok) return;
-                            window.alert("신청 기능은 학생 계정에서 진행해야 합니다. (추후 구현 예정)");
-                          }}
-                          className="flex items-center justify-center bg-blue-600 hover:bg-blue-700 text-white px-1 h-6 rounded-sm text-xs whitespace-nowrap"
-                        >
-                          신청하기
-                        </Button>
+                        (() => {
+                          const enrolled = Array.isArray(course.firstClassGroupStudentIds) ? course.firstClassGroupStudentIds.length : 0;
+                          const cap = course.capacity != null ? Number(course.capacity) : null;
+                          const isFull = cap != null && !Number.isNaN(cap) && enrolled >= cap;
+                          if (isFull) {
+                            return (
+                              <button
+                                type="button"
+                                disabled
+                                className="flex items-center justify-center px-1 h-6 rounded-sm text-xs bg-gray-200 text-gray-500 cursor-not-allowed whitespace-nowrap"
+                                title="정원이 마감되었습니다."
+                              >
+                                정원마감
+                              </button>
+                            );
+                          }
+                          return (
+                            <Button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const ok = window.confirm("해당 강좌에 신청하시겠습니까? (학생 계정으로 신청해야 합니다.)");
+                                if (!ok) return;
+                                window.alert("신청 기능은 학생 계정에서 진행해야 합니다. (추후 구현 예정)");
+                              }}
+                              className="flex items-center justify-center bg-blue-600 hover:bg-blue-700 text-white px-1 h-6 rounded-sm text-xs whitespace-nowrap"
+                            >
+                              신청하기
+                            </Button>
+                          );
+                        })()
                       )}
                     </td>
-                    <td className="py-3 px-4 text-sm text-gray-600">
-                      {Array.isArray(course.firstClassGroupStudentIds) ? `${course.firstClassGroupStudentIds.length}명` : "0명"}
+                    <td className="py-3 px-4 text-sm text-gray-600 text-center">
+                      {(() => {
+                        const enrolled = Array.isArray(course.firstClassGroupStudentIds) ? course.firstClassGroupStudentIds.length : 0;
+                        const cap = course.capacity != null ? Number(course.capacity) : null;
+                        if (cap != null && !Number.isNaN(cap)) {
+                          return `${enrolled}/${cap}명`;
+                        }
+                        return `${enrolled}명`;
+                      })()}
                     </td>
                   </tr>
                 ))}
@@ -310,6 +390,86 @@ export default function AfterSchoolCourseList() {
           </div>
         )}
       </div>
+
+      {/* 강의 세부 내용 모달 */}
+      {selectedCourse && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="course-detail-title"
+        >
+          <div
+            className="absolute inset-0 bg-black/50"
+            onClick={() => setSelectedCourse(null)}
+          />
+          <div className="relative w-full max-w-xl rounded-2xl border border-gray-200 bg-white shadow-xl overflow-hidden">
+            {/* 모달 헤더: 강좌명 */}
+            <div className="bg-gray-50 border-b border-gray-200 px-6 py-4 pr-12">
+              <h2 id="course-detail-title" className="text-lg font-bold text-gray-900 leading-snug">
+                {selectedCourse.subject}
+              </h2>
+              <p className="text-xs text-gray-500 mt-1">강의 상세 정보</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setSelectedCourse(null)}
+              className="absolute top-4 right-4 p-2 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-200 transition-colors"
+              aria-label="닫기"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+
+            {/* 본문: 항목별 블록 */}
+            <div className="px-6 py-5">
+              <div className="space-y-0">
+                <DetailRow label="강사" value={selectedCourse.instructor} />
+                <DetailRow label="스케줄" value={selectedCourse.classGroupSchedule || "미정"} />
+                {selectedCourse.grade != null && String(selectedCourse.grade).trim() !== "" && (
+                  <DetailRow label="대상 학년" value={selectedCourse.grade} />
+                )}
+                {selectedCourse.classroom != null && String(selectedCourse.classroom).trim() !== "" && (
+                  <DetailRow label="강의실" value={selectedCourse.classroom} />
+                )}
+                <DetailRow
+                  label="수강생 수"
+                  value={(() => {
+                    const enrolled = Array.isArray(selectedCourse.firstClassGroupStudentIds)
+                      ? selectedCourse.firstClassGroupStudentIds.length
+                      : 0;
+                    const cap = selectedCourse.capacity != null ? Number(selectedCourse.capacity) : null;
+                    if (cap != null && !Number.isNaN(cap)) {
+                      return `${enrolled}/${cap}명`;
+                    }
+                    return `${enrolled}명`;
+                  })()}
+                />
+              </div>
+
+              {selectedCourse.description != null && String(selectedCourse.description).trim() !== "" && (
+                <div className="mt-5 pt-5 border-t border-gray-100">
+                  <h3 className="text-sm font-semibold text-gray-700 mb-2">강좌 소개</h3>
+                  <div className="rounded-lg bg-gray-50 border border-gray-100 px-4 py-3 text-sm text-gray-800 leading-relaxed whitespace-pre-wrap">
+                    {selectedCourse.description}
+                  </div>
+                </div>
+              )}
+
+              <div className="mt-6 flex justify-end">
+                <Button
+                  type="button"
+                  onClick={() => setSelectedCourse(null)}
+                  className="bg-gray-200 text-gray-800 hover:bg-gray-300 min-w-[5rem]"
+                >
+                  닫기
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
