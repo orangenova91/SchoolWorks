@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   BookOpen,
   Users,
@@ -22,6 +22,16 @@ import {
   Link as LinkIcon,
   Save,
   X,
+  UtensilsCrossed,
+  Coffee,
+  Radio,
+  Mic,
+  ClipboardCheck,
+  ListChecks,
+  FileSearch,
+  User,
+  UserCircle,
+  UsersRound,
 } from "lucide-react";
 import { useToast } from "@/components/ui/Toast";
 
@@ -45,6 +55,16 @@ const availableIcons = [
   { name: "Phone", component: Phone },
   { name: "MapPin", component: MapPin },
   { name: "LinkIcon", component: LinkIcon },
+  { name: "UtensilsCrossed", component: UtensilsCrossed },
+  { name: "Coffee", component: Coffee },
+  { name: "Radio", component: Radio },
+  { name: "Mic", component: Mic },
+  { name: "ClipboardCheck", component: ClipboardCheck },
+  { name: "ListChecks", component: ListChecks },
+  { name: "FileSearch", component: FileSearch },
+  { name: "User", component: User },
+  { name: "UserCircle", component: UserCircle },
+  { name: "UsersRound", component: UsersRound },
 ];
 
 // 편집 화면에서 허용할 최대 배너 줄 수 및 한 줄 칸 수
@@ -73,6 +93,19 @@ export default function BannerEditor({
   const [editedBanners, setEditedBanners] = useState<Banner[]>(banners);
   const [rows, setRows] = useState<number>(initialRows);
   const [isSaving, setIsSaving] = useState(false);
+  const [openIconDropdownIndex, setOpenIconDropdownIndex] = useState<number | null>(null);
+  const iconDropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (openIconDropdownIndex === null) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (iconDropdownRef.current && !iconDropdownRef.current.contains(e.target as Node)) {
+        setOpenIconDropdownIndex(null);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [openIconDropdownIndex]);
   const { showToast } = useToast();
 
   const handleBannerChange = (index: number, field: keyof Banner, value: string) => {
@@ -221,18 +254,55 @@ export default function BannerEditor({
                   <label className="block text-xs font-medium text-gray-700 mb-1">
                     아이콘
                   </label>
-                  <select
-                    value={banner.icon}
-                    onChange={(e) => handleBannerChange(index, "icon", e.target.value)}
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                  <div
+                    className="relative"
+                    ref={openIconDropdownIndex === index ? iconDropdownRef : undefined}
                   >
-                    <option value="">아이콘 선택</option>
-                    {availableIcons.map((icon) => (
-                      <option key={icon.name} value={icon.name}>
-                        {icon.name}
-                      </option>
-                    ))}
-                  </select>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setOpenIconDropdownIndex((prev) => (prev === index ? null : index))
+                      }
+                      className="w-full min-w-0 px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white flex items-center gap-2 text-left overflow-hidden"
+                    >
+                      <IconComponent className="w-4 h-4 text-gray-600 flex-shrink-0" />
+                      <span className="min-w-0 truncate">{banner.icon || "아이콘 선택"}</span>
+                    </button>
+                    {openIconDropdownIndex === index && (
+                      <div className="absolute top-full left-0 right-0 mt-1 py-1 bg-white border border-gray-200 rounded-md shadow-lg z-50 max-h-96 overflow-y-auto">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            handleBannerChange(index, "icon", "");
+                            setOpenIconDropdownIndex(null);
+                          }}
+                          className="w-full px-3 py-2 text-sm text-left flex items-center gap-2 hover:bg-gray-100 text-gray-500 whitespace-nowrap"
+                        >
+                          <HelpCircle className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                          아이콘 선택
+                        </button>
+                        {[...availableIcons]
+                          .sort((a, b) => a.name.localeCompare(b.name))
+                          .map((icon) => {
+                          const IconItem = icon.component;
+                          return (
+                            <button
+                              key={icon.name}
+                              type="button"
+                              onClick={() => {
+                                handleBannerChange(index, "icon", icon.name);
+                                setOpenIconDropdownIndex(null);
+                              }}
+                              className="w-full px-3 py-2 text-sm text-left flex items-center gap-2 hover:bg-gray-100 text-gray-900"
+                            >
+                              <IconItem className="w-4 h-4 text-gray-600 flex-shrink-0" />
+                              {icon.name}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 <div>

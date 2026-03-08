@@ -6,6 +6,7 @@ import { getTranslations } from "@/lib/i18n";
 import { prisma } from "@/lib/prisma";
 import WeeklyScheduleSection from "@/components/dashboard/WeeklyScheduleSection";
 import BannerSection from "@/components/dashboard/teacher/BannerSection";
+import { WeeklySchedulePanel } from "@/components/dashboard/teacher/WeeklySchedulePanel";
 import CollaborativeDocLinksSection from "@/components/dashboard/teacher/CollaborativeDocLinksSection";
 import { Calendar, Users, UserCheck, MessageSquare, Paperclip } from "lucide-react";
 
@@ -491,7 +492,7 @@ export default async function TeacherDashboardPage() {
 
   // 주간 시간표 데이터 생성
   const weekDays = ["월", "화", "수", "목", "금"];
-  const periods = ["1", "2", "3", "4", "점심", "5", "6", "7"];
+  const periods = ["1", "2", "3", "4", "점심", "5", "6", "7", "8", "9"];
 
   // 현재 시간에 해당하는 교시 계산 (한국 시간대 기준)
   const getCurrentPeriod = (): string | null => {
@@ -520,6 +521,8 @@ export default async function TeacherDashboardPage() {
     // 5교시: 13:30-14:20
     // 6교시: 14:30-15:20
     // 7교시: 15:40-16:30
+    // 8교시: 16:40-17:30
+    // 9교시: 17:40-19:30
     
     if (timeInMinutes >= 8 * 60 + 40 && timeInMinutes < 9 * 60 + 30) return "1";
     if (timeInMinutes >= 9 * 60 + 40 && timeInMinutes < 10 * 60 + 30) return "2";
@@ -529,7 +532,9 @@ export default async function TeacherDashboardPage() {
     if (timeInMinutes >= 13 * 60 + 30 && timeInMinutes < 14 * 60 + 20) return "5";
     if (timeInMinutes >= 14 * 60 + 30 && timeInMinutes < 15 * 60 + 20) return "6";
     if (timeInMinutes >= 15 * 60 + 40 && timeInMinutes < 16 * 60 + 30) return "7";
-    
+    if (timeInMinutes >= 16 * 60 + 40 && timeInMinutes < 17 * 60 + 30) return "8";
+    if (timeInMinutes >= 17 * 60 + 40 && timeInMinutes < 19 * 60 + 30) return "9";
+
     return null;
   };
 
@@ -730,7 +735,13 @@ export default async function TeacherDashboardPage() {
             <h2 className="text-2xl font-bold text-gray-900">
               안녕하세요 {session.user.name ?? t.dashboard.roleTeacher} 선생님 
             </h2>
-
+            <WeeklySchedulePanel
+              weekDays={weekDays}
+              periods={periods}
+              weeklyScheduleTable={weeklyScheduleTable}
+              todayDay={todayDay}
+              currentPeriod={currentPeriod ?? ""}
+            />
             <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 text-sm text-blue-800 whitespace-nowrap">
               오늘은{" "}
               <span className="inline-block mx-1 px-2 py-1 text-xl font-bold text-blue-900 bg-blue-200 rounded-md">
@@ -841,92 +852,7 @@ export default async function TeacherDashboardPage() {
       
       {showExtraTeacherDashboardSections && (
         <>
-          <div className="flex gap-6 items-start">
-            {/* 주간 시간표 섹션 */}
-            <section className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm w-1/3 flex-shrink-0">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold text-gray-900">주간 시간표</h2>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full border-collapse text-sm">
-                  <thead>
-                    <tr>
-                      <th className="border border-gray-300 bg-gray-50 px-1 py-2 font-semibold text-gray-700 min-w-[30px]">
-                        교시
-                      </th>
-                      {weekDays.map((day) => (
-                        <th
-                          key={day}
-                          className={`border border-gray-300 px-1 py-2 font-semibold min-w-[60px] ${
-                            day === todayDay 
-                              ? "bg-yellow-100 text-yellow-900" 
-                              : "bg-gray-50 text-gray-700"
-                          }`}
-                        >
-                          {day}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {periods.map((period) => {
-                      const isCurrentPeriod = currentPeriod === period;
-                      return (
-                        <tr key={period}>
-                          <td
-                            className={`border border-gray-300 px-1 py-2 text-center font-medium ${
-                              isCurrentPeriod
-                                ? "bg-yellow-100 text-yellow-900 border-yellow-300" 
-                                : "bg-gray-50 text-gray-700"
-                            }`}
-                          >
-                            {period}
-                          </td>
-                          {weekDays.map((day) => {
-                            const cells = weeklyScheduleTable[day][period];
-                            const isToday = day === todayDay;
-                            const isCurrentCell = isToday && isCurrentPeriod;
-                            return (
-                              <td
-                                key={`${day}-${period}`}
-                                className={`border border-gray-300 px-1 py-2 align-top min-h-[80px] ${
-                                  isCurrentCell 
-                                    ? "bg-yellow-200 border-yellow-400 ring-2 ring-yellow-400" 
-                                    : "bg-white"
-                                }`}
-                              >
-                                {cells.length > 0 ? (
-                                  <div className="space-y-1">
-                                    {cells.map((cell, idx) => (
-                                      <Link
-                                        key={`${cell.courseId}-${cell.groupId}-${idx}`}
-                                        href={`/dashboard/teacher/manage-classes/${cell.courseId}`}
-                                        className="block rounded-md bg-blue-100 hover:bg-blue-200 px-1 py-2 transition-colors cursor-pointer border border-blue-200"
-                                      >
-                                        <div className="font-medium text-blue-900 text-xs leading-tight">
-                                          {cell.courseSubject}
-                                        </div>
-                                        <div className="text-xs text-blue-700 mt-1 leading-tight">
-                                          {cell.groupName}
-                                        </div>
-                                      </Link>
-                                    ))}
-                                  </div>
-                                ) : (
-                                  <div className="text-gray-400 text-xs text-center py-2">-</div>
-                                )}
-                              </td>
-                            );
-                          })}
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </section>
-
-            <div className="flex-1 flex flex-col gap-6">
+          <div className="flex flex-col gap-6">
               <section className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
                 <h2 className="text-lg font-semibold text-gray-900 mb-4">바로가기</h2>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -975,7 +901,6 @@ export default async function TeacherDashboardPage() {
               </section>
 
               <CollaborativeDocLinksSection />
-            </div>
           </div>
 
           <section className="grid gap-6 lg:grid-cols-2">

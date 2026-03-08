@@ -21,6 +21,16 @@ import {
   MapPin,
   Link as LinkIcon,
   Edit,
+  UtensilsCrossed,
+  Coffee,
+  Radio,
+  Mic,
+  ClipboardCheck,
+  ListChecks,
+  FileSearch,
+  User,
+  UserCircle,
+  UsersRound,
 } from "lucide-react";
 import { Banner } from "./BannerEditor";
 
@@ -44,6 +54,16 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   Phone,
   MapPin,
   LinkIcon,
+  UtensilsCrossed,
+  Coffee,
+  Radio,
+  Mic,
+  ClipboardCheck,
+  ListChecks,
+  FileSearch,
+  User,
+  UserCircle,
+  UsersRound,
 };
 
 interface BannerGridProps {
@@ -128,7 +148,7 @@ export default function BannerGrid({ banners, rows, onEdit, isEditable = true }:
               <div className="w-16 h-16 flex items-center justify-center bg-blue-50 rounded-lg group-hover:bg-blue-100 transition-colors">
                 <IconComponent className="w-8 h-8 text-blue-600" />
               </div>
-              <h3 className="text-xs font-semibold text-gray-900 leading-tight">{banner.title}</h3>
+              <h3 className="text-sm font-semibold text-gray-900 leading-tight">{banner.title}</h3>
             </div>
           );
 

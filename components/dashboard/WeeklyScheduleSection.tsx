@@ -98,7 +98,7 @@ export default function WeeklyScheduleSection({
         )}
       </div>
       <div className="rounded-xl border border-gray-100 overflow-hidden">
-        <div className="hidden md:grid grid-cols-7 bg-gray-50 text-xs font-semibold uppercase tracking-wide text-gray-500">
+        <div className="hidden md:grid grid-cols-7 bg-gray-50 text-sm font-semibold uppercase tracking-wide text-gray-500">
           {schedule.map((day) => {
             const isToday = day.isoDate === todayIsoDate;
             const dayOfWeek = getDayOfWeek(day.isoDate);
@@ -236,7 +236,7 @@ export default function WeeklyScheduleSection({
                                       className={
                                         isMe
                                           ? "inline-flex items-center rounded-full bg-emerald-100 text-emerald-800 text-[12px] px-1.5 py-0.5 font-semibold"
-                                          : undefined
+                                          : "text-sm"
                                       }
                                     >
                                       {name}
@@ -261,13 +261,13 @@ export default function WeeklyScheduleSection({
                                     <span
                                       className={
                                         isMe
-                                          ? "inline-flex items-center rounded-full bg-orange-100 text-orange-800 text-[10px] px-1.5 py-0.5 font-semibold"
-                                          : undefined
+                                          ? "inline-flex items-center rounded-full bg-orange-100 text-orange-800 text-[12px] px-1.5 py-0.5 font-semibold"
+                                          : "text-sm"
                                       }
                                     >
                                       {name}
                                     </span>
-                                    {idx < arr.length - 1 && <span>,</span>}
+                                    {idx < arr.length - 1 && <span className="text-sm">, </span>}
                                   </span>
                                 );
                               })}
