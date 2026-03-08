@@ -1,4 +1,5 @@
 import { getServerSession } from "next-auth";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
 import { getTranslations } from "@/lib/i18n";
@@ -7,40 +8,25 @@ import WeeklyScheduleSection from "@/components/dashboard/WeeklyScheduleSection"
 
 const t = getTranslations("ko");
 
-const todaysSchedule = [
-  {
-    title: "국어 수업",
-    time: "08:30 - 09:20",
-    location: "1-2 교실",
-  },
-  {
-    title: "수학 자율 학습",
-    time: "15:30 - 16:10",
-    location: "도서관",
-  },
-];
+// 한국 요일 (0=일 … 6=토)
+const DAY_NAMES_KO = ["일", "월", "화", "수", "목", "금", "토"];
 
-const assignments = [
-  {
-    title: "역사 독후감 제출",
-    due: "11월 12일 (화)",
-  },
-  {
-    title: "수학 문제집 5단원",
-    due: "11월 13일 (수)",
-  },
-];
+function parseSchedules(value: string): { day: string; period: string }[] {
+  try {
+    const parsed = JSON.parse(value);
+    if (Array.isArray(parsed)) {
+      return parsed.filter(
+        (s): s is { day: string; period: string } =>
+          typeof s?.day === "string" && typeof s?.period === "string"
+      );
+    }
+    return [];
+  } catch {
+    return [];
+  }
+}
 
-const announcements = [
-  {
-    title: "동아리 박람회 안내",
-    date: "2025-11-15",
-  },
-  {
-    title: "모의고사 일정 안내",
-    date: "2025-11-20",
-  },
-];
+
 
 // 한국 시간대(Asia/Seoul, UTC+9) 기준으로 현재 시간을 가져오는 헬퍼 함수
 const getKoreaTime = (): Date => {
@@ -229,6 +215,8 @@ export default async function StudentDashboardPage() {
         eventType: event.eventType,
         department: event.department ?? undefined,
         description: event.description ?? "",
+        gradeLevels: event.gradeLevels ?? undefined,
+        periods: event.periods ?? undefined,
         startDateISO: event.startDate.toISOString(),
         endDateISO: event.endDate ? event.endDate.toISOString() : null,
         scope: event.scope,
@@ -247,6 +235,34 @@ export default async function StudentDashboardPage() {
       events: eventsForDay,
     };
   });
+
+  // 학생이 소속된 학반(수업) 목록 — 오늘 일정 표시용 (classroom 페이지와 동일 데이터)
+  const studentId = session.user.id;
+  const classGroups = studentId
+    ? await prisma.classGroup.findMany({
+        where: { studentIds: { has: studentId } },
+        include: { course: { select: { id: true, subject: true, classroom: true } } },
+      })
+    : [];
+
+  const todayKoreanDay = DAY_NAMES_KO[now.getDay()];
+  const todaysScheduleRaw: { id: string; title: string; time: string; location: string; courseId: string }[] = [];
+  for (const group of classGroups) {
+    const schedules = parseSchedules(group.schedules);
+    for (const schedule of schedules) {
+      if (schedule.day !== todayKoreanDay) continue;
+      todaysScheduleRaw.push({
+        id: `${group.course.id}-${group.id}-${schedule.period}`,
+        title: group.course.subject,
+        time: `${schedule.period}교시`,
+        location: group.course.classroom,
+        courseId: group.course.id,
+      });
+    }
+  }
+  const todaysSchedule = todaysScheduleRaw.sort(
+    (a, b) => parseInt(a.time.replace(/\D/g, ""), 10) - parseInt(b.time.replace(/\D/g, ""), 10)
+  );
 
   return (
     <div className="space-y-6">
@@ -281,17 +297,19 @@ export default async function StudentDashboardPage() {
               </li>
             ) : (
               todaysSchedule.map((item) => (
-                <li
-                  key={item.title}
-                  className="flex flex-col rounded-lg border border-gray-100 p-4"
-                >
-                  <span className="text-sm font-medium text-gray-900">
-                    {item.title}
-                  </span>
-                  <span className="text-sm text-gray-600 mt-1">{item.time}</span>
-                  <span className="text-xs text-gray-500 mt-1">
-                    {item.location}
-                  </span>
+                <li key={item.id}>
+                  <Link
+                    href={`/dashboard/student/classroom/${item.courseId}`}
+                    className="flex flex-col rounded-lg border border-gray-100 p-4 transition hover:border-indigo-200 hover:bg-gray-50"
+                  >
+                    <span className="text-sm font-medium text-gray-900">
+                      {item.title}
+                    </span>
+                    <span className="text-sm text-gray-600 mt-1">{item.time}</span>
+                    <span className="text-xs text-gray-500 mt-1">
+                      {item.location}
+                    </span>
+                  </Link>
                 </li>
               ))
             )}
@@ -303,25 +321,9 @@ export default async function StudentDashboardPage() {
             {t.dashboard.studentAssignmentsTitle}
           </h3>
           <ul className="mt-4 space-y-3">
-            {assignments.length === 0 ? (
-              <li className="text-sm text-gray-600">
-                {t.dashboard.studentAssignmentsEmpty}
-              </li>
-            ) : (
-              assignments.map((assignment) => (
-                <li
-                  key={assignment.title}
-                  className="rounded-lg border border-gray-100 p-4"
-                >
-                  <span className="text-sm font-medium text-gray-900">
-                    {assignment.title}
-                  </span>
-                  <span className="text-xs text-gray-500 mt-1">
-                    {assignment.due}
-                  </span>
-                </li>
-              ))
-            )}
+            <li className="text-sm text-gray-600">
+              서비스 준비중입니다.
+            </li>
           </ul>
         </article>
       </section>
@@ -331,18 +333,10 @@ export default async function StudentDashboardPage() {
           {t.dashboard.studentAnnouncementsTitle}
         </h3>
         <ul className="mt-4 space-y-3">
-          {announcements.map((announcement) => (
-            <li
-              key={announcement.title}
-              className="flex items-center justify-between rounded-lg border border-gray-100 p-4"
-            >
-              <span className="text-sm font-medium text-gray-900">
-                {announcement.title}
-              </span>
-              <span className="text-xs text-gray-500">{announcement.date}</span>
+            <li className="text-sm text-gray-600">
+              서비스 준비중입니다.
             </li>
-          ))}
-        </ul>
+          </ul>
       </section>
     </div>
   );

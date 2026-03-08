@@ -190,6 +190,8 @@ export default async function ParentDashboardPage() {
         eventType: event.eventType,
         department: event.department ?? undefined,
         description: event.description ?? "",
+        gradeLevels: event.gradeLevels ?? undefined,
+        periods: event.periods ?? undefined,
         startDateISO: event.startDate.toISOString(),
         endDateISO: event.endDate ? event.endDate.toISOString() : null,
         scope: event.scope,

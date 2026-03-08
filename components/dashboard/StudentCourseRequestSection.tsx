@@ -535,7 +535,7 @@ export default function StudentCourseRequestSection({ showApplyButton = true }: 
       <div className="space-y-6">
         <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
           <div className="flex items-center justify-between mb-3" style={{ minHeight: '2.5rem' }}>
-            <h2 className="text-lg font-semibold text-gray-900">학생 강의 신청</h2>
+            <h2 className="text-lg font-semibold text-gray-900">희망 강의 신청</h2>
 
             <div className="flex items-center gap-3">
               {/* If teacher, show editable inputs + save button. Otherwise show read-only text. */}
@@ -617,7 +617,7 @@ export default function StudentCourseRequestSection({ showApplyButton = true }: 
               {showApplyButton ? (
                 <Button
                   onClick={handleOpen}
-                  className="bg-blue-600 hover:bg-blue-700 h-10"
+                  className="bg-blue-600 hover:bg-blue-700 h-10 whitespace-nowrap"
                   disabled={currentUserRole !== "teacher" && !isPeriodOpen}
                   title={
                     currentUserRole !== "teacher" && !isPeriodSet
@@ -634,12 +634,18 @@ export default function StudentCourseRequestSection({ showApplyButton = true }: 
               )}
             </div>
           </div>
-          <p className="text-sm text-gray-600">원하는 강의를 신청할 수 있습니다.(수강 신청은 별개로 진행됩니다.)</p>
+          <p className="text-sm text-gray-600">
+            원하는 강의를 신청할 수 있습니다.(
+              <span className="ml-1 rounded-md bg-orange-100 px-2 py-0.5 text-xs font-medium text-orange-700">
+                수강 신청
+              </span>
+              은 별개)
+          </p>
         </div>
 
         {/* 신청 목록 게시판 */}
         <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">신청 목록</h3>
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">희망 강의 신청 목록</h3>
           
           {isLoading ? (
             <div className="text-center py-8 text-gray-500">로딩 중...</div>

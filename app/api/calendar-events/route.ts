@@ -123,7 +123,8 @@ export async function GET(request: NextRequest) {
       description: event.description,
       start: event.startDate.toISOString(),
       end: event.endDate ? event.endDate.toISOString() : null,
-      allDay: !event.endDate || event.startDate.toDateString() === event.endDate.toDateString(),
+      // Multi-day events as allDay so FullCalendar does not show "오전 12시" for midnight start
+      allDay: !event.endDate || event.startDate.toDateString() === event.endDate.toDateString() || (!!event.endDate && event.startDate.toDateString() !== event.endDate.toDateString()),
       extendedProps: {
         eventType: event.eventType,
         scope: event.scope,

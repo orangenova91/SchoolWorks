@@ -132,7 +132,7 @@ export const translations = {
         },
       },
       studentScheduleTitle: "오늘의 수업",
-      studentScheduleEmpty: "오늘 예정된 수업이 없습니다. 자유 시간을 계획해보세요.",
+      studentScheduleEmpty: "오늘 예정된 수업이 없습니다.",
       studentAssignmentsTitle: "마감 임박 자료",
       studentAssignmentsEmpty: "확인해야 할 자료가 없습니다. 수고하셨어요!",
       studentClassroomTitle: "강의실",

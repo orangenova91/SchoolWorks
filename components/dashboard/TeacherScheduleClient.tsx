@@ -17,6 +17,8 @@ type TeacherScheduleClientProps = {
   editableScopes?: string[];
   showAddButton?: boolean;
   initialActiveTab?: "academic" | "creative";
+  /** 교사만 true. 활동 입력/활동지 입력 버튼 및 모달 열기 허용 */
+  canEditActivity?: boolean;
 };
 
 type CalendarEventWithDate = CalendarEvent & { startDate: Date };
@@ -29,6 +31,7 @@ export default function TeacherScheduleClient({
   editableScopes,
   showAddButton = true,
   initialActiveTab = "academic",
+  canEditActivity = false,
 }: TeacherScheduleClientProps) {
   const [events, setEvents] = useState<CalendarEvent[]>(initialEvents);
   const calendarRef = useRef<CalendarViewHandle>(null);
@@ -803,49 +806,57 @@ export default function TeacherScheduleClient({
                           </td>
                           <td
                             className="px-2 py-3 text-xs text-center align-middle"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setActivityModalEvent({
-                                id: event.id,
-                                title: event.title,
-                                activityContent: activityContent || "",
-                              });
-                            }}
+                            {...(canEditActivity && {
+                              onClick: (e: React.MouseEvent) => {
+                                e.stopPropagation();
+                                setActivityModalEvent({
+                                  id: event.id,
+                                  title: event.title,
+                                  activityContent: activityContent || "",
+                                });
+                              },
+                            })}
                           >
                             {activityContent ? (
-                              <span className="text-gray-600 cursor-pointer hover:text-blue-600 line-clamp-2 block">
+                              <span className={canEditActivity ? "text-gray-600 cursor-pointer hover:text-blue-600 line-clamp-2 block" : "text-gray-600 line-clamp-2 block"}>
                                 {activityContent}
                               </span>
-                            ) : (
+                            ) : canEditActivity ? (
                               <button
                                 type="button"
                                 className="text-blue-600 hover:text-blue-700 text-xs font-medium cursor-pointer"
                               >
                                 활동 입력
                               </button>
+                            ) : (
+                              <span className="text-gray-400">-</span>
                             )}
                           </td>
                           <td
                             className="px-2 py-3 text-xs text-center align-middle"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setActivitySheetModalEvent({
-                                id: event.id,
-                                title: event.title,
-                              });
-                            }}
+                            {...(canEditActivity && {
+                              onClick: (e: React.MouseEvent) => {
+                                e.stopPropagation();
+                                setActivitySheetModalEvent({
+                                  id: event.id,
+                                  title: event.title,
+                                });
+                              },
+                            })}
                           >
                             {activityQuestionCount > 0 ? (
-                              <span className="text-gray-600 cursor-pointer hover:text-blue-600">
+                              <span className={canEditActivity ? "text-gray-600 cursor-pointer hover:text-blue-600" : "text-gray-600"}>
                                 {activityQuestionCount}개 질문
                               </span>
-                            ) : (
+                            ) : canEditActivity ? (
                               <button
                                 type="button"
                                 className="text-blue-600 hover:text-blue-700 text-xs font-medium cursor-pointer"
                               >
                                 활동지 입력
                               </button>
+                            ) : (
+                              <span className="text-gray-400">-</span>
                             )}
                           </td>
                         </tr>

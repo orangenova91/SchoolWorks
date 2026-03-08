@@ -97,6 +97,7 @@ export default async function StudentSchedulePage() {
         allowedScheduleAreas={["개인일정(나만 보기)"]}
         editableScopes={["personal"]}
         showAddButton={false}
+        canEditActivity={false}
       />
     </div>
   );
