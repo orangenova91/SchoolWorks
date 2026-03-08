@@ -245,7 +245,7 @@ export default function WeeklyScheduleSection({
                                     <span
                                       className={
                                         isMe
-                                          ? "inline-flex items-center rounded-full bg-emerald-100 text-emerald-800 text-[12px] px-1.5 py-0.5 font-semibold"
+                                          ? "inline-flex items-center rounded-full bg-emerald-100 text-emerald-800 text-[14px] px-1.5 py-0.5 font-semibold"
                                           : "text-sm"
                                       }
                                     >
