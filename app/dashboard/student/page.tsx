@@ -265,17 +265,13 @@ export default async function StudentDashboardPage() {
   );
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3">
       <header className="border-4 border-dashed border-gray-200 rounded-lg p-8 bg-white">
         <h2 className="text-2xl font-bold text-gray-900 mb-2">
-          {t.dashboard.studentTitle}
+          안녕하세요 {session.user.name ?? t.dashboard.roleStudent} 학생님, 오늘도 즐거운 하루 되세요.
         </h2>
         <p className="text-gray-600">{t.dashboard.studentDescription}</p>
-        <div className="mt-6 bg-green-50 border border-green-100 rounded-lg p-4 text-sm text-green-800">
-          {session.user.school
-            ? `${session.user.school} · ${t.dashboard.roleStudent}`
-            : t.dashboard.roleStudent}
-        </div>
+        
       </header>
 
       <WeeklyScheduleSection
