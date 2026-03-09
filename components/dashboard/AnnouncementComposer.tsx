@@ -11,7 +11,7 @@ import { TextStyle } from "@tiptap/extension-text-style";
 import UnderlineExtension from "@tiptap/extension-underline";
 import TiptapImage from "@tiptap/extension-image";
 import { Extension } from "@tiptap/core";
-import { Bold, Italic, Underline, List, ListOrdered, Link as LinkIcon, Undo, Redo, Send, ChevronDown, X, Check, Plus, Trash2, Type, Image as ImageIcon, Palette, Eraser } from "lucide-react";
+import { Bold, Italic, Underline, List, ListOrdered, Link as LinkIcon, Undo, Redo, Send, ChevronDown, X, Check, Plus, Trash2, Type, Image as ImageIcon, Palette, Eraser, GripVertical } from "lucide-react";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { Select } from "@/components/ui/Select";
@@ -974,6 +974,69 @@ function AnnouncementComposerForm({
     setFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
+  // 기존 첨부파일 개별 삭제 핸들러 (수정 시)
+  const handleRemoveExistingAttachment = (index: number) => {
+    setExistingAttachments((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  // 드래그 앤 드롭: 새 파일 순서 변경
+  const [dragFileIndex, setDragFileIndex] = useState<number | null>(null);
+  const [dragOverFileIndex, setDragOverFileIndex] = useState<number | null>(null);
+  const handleFilesDragStart = (index: number) => setDragFileIndex(index);
+  const handleFilesDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    setDragOverFileIndex(index);
+  };
+  const handleFilesDragLeave = () => setDragOverFileIndex(null);
+  const handleFilesDrop = (e: React.DragEvent, toIndex: number) => {
+    e.preventDefault();
+    setDragOverFileIndex(null);
+    if (dragFileIndex === null || dragFileIndex === toIndex) {
+      setDragFileIndex(null);
+      return;
+    }
+    setFiles((prev) => {
+      const next = [...prev];
+      const [removed] = next.splice(dragFileIndex, 1);
+      next.splice(toIndex, 0, removed);
+      return next;
+    });
+    setDragFileIndex(null);
+  };
+  const handleFilesDragEnd = () => {
+    setDragFileIndex(null);
+    setDragOverFileIndex(null);
+  };
+
+  // 드래그 앤 드롭: 기존 첨부 순서 변경
+  const [dragAttachIndex, setDragAttachIndex] = useState<number | null>(null);
+  const [dragOverAttachIndex, setDragOverAttachIndex] = useState<number | null>(null);
+  const handleExistingDragStart = (index: number) => setDragAttachIndex(index);
+  const handleExistingDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    setDragOverAttachIndex(index);
+  };
+  const handleExistingDragLeave = () => setDragOverAttachIndex(null);
+  const handleExistingDrop = (e: React.DragEvent, toIndex: number) => {
+    e.preventDefault();
+    setDragOverAttachIndex(null);
+    if (dragAttachIndex === null || dragAttachIndex === toIndex) {
+      setDragAttachIndex(null);
+      return;
+    }
+    setExistingAttachments((prev) => {
+      const next = [...prev];
+      const [removed] = next.splice(dragAttachIndex, 1);
+      next.splice(toIndex, 0, removed);
+      return next;
+    });
+    setDragAttachIndex(null);
+  };
+  const handleExistingDragEnd = () => {
+    setDragAttachIndex(null);
+    setDragOverAttachIndex(null);
+  };
+
   // ESC 키로 모달 닫기 및 body 스크롤 방지
   useEffect(() => {
     const handleEscape = (event: KeyboardEvent) => {
@@ -1746,7 +1809,7 @@ function AnnouncementComposerForm({
 
     try {
       // publishAt과 설문 조사 기간을 ISO 형식으로 변환 (datetime-local 형식에서)
-      const requestBody = {
+      const requestBody: Record<string, unknown> = {
         ...payload,
         publishAt: payload.publishAt && payload.publishAt.trim()
           ? new Date(payload.publishAt).toISOString()
@@ -1758,6 +1821,10 @@ function AnnouncementComposerForm({
           ? new Date(payload.surveyEndDate).toISOString()
           : undefined,
       };
+      // 수정 시 유지할 기존 첨부 목록 전달 (개별 삭제 반영)
+      if (editId && existingAttachments.length >= 0) {
+        requestBody.attachments = existingAttachments;
+      }
 
       const url = editId ? `/api/announcements/${editId}` : "/api/announcements";
       const method = editId ? "PUT" : "POST";
@@ -3234,13 +3301,28 @@ function AnnouncementComposerForm({
           className="flex h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 file:mr-4 file:rounded-md file:border-0 file:bg-blue-50 file:px-3 file:py-1 file:text-sm file:font-medium file:text-blue-700 hover:file:bg-blue-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 placeholder:text-gray-500"
         />
         {files.length > 0 && (
-          <ul className="mt-2 text-sm text-gray-700 space-y-1">
-            {files.map((f, idx) => (
+          <>
+            {files.length > 1 && (
+              <p className="mt-1 text-xs text-gray-500">드래그하여 순서 변경</p>
+            )}
+            <ul className="mt-2 text-sm text-gray-700 space-y-1">
+              {files.map((f, idx) => (
               <li
                 key={`${f.name}-${idx}`}
-                className="flex items-center justify-between gap-2 rounded border border-gray-200 bg-white px-2 py-1"
+                draggable
+                onDragStart={() => handleFilesDragStart(idx)}
+                onDragOver={(e) => handleFilesDragOver(e, idx)}
+                onDragLeave={handleFilesDragLeave}
+                onDrop={(e) => handleFilesDrop(e, idx)}
+                onDragEnd={handleFilesDragEnd}
+                className={cn(
+                  "flex items-center gap-2 rounded border px-2 py-1 cursor-grab active:cursor-grabbing",
+                  dragFileIndex === idx ? "border-blue-400 bg-blue-50 opacity-80" : "border-gray-200 bg-white",
+                  dragOverFileIndex === idx && dragFileIndex !== idx ? "border-blue-300 bg-blue-50/50" : ""
+                )}
               >
-                <span className="truncate">
+                <GripVertical className="w-4 h-4 flex-shrink-0 text-gray-400" aria-hidden />
+                <span className="truncate flex-1 min-w-0">
                   {f.name} ({(f.size / 1024 / 1024).toFixed(2)} MB)
                 </span>
                 <button
@@ -3251,25 +3333,49 @@ function AnnouncementComposerForm({
                   삭제
                 </button>
               </li>
-            ))}
-          </ul>
+              ))}
+            </ul>
+          </>
         )}
         {editId && existingAttachments.length > 0 && (
           <div className="mt-2 rounded-lg border border-gray-200 bg-white p-2">
             <div className="flex items-center justify-between gap-2 mb-2">
               <span className="text-sm font-medium text-gray-700">현재 첨부 파일</span>
+              <span className="text-xs text-gray-500">드래그하여 순서 변경</span>
             </div>
             <ul className="text-sm text-gray-600 pl-1 space-y-1">
               {existingAttachments.map((att, idx) => (
-                <li key={`${att.filePath}-${idx}`} className="flex items-center justify-between gap-2 break-all rounded border border-gray-200 bg-gray-50 px-2 py-1">
+                <li
+                  key={`${att.filePath}-${idx}`}
+                  draggable
+                  onDragStart={() => handleExistingDragStart(idx)}
+                  onDragOver={(e) => handleExistingDragOver(e, idx)}
+                  onDragLeave={handleExistingDragLeave}
+                  onDrop={(e) => handleExistingDrop(e, idx)}
+                  onDragEnd={handleExistingDragEnd}
+                  className={cn(
+                    "flex items-center gap-2 break-all rounded border px-2 py-1 cursor-grab active:cursor-grabbing",
+                    dragAttachIndex === idx ? "border-blue-400 bg-blue-50 opacity-80" : "border-gray-200 bg-gray-50",
+                    dragOverAttachIndex === idx && dragAttachIndex !== idx ? "border-blue-300 bg-blue-50/50" : ""
+                  )}
+                >
+                  <GripVertical className="w-4 h-4 flex-shrink-0 text-gray-400" aria-hidden />
                   <a
-                    href={att.filePath}
+                    href={`/api/download?url=${encodeURIComponent(att.filePath)}&filename=${encodeURIComponent(att.originalFileName)}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="truncate text-blue-600 hover:text-blue-700"
+                    className="truncate flex-1 min-w-0 text-blue-600 hover:text-blue-700"
+                    onClick={(e) => e.stopPropagation()}
                   >
                     {att.originalFileName}
                   </a>
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveExistingAttachment(idx)}
+                    className="flex-shrink-0 text-xs text-red-600 hover:text-red-700 rounded px-2 py-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2"
+                  >
+                    삭제
+                  </button>
                 </li>
               ))}
             </ul>
