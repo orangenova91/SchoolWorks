@@ -15,6 +15,8 @@ const createAfterSchoolAdminCourseSchema = z.object({
   subject: z.string().trim().min(1, "강좌명을 입력하세요").max(200, "강좌명은 200자 이하여야 합니다"),
   classroom: z.string().trim().optional(),
   description: z.string().trim().optional(),
+  capacity: z.union([z.number().int().positive(), z.string()]).optional(),
+  totalSessions: z.union([z.number().int().positive(), z.string()]).optional(),
 });
 
 export async function POST(request: NextRequest) {
@@ -29,7 +31,20 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json().catch(() => ({}));
-    const data = createAfterSchoolAdminCourseSchema.parse(body);
+    const parsed = createAfterSchoolAdminCourseSchema.parse(body);
+    const capacityNum =
+      parsed.capacity !== undefined && parsed.capacity !== ""
+        ? (typeof parsed.capacity === "number"
+            ? parsed.capacity
+            : parseInt(String(parsed.capacity), 10))
+        : undefined;
+    const totalSessionsNum =
+      parsed.totalSessions !== undefined && parsed.totalSessions !== ""
+        ? (typeof parsed.totalSessions === "number"
+            ? parsed.totalSessions
+            : parseInt(String(parsed.totalSessions), 10))
+        : undefined;
+    const data = { ...parsed, capacityNum, totalSessionsNum };
 
     const school = session.user.school || "";
     if (!school) {
@@ -94,6 +109,12 @@ export async function POST(request: NextRequest) {
         classroom: data.classroom || "",
         description: data.description || "",
         teacherId: targetTeacher.id,
+        capacity:
+          data.capacityNum !== undefined && !isNaN(data.capacityNum) ? data.capacityNum : undefined,
+        totalSessions:
+          data.totalSessionsNum !== undefined && !isNaN(data.totalSessionsNum)
+            ? data.totalSessionsNum
+            : undefined,
       },
     });
 

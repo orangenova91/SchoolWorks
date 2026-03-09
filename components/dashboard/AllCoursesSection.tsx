@@ -2,6 +2,7 @@
 
 import type React from "react";
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -51,6 +52,8 @@ export default function AllCoursesSection({ currentUserId }: AllCoursesSectionPr
     subject: "",
     classroom: "",
     description: "",
+    capacity: "",
+    totalSessions: "",
   });
 
   const semesterOptions = [
@@ -146,12 +149,14 @@ export default function AllCoursesSection({ currentUserId }: AllCoursesSectionPr
     const initialTeacherId = managerId ?? currentUserId;
     setManagerCreateForm({
       teacherId: initialTeacherId,
-      academicYear: "",
+      academicYear: `${new Date().getFullYear()}`,
       semester: "",
       grade: "",
       subject: "",
       classroom: "",
       description: "",
+      capacity: "",
+      totalSessions: "",
     });
     setManagerCreateError(null);
     setCgErrors({});
@@ -170,27 +175,51 @@ export default function AllCoursesSection({ currentUserId }: AllCoursesSectionPr
       setManagerCreateError("생성할 교사를 선택해주세요.");
       return;
     }
+    if (!managerCreateForm.academicYear?.trim()) {
+      setManagerCreateError("학년도를 입력해주세요.");
+      return;
+    }
+    if (!managerCreateForm.semester?.trim()) {
+      setManagerCreateError("학기를 선택해주세요.");
+      return;
+    }
+    if (!managerCreateForm.grade?.trim()) {
+      setManagerCreateError("대상 학년을 선택해주세요.");
+      return;
+    }
     if (!managerCreateForm.subject.trim()) {
       setManagerCreateError("강좌명을 입력해주세요.");
       return;
     }
-    // 차시/스케줄 검증
-    const periodNum = parseInt(cgPeriod, 10) || 0;
-    let trimmedSchedules: Array<{ day: string; period: string }> = [];
-    if (periodNum > 0) {
-      const slice = cgSchedules.slice(0, periodNum);
-      const incomplete = slice.some((s) => !s.day || !s.period);
-      const errors: { period?: string; schedules?: string } = {};
-      if (incomplete) {
-        errors.schedules = "모든 차시의 요일과 교시를 입력해주세요.";
-      }
-      if (Object.keys(errors).length > 0) {
-        setCgErrors(errors);
-        setManagerCreateError("차시별 요일 및 교시 정보를 확인해주세요.");
-        return;
-      }
-      trimmedSchedules = slice.filter((s) => s.day && s.period);
+    if (!managerCreateForm.classroom?.trim()) {
+      setManagerCreateError("강의실을 입력해주세요.");
+      return;
     }
+    if (!managerCreateForm.description?.trim()) {
+      setManagerCreateError("강의소개를 입력해주세요.");
+      return;
+    }
+    if (!managerCreateForm.capacity?.trim() || parseInt(managerCreateForm.capacity, 10) < 1) {
+      setManagerCreateError("정원을 입력해주세요.");
+      return;
+    }
+    if (!managerCreateForm.totalSessions?.trim() || parseInt(managerCreateForm.totalSessions, 10) < 1) {
+      setManagerCreateError("총 시수를 입력해주세요.");
+      return;
+    }
+    const periodNum = parseInt(cgPeriod, 10) || 0;
+    if (!periodNum || periodNum < 1) {
+      setManagerCreateError("주당 차시를 입력해주세요.");
+      return;
+    }
+    const slice = cgSchedules.slice(0, periodNum);
+    const incomplete = slice.some((s) => !s.day || !s.period);
+    if (incomplete) {
+      setCgErrors({ schedules: "모든 차시의 요일과 교시를 입력해주세요." });
+      setManagerCreateError("모든 차시의 요일과 교시를 입력해주세요.");
+      return;
+    }
+    const trimmedSchedules = slice.filter((s) => s.day && s.period);
 
     try {
       setManagerCreateSaving(true);
@@ -200,12 +229,14 @@ export default function AllCoursesSection({ currentUserId }: AllCoursesSectionPr
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           teacherId: managerCreateForm.teacherId,
-          academicYear: managerCreateForm.academicYear || "",
-          semester: managerCreateForm.semester || "",
-          grade: managerCreateForm.grade || "",
+          academicYear: managerCreateForm.academicYear.trim(),
+          semester: managerCreateForm.semester.trim(),
+          grade: managerCreateForm.grade.trim(),
           subject: managerCreateForm.subject.trim(),
-          classroom: managerCreateForm.classroom || "",
-          description: managerCreateForm.description || "",
+          classroom: managerCreateForm.classroom.trim(),
+          description: managerCreateForm.description.trim(),
+          capacity: managerCreateForm.capacity.trim(),
+          totalSessions: managerCreateForm.totalSessions.trim(),
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -975,25 +1006,27 @@ export default function AllCoursesSection({ currentUserId }: AllCoursesSectionPr
           </div>
         </div>
       )}
-      {isManagerCreateOpen && (
-        <div
-          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 px-4 py-8"
-          role="dialog"
-          aria-modal="true"
-          onClick={closeManagerCreateModal}
-        >
+      {isManagerCreateOpen &&
+        typeof document !== "undefined" &&
+        createPortal(
           <div
-            className="relative w-full max-w-lg max-h-[90vh] rounded-xl bg-white shadow-xl flex flex-col"
+            className="fixed inset-0 z-[10050] flex items-center justify-center bg-black/40 px-4 py-8"
+            role="dialog"
+            aria-modal="true"
+            onClick={closeManagerCreateModal}
+          >
+          <div
+            className="relative w-full max-w-2xl max-h-[92vh] rounded-xl bg-white shadow-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
-              <h2 className="text-base font-semibold text-gray-900">방과후 강의 생성 (담당자)</h2>
+            <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4 flex-shrink-0">
+              <h2 className="text-lg font-semibold text-gray-900">방과후 강의 생성 (담당자)</h2>
               <button
                 type="button"
                 onClick={closeManagerCreateModal}
-                className="text-sm text-gray-500 hover:text-gray-700"
+                className="text-sm text-gray-500 hover:text-gray-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 rounded-md px-2 py-1"
               >
-                닫기
+                <X className="h-5 w-5" />
               </button>
             </div>
             <form
@@ -1003,16 +1036,16 @@ export default function AllCoursesSection({ currentUserId }: AllCoursesSectionPr
                   handleManagerCreateSave();
                 }
               }}
-              className="px-6 py-4 space-y-4 overflow-y-auto flex-1 min-h-0"
+              className="px-6 py-6 space-y-6 overflow-y-auto flex-1 min-h-0"
             >
               {managerCreateError && (
-                <p className="text-sm text-red-600">
+                <p className="text-sm text-red-600" role="alert">
                   {managerCreateError}
                 </p>
               )}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  생성할 교사
+                  생성할 교사 <span className="text-red-500">*</span>
                 </label>
                 <Select
                   name="teacherId"
@@ -1033,17 +1066,18 @@ export default function AllCoursesSection({ currentUserId }: AllCoursesSectionPr
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    학년도
+                    학년도 <span className="text-red-500">*</span>
                   </label>
                   <Input
                     name="academicYear"
                     value={managerCreateForm.academicYear}
                     onChange={handleManagerCreateChange}
+                    required
                   />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    학기
+                    학기 <span className="text-red-500">*</span>
                   </label>
                   <Select
                     name="semester"
@@ -1058,7 +1092,7 @@ export default function AllCoursesSection({ currentUserId }: AllCoursesSectionPr
               <div className="flex flex-col sm:flex-row gap-4 sm:items-end">
                 <div className="sm:w-36 flex-shrink-0">
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    대상 학년
+                    대상 학년 <span className="text-red-500">*</span>
                   </label>
                   <Select
                     name="grade"
@@ -1067,6 +1101,20 @@ export default function AllCoursesSection({ currentUserId }: AllCoursesSectionPr
                     options={gradeOptions}
                     placeholder="대상 학년 선택"
                     disabled={managerCreateSaving}
+                  />
+                </div>
+                <div className="sm:w-24 flex-shrink-0">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    정원 <span className="text-red-500">*</span>
+                  </label>
+                  <Input
+                    type="number"
+                    min={1}
+                    name="capacity"
+                    value={managerCreateForm.capacity}
+                    onChange={handleManagerCreateChange}
+                    required
+                    className="w-full"
                   />
                 </div>
                 <div className="flex-1 min-w-0">
@@ -1083,37 +1131,53 @@ export default function AllCoursesSection({ currentUserId }: AllCoursesSectionPr
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  강의실
+                  강의실 <span className="text-red-500">*</span>
                 </label>
                 <Input
                   name="classroom"
                   value={managerCreateForm.classroom}
                   onChange={handleManagerCreateChange}
+                  required
                 />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  강의소개
+                  강의소개 <span className="text-red-500">*</span>
                 </label>
                 <textarea
                   name="description"
                   value={managerCreateForm.description}
                   onChange={handleManagerCreateChange}
                   rows={4}
+                  required
                   className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
                 />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  차시별 요일 및 교시
+                  차시별 요일 및 교시 <span className="text-red-500">*</span>
                 </label>
                 <div className="flex items-start gap-3">
+                  <div className="flex-shrink-0">
+                    <label className="block text-xs text-gray-600 mb-1">
+                      총 시수 <span className="text-red-500">*</span>
+                    </label>
+                    <Input
+                      type="number"
+                      min={1}
+                      name="totalSessions"
+                      value={managerCreateForm.totalSessions}
+                      onChange={handleManagerCreateChange}
+                      required
+                      className="w-20"
+                    />
+                  </div>
                   <div className="flex-shrink-0">
                     <label
                       htmlFor="managerCgPeriod"
                       className="block text-xs text-gray-600 mb-1"
                     >
-                      차시
+                      주당 차시 <span className="text-red-500">*</span>
                     </label>
                     <Input
                       id="managerCgPeriod"
@@ -1191,7 +1255,7 @@ export default function AllCoursesSection({ currentUserId }: AllCoursesSectionPr
                   )}
                 </div>
               </div>
-              <div className="flex justify-end gap-2 pt-2">
+              <div className="flex justify-end gap-2 pt-2 border-t border-gray-200">
                 <Button
                   type="button"
                   variant="ghost"
@@ -1206,8 +1270,9 @@ export default function AllCoursesSection({ currentUserId }: AllCoursesSectionPr
               </div>
             </form>
           </div>
-        </div>
-      )}
+        </div>,
+          document.body
+        )}
     </>
   );
 }
