@@ -223,17 +223,20 @@ model EvaluationPlanFile {
 }
 
 model ClassGroup {
-  id          String       @id @default(auto()) @map("_id") @db.ObjectId
-  name        String // 학반명
-  period      String? // 차시
-  schedules   String // JSON 배열로 저장된 스케줄 (요일과 교시)
-  courseId    String       @db.ObjectId
-  course      Course       @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  studentIds  String[] // 학생 ID 배열
-  teacherId   String       @db.ObjectId
-  attendances Attendance[]
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
+  id               String       @id @default(auto()) @map("_id") @db.ObjectId
+  name             String // 학반명
+  period           String? // 차시
+  schedules        String // JSON 배열로 저장된 스케줄 (요일과 교시)
+  courseId         String       @db.ObjectId
+  course           Course       @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  studentIds       String[] // 학생 ID 배열
+  teacherId        String       @db.ObjectId
+  courseStartDate  DateTime? // 강의 시작일 (방과후 출석부용, 학반별 저장)
+  dateOverrides    String?   // 차시별 날짜 조정 JSON: {"0":"2024-03-04","2":"2024-03-12"}
+  attendances      Attendance[]
+  attendanceSaveRecords AttendanceSaveRecord[]
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
 
   @@map("class_groups")
 }
@@ -262,6 +265,18 @@ model Attendance {
 
   @@unique([classGroupId, studentId, date])
   @@map("attendances")
+}
+
+// 학반·날짜별 '출결 저장 완료' 메타데이터 (전원 출석 시에도 진위 파악용)
+model AttendanceSaveRecord {
+  id           String     @id @default(auto()) @map("_id") @db.ObjectId
+  classGroupId String     @db.ObjectId
+  classGroup   ClassGroup @relation(fields: [classGroupId], references: [id], onDelete: Cascade)
+  date         DateTime   // 출결 날짜 (해당 일자)
+  createdAt    DateTime   @default(now())
+
+  @@unique([classGroupId, date])
+  @@map("attendance_save_records")
 }
 
 model HomeroomAttendance {
