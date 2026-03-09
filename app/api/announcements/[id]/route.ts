@@ -37,6 +37,13 @@ const consentDataSchema = z.object({
   requiresSignature: z.boolean().optional(), // 서명이 필요한지 여부 (설문 조사에서 서명 포함 체크 시)
 });
 
+const attachmentSchema = z.object({
+  filePath: z.string(),
+  originalFileName: z.string(),
+  fileSize: z.number().nullable().optional(),
+  mimeType: z.string().nullable().optional(),
+});
+
 const normalizeNumber = (value: string) => value.trim().replace(/^0+/, "");
 const parseClassKey = (profile: { grade?: string | null; classLabel?: string | null; section?: string | null; }) => {
   let grade = profile.grade?.trim() || null;
@@ -141,6 +148,8 @@ const updateAnnouncementSchema = z.object({
   surveyEndDate: z.string().datetime().optional(),
   consentData: consentDataSchema.optional(),
   editableBy: z.array(z.string()).optional(),
+  /** 수정 시 유지할 기존 첨부 목록 (개별 삭제 시 클라이언트에서 전달) */
+  attachments: z.array(attachmentSchema).optional(),
 });
 
 export const dynamic = 'force-dynamic';
@@ -423,14 +432,21 @@ export async function PUT(
       validatedData.parentSelectedClasses || []
     );
 
-    // 기존 첨부 파일 가져오기
+    // 기존 첨부 파일: 요청에 유지 목록(attachments)이 있으면 사용, 없으면 DB 값 사용
     let existingAttachments: Array<{
       filePath: string;
       originalFileName: string;
       fileSize: number | null;
       mimeType: string | null;
     }> = [];
-    if (existingAnnouncement.attachments) {
+    if (Array.isArray(validatedData.attachments)) {
+      existingAttachments = validatedData.attachments.map((a) => ({
+        filePath: a.filePath,
+        originalFileName: a.originalFileName,
+        fileSize: a.fileSize ?? null,
+        mimeType: a.mimeType ?? null,
+      }));
+    } else if (existingAnnouncement.attachments) {
       try {
         existingAttachments = typeof existingAnnouncement.attachments === 'string'
           ? JSON.parse(existingAnnouncement.attachments)

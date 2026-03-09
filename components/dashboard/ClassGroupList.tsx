@@ -100,13 +100,13 @@ export default function ClassGroupList({
 
             const data = await response.json();
             const attendances = data.attendances || [];
-            
-            // 출결 데이터가 있으면 저장된 것으로 표시
-            if (attendances.length > 0) {
+            const saved = data.saved === true; // 학반·날짜별 저장 완료 메타데이터
+
+            if (saved) {
               const savedKey = `${group.id}-${dateKey}`;
               newSavedGroups[savedKey] = true;
             }
-            
+
             return { groupId: group.id, attendances };
           } catch (err) {
             console.error(`학반 ${group.id} 출결 로드 실패:`, err);
@@ -241,6 +241,38 @@ export default function ClassGroupList({
     }
   };
 
+  // 출결 저장 취소 함수
+  const handleCancelAttendance = async (group: ClassGroup) => {
+    if (!selectedDate) return;
+
+    const ok = confirm("저장을 취소하시겠습니까?\n취소하면 해당 학반·날짜의 저장 상태가 해제되고, 다시 출결을 입력할 수 있습니다.");
+    if (!ok) return;
+
+    setSavingGroupId(group.id);
+    try {
+      const res = await fetch(
+        `/api/courses/${courseId}/class-groups/${group.id}/attendance?date=${encodeURIComponent(
+          selectedDate.toISOString()
+        )}`,
+        { method: "DELETE" }
+      );
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "저장 취소에 실패했습니다.");
+      }
+
+      const dateKey = selectedDate.toISOString().split("T")[0];
+      const savedKey = `${group.id}-${dateKey}`;
+      setSavedGroups((prev) => ({ ...prev, [savedKey]: false }));
+      // attendanceState는 유지하여 기존 선택값 보존
+    } catch (error) {
+      console.error("저장 취소 오류:", error);
+      alert(error instanceof Error ? error.message : "저장 취소 중 오류가 발생했습니다.");
+    } finally {
+      setSavingGroupId(null);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 p-6 text-center">
@@ -281,6 +313,9 @@ export default function ClassGroupList({
         const groupStudents = studentIds
           .map((id) => getStudentById(id))
           .filter((s): s is Student => s !== undefined);
+        const dateKey = selectedDate?.toISOString().split('T')[0] ?? '';
+        const savedKey = `${group.id}-${dateKey}`;
+        const isSaved = !!savedGroups[savedKey];
 
         return (
           <div
@@ -334,12 +369,7 @@ export default function ClassGroupList({
                     수강생 ({groupStudents.length}명)
                   </p>
                   <div className="flex items-center gap-2">
-                    {selectedDate && (() => {
-                      const dateKey = selectedDate.toISOString().split('T')[0];
-                      const savedKey = `${group.id}-${dateKey}`;
-                      const isSaved = savedGroups[savedKey];
-                      
-                      return (
+                    {selectedDate && (
                         <div 
                           className="h-4 w-4 rounded-full border-2 flex items-center justify-center pointer-events-none"
                           style={{
@@ -353,8 +383,7 @@ export default function ClassGroupList({
                             />
                           )}
                         </div>
-                      );
-                    })()}
+                    )}
                     {!selectedDate && (
                       <input
                         type="radio"
@@ -371,13 +400,21 @@ export default function ClassGroupList({
                     )}
                     <Button
                       type="button"
-                      variant="primary"
+                      variant={isSaved ? "secondary" : "primary"}
                       size="sm"
-                      onClick={() => handleSaveAttendance(group, groupStudents)}
+                      onClick={() =>
+                        isSaved
+                          ? handleCancelAttendance(group)
+                          : handleSaveAttendance(group, groupStudents)
+                      }
                       disabled={savingGroupId === group.id || !selectedDate}
                       className="text-xs"
                     >
-                      {savingGroupId === group.id ? "저장 중..." : "출결 저장"}
+                      {savingGroupId === group.id
+                        ? "처리 중..."
+                        : isSaved
+                          ? "저장됨"
+                          : "출결 저장"}
                     </Button>
                   </div>
                 </div>
@@ -388,6 +425,11 @@ export default function ClassGroupList({
                       className="flex items-center justify-between py-1 px-3 border border-gray-200 rounded-md hover:bg-gray-50"
                     >
                       <span className="text-sm text-gray-900">
+                        {student.studentProfile?.studentId && (
+                          <span className="text-gray-500 mr-2">
+                            {student.studentProfile.studentId}
+                          </span>
+                        )}
                         {student.name ?? student.email}
                       </span>
                       <div className="flex items-center gap-3">
@@ -430,6 +472,7 @@ export default function ClassGroupList({
                                 : attendanceState[`${group.id}-${student.id}`] ||
                                   ""
                             }
+                            disabled={isSaved}
                             onChange={(e) => {
                               const key = `${group.id}-${student.id}`;
                               const value = e.target.value;

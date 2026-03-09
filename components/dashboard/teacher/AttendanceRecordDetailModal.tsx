@@ -436,7 +436,9 @@ export default function AttendanceRecordDetailModal({
                       {list.map((att, idx) => (
                         <li key={idx}>
                           <a
-                            href={att.url}
+                            href={att.url.startsWith("http")
+                              ? `/api/download?url=${encodeURIComponent(att.url)}&filename=${encodeURIComponent(att.name)}`
+                              : att.url}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="text-sm text-blue-600 hover:underline flex items-center gap-2"

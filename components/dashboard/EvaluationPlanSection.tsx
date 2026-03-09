@@ -128,7 +128,11 @@ export default function EvaluationPlanSection() {
   };
 
   const getFilesByGrade = (grade: string) =>
-    files.filter((f) => f.grade === grade);
+    files
+      .filter((f) => f.grade === grade)
+      .sort((a, b) =>
+        (a.originalFileName || "").localeCompare(b.originalFileName || "", "ko")
+      );
 
   const handleDownloadZip = (grade: string) => {
     if (uploadingGrade || deletingId) return;
@@ -226,7 +230,7 @@ export default function EvaluationPlanSection() {
                         <FileText className="w-4 h-4 text-gray-500 flex-shrink-0" />
                         <div className="flex-1 min-w-0">
                           <a
-                            href={f.filePath}
+                            href={`/api/evaluation-plan/file/${f.id}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="text-sm text-blue-600 hover:underline truncate block"

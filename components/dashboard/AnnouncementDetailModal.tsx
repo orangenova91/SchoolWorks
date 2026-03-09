@@ -2101,7 +2101,7 @@ export function AnnouncementDetailModal({
                           </div>
                         </div>
                         <a
-                          href={att.filePath}
+                          href={`/api/download?url=${encodeURIComponent(att.filePath)}&filename=${encodeURIComponent(att.originalFileName)}`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="flex-shrink-0 px-3 py-1.5 text-sm font-medium text-blue-600 bg-blue-50 rounded-md hover:bg-blue-100 transition-colors"

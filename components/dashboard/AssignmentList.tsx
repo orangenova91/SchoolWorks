@@ -304,7 +304,9 @@ export default function AssignmentList({
                         {att.fileSize ? ` (${formatFileSize(att.fileSize)})` : ""}
                       </span>
                       <Link
-                        href={att.filePath}
+                        href={att.filePath.startsWith("http")
+                          ? `/api/download?url=${encodeURIComponent(att.filePath)}&filename=${encodeURIComponent(att.originalFileName)}`
+                          : att.filePath}
                         target="_blank"
                         rel="noopener noreferrer"
                         onClick={() => handleIncrementView(selectedAssignment.id)}
@@ -387,7 +389,9 @@ export default function AssignmentList({
                             {attachments.map((att, index) => (
                               <Link
                                 key={`${att.originalFileName}-${index}`}
-                                href={att.filePath}
+                                href={att.filePath.startsWith("http")
+                                  ? `/api/download?url=${encodeURIComponent(att.filePath)}&filename=${encodeURIComponent(att.originalFileName)}`
+                                  : att.filePath}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 onClick={(e) => {
