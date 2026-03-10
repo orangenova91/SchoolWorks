@@ -7,6 +7,8 @@ import { X } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
+import { useAfterSchoolManager } from "./useAfterSchoolManager";
+import { AfterSchoolManagerInfo } from "./AfterSchoolManagerInfo";
 
 type AllCoursesSectionProps = {
   currentUserId: string;
@@ -41,11 +43,15 @@ export default function AllCoursesSection({ currentUserId }: AllCoursesSectionPr
   ]);
   const [cgErrors, setCgErrors] = useState<{ period?: string; schedules?: string }>({});
   const [classGroupId, setClassGroupId] = useState<string | null>(null);
-  const [managerId, setManagerId] = useState<string | null>(null);
   const [selectedManagerId, setSelectedManagerId] = useState<string>("");
-  const [managerTeachers, setManagerTeachers] = useState<Array<{ id: string; name: string | null; email: string }>>([]);
-  const [managerLoading, setManagerLoading] = useState(false);
-  const [managerError, setManagerError] = useState<string | null>(null);
+  const {
+    managerId,
+    managerTeachers,
+    isManager,
+    loading: managerLoading,
+    error: managerError,
+    refresh: refreshManager,
+  } = useAfterSchoolManager(currentUserId);
   const [managerSaving, setManagerSaving] = useState(false);
   const [isManagerCreateOpen, setIsManagerCreateOpen] = useState(false);
   const [managerCreateSaving, setManagerCreateSaving] = useState(false);
@@ -102,38 +108,10 @@ export default function AllCoursesSection({ currentUserId }: AllCoursesSectionPr
   }, []);
 
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        setManagerLoading(true);
-        setManagerError(null);
-        const res = await fetch("/api/after-school/manager");
-        if (!res.ok) {
-          const data = await res.json().catch(() => ({}));
-          throw new Error(data.error || "담당자 정보를 불러오는 데 실패했습니다.");
-        }
-        const data = await res.json();
-        if (cancelled) return;
-        const teachers = Array.isArray(data.teachers) ? data.teachers : [];
-        setManagerTeachers(teachers);
-        const managerTeacherId = data.manager?.teacherId as string | undefined;
-        setManagerId(managerTeacherId ?? null);
-        setSelectedManagerId(managerTeacherId ?? "");
-      } catch (err) {
-        if (!cancelled) {
-          setManagerError(err instanceof Error ? err.message : "담당자 정보를 불러오는 데 실패했습니다.");
-          setManagerTeachers([]);
-        }
-      } finally {
-        if (!cancelled) {
-          setManagerLoading(false);
-        }
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+    if (managerId) {
+      setSelectedManagerId(managerId);
+    }
+  }, [managerId]);
 
   const handleEditChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
@@ -141,8 +119,6 @@ export default function AllCoursesSection({ currentUserId }: AllCoursesSectionPr
     const { name, value } = e.target;
     setEditForm((prev) => ({ ...prev, [name]: value }));
   };
-
-  const isManager = managerId === currentUserId;
 
   const handleManagerCreateChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
@@ -348,12 +324,11 @@ export default function AllCoursesSection({ currentUserId }: AllCoursesSectionPr
 
   const handleManagerSave = async () => {
     if (!selectedManagerId) {
-      setManagerError("담당자로 지정할 교사를 선택해주세요.");
+      window.alert("담당자로 지정할 교사를 선택해주세요.");
       return;
     }
     try {
       setManagerSaving(true);
-      setManagerError(null);
       const res = await fetch("/api/after-school/manager", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -364,11 +339,15 @@ export default function AllCoursesSection({ currentUserId }: AllCoursesSectionPr
         throw new Error(data.error || "담당자 설정에 실패했습니다.");
       }
       const managerTeacherId = data.manager?.teacherId as string | undefined;
-      setManagerId(managerTeacherId ?? null);
       setSelectedManagerId(managerTeacherId ?? "");
+      // 서버의 담당자 정보가 바뀌었으므로 훅 상태를 즉시 새로고침
+      refreshManager();
+      window.alert("담당자가 저장되었습니다.");
     } catch (err) {
       console.error(err);
-      setManagerError(err instanceof Error ? err.message : "담당자 설정에 실패했습니다.");
+      window.alert(
+        err instanceof Error ? err.message : "담당자 설정에 실패했습니다."
+      );
     } finally {
       setManagerSaving(false);
     }
@@ -790,19 +769,7 @@ export default function AllCoursesSection({ currentUserId }: AllCoursesSectionPr
             </p>
           </div>
           <div className="mt-2 sm:mt-0 flex flex-col gap-2 sm:items-end">
-            <div className="text-sm text-gray-700">
-              <span className="font-medium">담당 교사</span>
-              <span className="mx-1">:</span>
-              <span className="text-gray-900">
-                {managerTeachers.length === 0
-                  ? "표시할 교사가 없습니다."
-                  : managerId
-                    ? managerTeachers.find((t) => t.id === managerId)?.name ||
-                      managerTeachers.find((t) => t.id === managerId)?.email ||
-                      "선택된 담당자"
-                    : "미지정"}
-              </span>
-            </div>
+            <AfterSchoolManagerInfo managerId={managerId} managerTeachers={managerTeachers} />
             {managerTeachers.length > 0 && (
               <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
                 {isManager && (

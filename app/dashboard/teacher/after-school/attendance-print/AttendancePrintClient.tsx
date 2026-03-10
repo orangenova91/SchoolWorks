@@ -1,7 +1,7 @@
 "use client";
 
 import type React from "react";
-
+import { useEffect } from "react";
 type PrintStudent = {
   id: string;
   name: string | null;
@@ -27,6 +27,49 @@ type AttendancePrintClientProps = {
   teacherName: string;
 };
 
+const headerCellBase =
+  "border border-gray-400 px-2 py-2 bg-gray-100 text-xs whitespace-nowrap";
+const bodyCellBase = "border border-gray-300 px-2 py-1 bg-white";
+const bodyCellNumber = `${bodyCellBase} text-center text-xs`;
+const summaryLabelCell = `${bodyCellBase} text-xs font-semibold text-gray-700`;
+
+function EmptyDateCells({
+  dates,
+  keyPrefix = "",
+  className,
+}: {
+  dates: PrintDate[];
+  keyPrefix?: string;
+  className: string;
+}) {
+  return (
+    <>
+      {dates.map((d) => (
+        <td key={`${keyPrefix}${d.dateKey}`} className={className} />
+      ))}
+    </>
+  );
+}
+
+function SummaryRow({
+  label,
+  dates,
+  keyPrefix,
+}: {
+  label: string;
+  dates: PrintDate[];
+  keyPrefix: string;
+}) {
+  return (
+    <tr>
+      <td className={bodyCellBase}>{/* 왼쪽 여백 열 */}</td>
+      <td className={summaryLabelCell}>{label}</td>
+      <EmptyDateCells dates={dates} keyPrefix={keyPrefix} className={bodyCellBase} />
+      <td className={bodyCellBase}>{/* 여분 열 */}</td>
+    </tr>
+  );
+}
+
 export function AttendancePrintClient({ searchParams, teacherName }: AttendancePrintClientProps) {
   const dataParam = typeof searchParams.data === "string" ? searchParams.data : undefined;
 
@@ -39,6 +82,19 @@ export function AttendancePrintClient({ searchParams, teacherName }: AttendanceP
       console.error("Failed to parse print data", err);
     }
   }
+
+  // 새 창이 열려 인쇄용 내용이 준비되면 자동으로 브라우저 인쇄 다이얼로그를 띄움
+  useEffect(() => {
+    if (!payload) return;
+
+    const timer = setTimeout(() => {
+      window.print();
+      // 필요하다면 인쇄 후 창을 자동으로 닫을 수 있음:
+      // window.close();
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [payload]);
 
   if (!payload) {
     return (
@@ -78,10 +134,10 @@ export function AttendancePrintClient({ searchParams, teacherName }: AttendanceP
           <table className="w-full border-collapse table-fixed text-sm">
             <thead>
               <tr>
-                <th className="border border-gray-400 px-2 py-2 bg-gray-100 w-6 text-center font-semibold">
+                <th className={`${headerCellBase} w-6 text-center font-semibold`}>
                   순
                 </th>
-                <th className="border border-gray-400 px-2 py-2 text-center bg-gray-100 w-20">이름</th>
+                <th className={`${headerCellBase} w-20 text-center`}>이름</th>
                 {dates.map((d, index) => {
                   const parts = d.label.split(" ");
                   const dateText = parts[0] ?? "";
@@ -90,7 +146,7 @@ export function AttendancePrintClient({ searchParams, teacherName }: AttendanceP
                   return (
                     <th
                       key={d.dateKey}
-                      className="border border-gray-400 px-2 py-2 text-center bg-gray-100 text-xs whitespace-nowrap"
+                      className={`${headerCellBase} text-center`}
                     >
                       <div className="flex flex-col items-center leading-snug space-y-0.5">
                         <span className="font-semibold">{session}차시</span>
@@ -100,7 +156,7 @@ export function AttendancePrintClient({ searchParams, teacherName }: AttendanceP
                     </th>
                   );
                 })}
-                <th className="border border-gray-400 px-2 py-2 text-center bg-gray-100 text-xs whitespace-nowrap w-10">
+                <th className={`${headerCellBase} text-center w-10`}>
                   계
                 </th>
               </tr>
@@ -108,10 +164,10 @@ export function AttendancePrintClient({ searchParams, teacherName }: AttendanceP
             <tbody>
               {students.map((s, index) => (
                 <tr key={s.id}>
-                  <td className="border border-gray-300 px-2 py-1 bg-white text-center text-xs">
+                  <td className={bodyCellNumber}>
                     {index + 1}
                   </td>
-                  <td className="border border-gray-300 px-2 py-1 whitespace-nowrap bg-white">
+                  <td className={`${bodyCellBase} whitespace-nowrap`}>
                     <span className="mr-2 text-xs text-gray-500">
                       {s.studentId ?? ""}
                     </span>
@@ -120,46 +176,19 @@ export function AttendancePrintClient({ searchParams, teacherName }: AttendanceP
                   {dates.map((d) => (
                     <td
                       key={d.dateKey}
-                      className="border border-gray-300 px-2 py-1 text-center align-middle bg-white"
+                      className={`${bodyCellBase} text-center align-middle`}
                     >
                       {/* 비워 두어 수기로 기입할 수 있게 함 */}
                     </td>
                   ))}
-                  <td className="border border-gray-300 px-2 py-1 bg-white">{/* 여분 열 */}</td>
+                  <td className={bodyCellBase}>{/* 여분 열 */}</td>
                 </tr>
               ))}
-              {/* 추가 빈 행: 출석수 */}
-              <tr>
-                <td className="border border-gray-300 px-2 py-1 bg-white">{/* 왼쪽 여백 열 */}</td>
-                <td className="border border-gray-300 px-2 py-1 bg-white text-xs font-semibold text-gray-700">
-                  출석수
-                </td>
-                {dates.map((d) => (
-                  <td
-                    key={`extra-count-${d.dateKey}`}
-                    className="border border-gray-300 px-2 py-1 bg-white"
-                  >
-                    {/* 여분 빈 셀 */}
-                  </td>
-                ))}
-                <td className="border border-gray-300 px-2 py-1 bg-white">{/* 여분 열 */}</td>
-              </tr>
-              {/* 추가 빈 행: 출석률 */}
-              <tr>
-                <td className="border border-gray-300 px-2 py-1 bg-white">{/* 왼쪽 여백 열 */}</td>
-                <td className="border border-gray-300 px-2 py-1 bg-white text-xs font-semibold text-gray-700">
-                  출석률
-                </td>
-                {dates.map((d) => (
-                  <td
-                    key={`extra-rate-${d.dateKey}`}
-                    className="border border-gray-300 px-2 py-1 bg-white"
-                  >
-                    {/* 여분 빈 셀 */}
-                  </td>
-                ))}
-                <td className="border border-gray-300 px-2 py-1 bg-white">{/* 여분 열 */}</td>
-              </tr>
+              {/* 추가 빈 행: 출석수 / 출석률 */}
+              <SummaryRow label="출석수" dates={dates} keyPrefix="extra-count-" />
+              <SummaryRow label="출석률" dates={dates} keyPrefix="extra-rate-" />
+              <SummaryRow label=" " dates={dates} keyPrefix="extra-rate-" />
+              <SummaryRow label=" " dates={dates} keyPrefix="extra-rate-" />
             </tbody>
           </table>
         </div>
