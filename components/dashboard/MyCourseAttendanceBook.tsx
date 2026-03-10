@@ -603,7 +603,7 @@ export default function MyCourseAttendanceBook() {
               { value: "", label: "학반 선택" },
               ...classGroups.map((g) => {
                 const subject = g.courseSubject || "";
-                const namePart = g.name + (g.period ? ` (${g.period}차시)` : "");
+                const namePart = g.name + (g.courseTotalSessions != null && g.courseTotalSessions > 0 ? ` (총 ${g.courseTotalSessions} 차시)` : "");
                 const label = subject ? `${namePart}` : namePart;
                 return { value: g.id, label };
               }),
