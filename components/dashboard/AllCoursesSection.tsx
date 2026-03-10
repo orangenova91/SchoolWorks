@@ -7,12 +7,20 @@ import { X } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
+import { useAfterSchoolManager } from "./useAfterSchoolManager";
+import { AfterSchoolManagerInfo } from "./AfterSchoolManagerInfo";
 
 type AllCoursesSectionProps = {
   currentUserId: string;
 };
 
 export default function AllCoursesSection({ currentUserId }: AllCoursesSectionProps) {
+  type SortKey = "subject" | "semester" | "schedule" | "instructor" | "students";
+
+  const [sortConfig, setSortConfig] = useState<{ key: SortKey; direction: "asc" | "desc" } | null>({
+    key: "subject",
+    direction: "asc",
+  });
   const [courses, setCourses] = useState<Array<any>>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -35,11 +43,15 @@ export default function AllCoursesSection({ currentUserId }: AllCoursesSectionPr
   ]);
   const [cgErrors, setCgErrors] = useState<{ period?: string; schedules?: string }>({});
   const [classGroupId, setClassGroupId] = useState<string | null>(null);
-  const [managerId, setManagerId] = useState<string | null>(null);
   const [selectedManagerId, setSelectedManagerId] = useState<string>("");
-  const [managerTeachers, setManagerTeachers] = useState<Array<{ id: string; name: string | null; email: string }>>([]);
-  const [managerLoading, setManagerLoading] = useState(false);
-  const [managerError, setManagerError] = useState<string | null>(null);
+  const {
+    managerId,
+    managerTeachers,
+    isManager,
+    loading: managerLoading,
+    error: managerError,
+    refresh: refreshManager,
+  } = useAfterSchoolManager(currentUserId);
   const [managerSaving, setManagerSaving] = useState(false);
   const [isManagerCreateOpen, setIsManagerCreateOpen] = useState(false);
   const [managerCreateSaving, setManagerCreateSaving] = useState(false);
@@ -96,38 +108,10 @@ export default function AllCoursesSection({ currentUserId }: AllCoursesSectionPr
   }, []);
 
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        setManagerLoading(true);
-        setManagerError(null);
-        const res = await fetch("/api/after-school/manager");
-        if (!res.ok) {
-          const data = await res.json().catch(() => ({}));
-          throw new Error(data.error || "담당자 정보를 불러오는 데 실패했습니다.");
-        }
-        const data = await res.json();
-        if (cancelled) return;
-        const teachers = Array.isArray(data.teachers) ? data.teachers : [];
-        setManagerTeachers(teachers);
-        const managerTeacherId = data.manager?.teacherId as string | undefined;
-        setManagerId(managerTeacherId ?? null);
-        setSelectedManagerId(managerTeacherId ?? "");
-      } catch (err) {
-        if (!cancelled) {
-          setManagerError(err instanceof Error ? err.message : "담당자 정보를 불러오는 데 실패했습니다.");
-          setManagerTeachers([]);
-        }
-      } finally {
-        if (!cancelled) {
-          setManagerLoading(false);
-        }
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+    if (managerId) {
+      setSelectedManagerId(managerId);
+    }
+  }, [managerId]);
 
   const handleEditChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
@@ -135,8 +119,6 @@ export default function AllCoursesSection({ currentUserId }: AllCoursesSectionPr
     const { name, value } = e.target;
     setEditForm((prev) => ({ ...prev, [name]: value }));
   };
-
-  const isManager = managerId === currentUserId;
 
   const handleManagerCreateChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
@@ -342,12 +324,11 @@ export default function AllCoursesSection({ currentUserId }: AllCoursesSectionPr
 
   const handleManagerSave = async () => {
     if (!selectedManagerId) {
-      setManagerError("담당자로 지정할 교사를 선택해주세요.");
+      window.alert("담당자로 지정할 교사를 선택해주세요.");
       return;
     }
     try {
       setManagerSaving(true);
-      setManagerError(null);
       const res = await fetch("/api/after-school/manager", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -358,11 +339,15 @@ export default function AllCoursesSection({ currentUserId }: AllCoursesSectionPr
         throw new Error(data.error || "담당자 설정에 실패했습니다.");
       }
       const managerTeacherId = data.manager?.teacherId as string | undefined;
-      setManagerId(managerTeacherId ?? null);
       setSelectedManagerId(managerTeacherId ?? "");
+      // 서버의 담당자 정보가 바뀌었으므로 훅 상태를 즉시 새로고침
+      refreshManager();
+      window.alert("담당자가 저장되었습니다.");
     } catch (err) {
       console.error(err);
-      setManagerError(err instanceof Error ? err.message : "담당자 설정에 실패했습니다.");
+      window.alert(
+        err instanceof Error ? err.message : "담당자 설정에 실패했습니다."
+      );
     } finally {
       setManagerSaving(false);
     }
@@ -587,74 +572,191 @@ export default function AllCoursesSection({ currentUserId }: AllCoursesSectionPr
     const g = (c.grade ?? "").toString().trim();
     return g === "3" || g === "무학년제";
   });
+
+  const handleSort = (key: SortKey) => {
+    setSortConfig((prev) => {
+      if (prev?.key === key) {
+        return { key, direction: prev.direction === "asc" ? "desc" : "asc" };
+      }
+      return { key, direction: "asc" };
+    });
+  };
+
+  const getSortIndicator = (key: SortKey) => {
+    if (sortConfig?.key !== key) return null;
+    return <span className="ml-1 text-xs">{sortConfig.direction === "asc" ? "▲" : "▼"}</span>;
+  };
+
+  const compareString = (a: unknown, b: unknown) => {
+    const sa = (a ?? "").toString();
+    const sb = (b ?? "").toString();
+    if (!sa && !sb) return 0;
+    if (!sa) return -1;
+    if (!sb) return 1;
+    return sa.localeCompare(sb, "ko");
+  };
+
+  const compareNumber = (a: number, b: number) => {
+    if (a === b) return 0;
+    return a < b ? -1 : 1;
+  };
+
   const sections = [
     { label: "1학년", courses: grade1 },
     { label: "2학년", courses: grade2 },
     { label: "3학년", courses: grade3 },
   ] as const;
 
-  const renderTable = (list: any[]) => (
-    <div className="-mx-6 w-[calc(100%+3rem)] min-w-0 overflow-x-auto">
-      <table className="w-full table-fixed">
-        <thead>
-          <tr className="border-b border-gray-200 bg-gray-50">
-            <th className="text-left py-3 px-2 text-sm font-semibold text-gray-700">번호</th>
-            <th className="text-left py-3 px-0 text-sm font-semibold text-gray-700">강좌명</th>
-            <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">학기</th>
-            <th className="text-left py-3 px-2 text-sm font-semibold text-gray-700">스케줄</th>
-            <th className="text-left py-3 px-2 text-sm font-semibold text-gray-700">강사</th>
-            <th className="text-left py-3 px-0 text-sm font-semibold text-gray-700 whitespace-nowrap">수강생 수</th>
-          </tr>
-        </thead>
-        <tbody>
-          {list.length === 0 ? (
-            <tr>
-              <td colSpan={6} className="text-center py-8 text-gray-500">
-                등록된 강의가 없습니다.
-              </td>
-            </tr>
-          ) : (
-            list.map((c: any, idx: number) => {
-              const canEdit = c.teacherId === currentUserId || isManager;
-              return (
-                <tr
-                  key={c.id}
-                  className={`border-b border-gray-100 hover:bg-gray-50 ${
-                    canEdit ? "cursor-pointer" : "cursor-default"
-                  }`}
-                  onClick={() => {
-                    if (!canEdit) {
-                      window.alert("수정 권한이 없습니다.");
-                      return;
-                    }
-                    openEdit(c);
-                  }}
+  const renderTable = (list: any[]) => {
+    let displayList = list;
+
+    if (sortConfig) {
+      const directionFactor = sortConfig.direction === "asc" ? 1 : -1;
+      displayList = [...list].sort((a, b) => {
+        switch (sortConfig.key) {
+          case "subject":
+            return compareString(a.subject, b.subject) * directionFactor;
+          case "semester":
+            return compareString(a.semester, b.semester) * directionFactor;
+          case "schedule":
+            return compareString(a.classGroupSchedule, b.classGroupSchedule) * directionFactor;
+          case "instructor":
+            return compareString(a.instructor, b.instructor) * directionFactor;
+          case "students": {
+            const aEnrolled = Array.isArray(a.firstClassGroupStudentIds)
+              ? a.firstClassGroupStudentIds.length
+              : 0;
+            const bEnrolled = Array.isArray(b.firstClassGroupStudentIds)
+              ? b.firstClassGroupStudentIds.length
+              : 0;
+            const enrolledCompare = compareNumber(aEnrolled, bEnrolled);
+            if (enrolledCompare !== 0) {
+              return enrolledCompare * directionFactor;
+            }
+            const aCap = a.capacity != null ? Number(a.capacity) : Number.POSITIVE_INFINITY;
+            const bCap = b.capacity != null ? Number(b.capacity) : Number.POSITIVE_INFINITY;
+            return compareNumber(aCap, bCap) * directionFactor;
+          }
+          default:
+            return 0;
+        }
+      });
+    }
+
+    return (
+      <div className="-mx-6 w-[calc(100%+3rem)] min-w-0 overflow-x-auto">
+        <table className="w-full table-fixed">
+          <thead>
+            <tr className="border-b border-gray-200 bg-gray-50">
+              <th className="text-left py-3 px-2 text-sm font-semibold text-gray-700">번호</th>
+              <th className="text-left py-3 px-0 text-sm font-semibold text-gray-700 whitespace-nowrap">
+                <button
+                  type="button"
+                  className="flex items-center gap-1 focus:outline-none"
+                  onClick={() => handleSort("subject")}
                 >
-                  <td className="py-3 px-4 text-sm text-gray-600">{idx + 1}</td>
-                  <td className="py-3 px-0 text-sm text-gray-900">
-                    <span className="line-clamp-2 break-words block min-w-0 ml-[-15px]">{c.subject}</span>
-                  </td>
-                  <td className="py-3 px-4 text-sm text-gray-600">{c.semester || "-"}</td>
-                  <td className="py-3 px-2 text-sm text-gray-600 text-center">{c.classGroupSchedule || "-"}</td>
-                  <td className="py-3 px-2 text-sm text-gray-600">{c.instructor}</td>
-                  <td className="py-3 px-2 text-sm text-gray-600 text-center">
-                    {(() => {
-                      const enrolled = Array.isArray(c.firstClassGroupStudentIds) ? c.firstClassGroupStudentIds.length : 0;
-                      const cap = c.capacity != null ? Number(c.capacity) : null;
-                      if (cap != null && !Number.isNaN(cap)) {
-                        return `${enrolled}/${cap}명`;
+                  <span>강좌명</span>
+                  {getSortIndicator("subject")}
+                </button>
+              </th>
+              <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 whitespace-nowrap">
+                <button
+                  type="button"
+                  className="flex items-center gap-1 focus:outline-none"
+                  onClick={() => handleSort("semester")}
+                >
+                  <span>학기</span>
+                  {getSortIndicator("semester")}
+                </button>
+              </th>
+              <th className="text-left py-3 px-2 text-sm font-semibold text-gray-700 whitespace-nowrap">
+                <button
+                  type="button"
+                  className="flex items-center gap-1 focus:outline-none"
+                  onClick={() => handleSort("schedule")}
+                >
+                  <span>스케줄</span>
+                  {getSortIndicator("schedule")}
+                </button>
+              </th>
+              <th className="text-left py-3 px-2 text-sm font-semibold text-gray-700 whitespace-nowrap">
+                <button
+                  type="button"
+                  className="flex items-center gap-1 focus:outline-none"
+                  onClick={() => handleSort("instructor")}
+                >
+                  <span>강사</span>
+                  {getSortIndicator("instructor")}
+                </button>
+              </th>
+              <th className="text-left py-3 px-0 text-sm font-semibold text-gray-700 whitespace-nowrap">
+                <button
+                  type="button"
+                  className="flex items-center gap-1 focus:outline-none"
+                  onClick={() => handleSort("students")}
+                >
+                  <span>수강생 수</span>
+                  {getSortIndicator("students")}
+                </button>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {displayList.length === 0 ? (
+              <tr>
+                <td colSpan={6} className="text-center py-8 text-gray-500">
+                  등록된 강의가 없습니다.
+                </td>
+              </tr>
+            ) : (
+              displayList.map((c: any, idx: number) => {
+                const canEdit = c.teacherId === currentUserId || isManager;
+                return (
+                  <tr
+                    key={c.id}
+                    className={`border-b border-gray-100 hover:bg-gray-50 ${
+                      canEdit ? "cursor-pointer" : "cursor-default"
+                    }`}
+                    onClick={() => {
+                      if (!canEdit) {
+                        window.alert("수정 권한이 없습니다.");
+                        return;
                       }
-                      return `${enrolled}명`;
-                    })()}
-                  </td>
-                </tr>
-              );
-            })
-          )}
-        </tbody>
-      </table>
-    </div>
-  );
+                      openEdit(c);
+                    }}
+                  >
+                    <td className="py-3 px-4 text-sm text-gray-600">{idx + 1}</td>
+                    <td className="py-3 px-0 text-sm text-gray-900">
+                      <span className="line-clamp-2 break-words block min-w-0 ml-[-15px]">
+                        {c.subject}
+                      </span>
+                    </td>
+                    <td className="py-3 px-4 text-sm text-gray-600">{c.semester || "-"}</td>
+                    <td className="py-3 px-2 text-sm text-gray-600 text-center">
+                      {c.classGroupSchedule || "-"}
+                    </td>
+                    <td className="py-3 px-2 text-sm text-gray-600">{c.instructor}</td>
+                    <td className="py-3 px-2 text-sm text-gray-600 text-center">
+                      {(() => {
+                        const enrolled = Array.isArray(c.firstClassGroupStudentIds)
+                          ? c.firstClassGroupStudentIds.length
+                          : 0;
+                        const cap = c.capacity != null ? Number(c.capacity) : null;
+                        if (cap != null && !Number.isNaN(cap)) {
+                          return `${enrolled}/${cap}명`;
+                        }
+                        return `${enrolled}명`;
+                      })()}
+                    </td>
+                  </tr>
+                );
+              })
+            )}
+          </tbody>
+        </table>
+      </div>
+    );
+  };
 
   return (
     <>
@@ -667,19 +769,7 @@ export default function AllCoursesSection({ currentUserId }: AllCoursesSectionPr
             </p>
           </div>
           <div className="mt-2 sm:mt-0 flex flex-col gap-2 sm:items-end">
-            <div className="text-sm text-gray-700">
-              <span className="font-medium">담당 교사</span>
-              <span className="mx-1">:</span>
-              <span className="text-gray-900">
-                {managerTeachers.length === 0
-                  ? "표시할 교사가 없습니다."
-                  : managerId
-                    ? managerTeachers.find((t) => t.id === managerId)?.name ||
-                      managerTeachers.find((t) => t.id === managerId)?.email ||
-                      "선택된 담당자"
-                    : "미지정"}
-              </span>
-            </div>
+            <AfterSchoolManagerInfo managerId={managerId} managerTeachers={managerTeachers} />
             {managerTeachers.length > 0 && (
               <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
                 {isManager && (
@@ -748,7 +838,7 @@ export default function AllCoursesSection({ currentUserId }: AllCoursesSectionPr
           role="dialog"
           aria-modal="true"
           onClick={closeEdit}
-        >
+         >
           <div
             className="relative w-full max-w-2xl max-h-[92vh] rounded-xl bg-white shadow-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 flex flex-col"
             onClick={(e) => e.stopPropagation()}
@@ -1037,7 +1127,7 @@ export default function AllCoursesSection({ currentUserId }: AllCoursesSectionPr
                 }
               }}
               className="px-6 py-6 space-y-6 overflow-y-auto flex-1 min-h-0"
-            >
+             >
               {managerCreateError && (
                 <p className="text-sm text-red-600" role="alert">
                   {managerCreateError}

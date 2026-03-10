@@ -1,8 +1,11 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
+import { useSession } from "next-auth/react";
 import { Button } from "@/components/ui/Button";
 import { Select } from "@/components/ui/Select";
+import { useAfterSchoolManager } from "./useAfterSchoolManager";
+import { AfterSchoolManagerInfo } from "./AfterSchoolManagerInfo";
 
 type Course = {
   id: string;
@@ -133,6 +136,18 @@ function getClassDaysByStartDate(
 }
 
 export default function MyCourseAttendanceBook() {
+  const { data: session } = useSession();
+  const currentUserId = session?.user?.id ?? null;
+  const {
+    managerId,
+    managerTeachers,
+    isManager,
+    loading: managerLoading,
+    // refresh는 현재 컴포넌트에서는 사용하지 않지만, 필요 시를 위해 구조 분해해 둘 수 있다.
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    refresh: _refreshManager,
+  } = useAfterSchoolManager(currentUserId);
+
   const [classGroups, setClassGroups] = useState<ClassGroup[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
   const [selectedClassGroupId, setSelectedClassGroupId] = useState<string>("");
@@ -155,12 +170,17 @@ export default function MyCourseAttendanceBook() {
 
   // 마운트 시 내 강의 목록 로드 → 각 강의별 학반 조회 후 하나의 목록으로 합침
   useEffect(() => {
+    if (!session || managerLoading) {
+      return;
+    }
+
     let cancelled = false;
     setIsLoadingGroups(true);
     setError(null);
     (async () => {
       try {
-        const coursesRes = await fetch("/api/after-school/courses");
+        const scopeQuery = isManager ? "?scope=all" : "";
+        const coursesRes = await fetch(`/api/after-school/courses${scopeQuery}`);
         if (!coursesRes.ok) {
           const data = await coursesRes.json().catch(() => ({}));
           throw new Error(data.error || "강의 목록을 불러오지 못했습니다.");
@@ -198,7 +218,7 @@ export default function MyCourseAttendanceBook() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [session, isManager, managerLoading]);
 
   const selectedGroup = classGroups.find((g) => g.id === selectedClassGroupId);
   const studentIds = selectedGroup?.studentIds ?? [];
@@ -567,6 +587,43 @@ export default function MyCourseAttendanceBook() {
     }
   };
 
+  const openPrintWindow = () => {
+    if (!selectedGroup || effectiveClassDays.length === 0) {
+      alert("인쇄할 출석부를 먼저 준비해주세요. (학반/강의 시작일/차시 정보 확인)");
+      return;
+    }
+    if (students.length === 0) {
+      alert("인쇄할 수강생이 없습니다.");
+      return;
+    }
+
+    const payload = {
+      classGroupName: selectedGroup.name,
+      students: students.map((s) => ({
+        id: s.id,
+        name: s.name,
+        email: s.email,
+        studentId: s.studentProfile?.studentId ?? null,
+        classLabel: s.studentProfile?.classLabel ?? null,
+      })),
+      dates: effectiveClassDays.map((cd, index) => ({
+        dateKey: cd.dateKey,
+        label: cd.label,
+        sessionNumber: index + 1,
+      })),
+    };
+
+    try {
+      const json = JSON.stringify(payload);
+      const encoded = encodeURIComponent(json);
+      const url = `/dashboard/teacher/after-school/attendance-print?data=${encoded}`;
+      window.open(url, "attendancePrintWindow", "width=1000,height=800,noopener,noreferrer");
+    } catch (err) {
+      console.error("Failed to open print page", err);
+      alert("출석부 인쇄 페이지를 여는 중 오류가 발생했습니다.");
+    }
+  };
+
   if (isLoadingGroups) {
     return (
       <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 p-6 text-center">
@@ -583,324 +640,375 @@ export default function MyCourseAttendanceBook() {
     );
   }
 
-  if (classGroups.length === 0) {
-    return (
-      <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 p-6 text-center">
-        <p className="text-sm text-gray-500">담당 중인 방과후 강의에 학반이 없습니다. 강의를 먼저 만들고 학반을 생성해주세요.</p>
-      </div>
-    );
+  let attendanceSection: JSX.Element | null = null;
+
+  if (selectedClassGroupId) {
+    if (!selectedGroup) {
+      attendanceSection = null;
+    } else if (!effectiveCourseStartDate) {
+      attendanceSection = (
+        <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+          <h3 className="text-base font-semibold text-gray-900 mb-2">강의 시작일 설정</h3>
+          <p className="text-sm text-gray-600 mb-4">
+            출석부를 사용하려면 이 학반의 강의 시작일(1차시 날짜)을 설정하고 저장해주세요.
+          </p>
+          <div className="flex flex-wrap items-end gap-3">
+            <div>
+              <label className="mb-1 block text-xs font-medium text-gray-600">
+                강의 시작일 (1차시)
+              </label>
+              <input
+                type="date"
+                value={pendingStartDate}
+                onChange={(e) => setPendingStartDate(e.target.value)}
+                className="rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              />
+            </div>
+            <Button
+              type="button"
+              variant="primary"
+              size="sm"
+              onClick={handleSaveCourseStartDate}
+              disabled={savingStartDate}
+            >
+              {savingStartDate ? "저장 중..." : "저장"}
+            </Button>
+          </div>
+        </div>
+      );
+    } else if (isEditingStartDate) {
+      attendanceSection = (
+        <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+          <h3 className="text-base font-semibold text-gray-900 mb-2">강의 시작일 수정</h3>
+          <div className="flex flex-wrap items-end gap-3">
+            <div>
+              <label className="mb-1 block text-xs font-medium text-gray-600">
+                강의 시작일 (1차시)
+              </label>
+              <input
+                type="date"
+                value={pendingStartDate}
+                onChange={(e) => setPendingStartDate(e.target.value)}
+                className="rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              />
+            </div>
+            <Button
+              type="button"
+              variant="primary"
+              size="sm"
+              onClick={handleSaveCourseStartDate}
+              disabled={savingStartDate}
+            >
+              {savingStartDate ? "저장 중..." : "저장"}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setIsEditingStartDate(false)}
+            >
+              취소
+            </Button>
+          </div>
+        </div>
+      );
+    } else if (classDays.length === 0) {
+      attendanceSection = (
+        <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 p-6 text-center">
+          <p className="text-sm text-gray-500">
+            {totalSessions < 1
+              ? "강의에 총 시수가 등록되지 않았습니다. 강의 정보에서 총 시수를 설정해주세요."
+              : "이 학반에 수업 요일·교시가 등록되지 않았습니다. 학반 정보에서 차시별 요일·교시를 설정해주세요."}
+          </p>
+        </div>
+      );
+    } else if (isLoadingStudents || isLoadingAttendance) {
+      attendanceSection = (
+        <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 p-6 text-center">
+          <p className="text-sm text-gray-500">수강생·출결 정보를 불러오는 중...</p>
+        </div>
+      );
+    } else if (students.length === 0) {
+      attendanceSection = (
+        <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 p-6 text-center">
+          <p className="text-sm text-gray-500">이 학반에 등록된 수강생이 없습니다.</p>
+        </div>
+      );
+    } else {
+      attendanceSection = (
+        <div className="rounded-xl border border-gray-200 bg-white overflow-hidden">
+          <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-b border-gray-200">
+            <span className="text-sm text-gray-600">
+              강의 시작일:{" "}
+              {effectiveCourseStartDate && formatDateForInput(effectiveCourseStartDate)}
+            </span>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={openPrintWindow}
+                className="text-xs text-gray-700 hover:text-gray-900 border border-gray-300 rounded px-2 py-1 bg-white"
+              >
+                인쇄
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setPendingStartDate(
+                    effectiveCourseStartDate
+                      ? formatDateForInput(effectiveCourseStartDate)
+                      : new Date().toISOString().slice(0, 10)
+                  );
+                  setIsEditingStartDate(true);
+                }}
+                className="text-xs text-blue-600 hover:text-blue-800"
+              >
+                수정
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  if (!selectedCourseId || !selectedClassGroupId) return;
+                  const ok = confirm(
+                    "출석부를 삭제할까요?\n삭제하면 강의 시작일/날짜 조정이 초기화되고, 저장된 출결과 저장완료 기록이 모두 삭제됩니다."
+                  );
+                  if (!ok) return;
+
+                  try {
+                    const res = await fetch(
+                      `/api/courses/${selectedCourseId}/class-groups/${selectedClassGroupId}/attendance-book`,
+                      { method: "DELETE" }
+                    );
+                    if (!res.ok) {
+                      const data = await res.json().catch(() => ({}));
+                      throw new Error(data.error || "출석부 삭제에 실패했습니다.");
+                    }
+
+                    setClassGroups((prev) =>
+                      prev.map((g) =>
+                        g.id === selectedClassGroupId
+                          ? { ...g, courseStartDate: null, dateOverrides: null }
+                          : g
+                      )
+                    );
+                    setDateOverrides({});
+                    setAttendanceState({});
+                    setSavedDates({});
+                    setIsEditingStartDate(false);
+                    alert("출석부가 삭제되었습니다.");
+                  } catch (err) {
+                    alert(
+                      err instanceof Error
+                        ? err.message
+                        : "출석부 삭제 중 오류가 발생했습니다."
+                    );
+                  }
+                }}
+                className="text-xs text-red-600 hover:text-red-800"
+              >
+                삭제
+              </button>
+            </div>
+          </div>
+          <div className="max-h-[70vh] overflow-auto">
+            <table className="min-w-full table-fixed divide-y divide-gray-200 text-sm">
+              {/* HEADER */}
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="w-20 px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase">
+                    이름
+                  </th>
+
+                  {effectiveClassDays.map((cd, index) => (
+                    <th
+                      key={index}
+                      className="w-28 px-3 py-2 text-center text-xs font-semibold text-gray-600"
+                    >
+                      {editingColumnIndex === index ? (
+                        <div className="flex flex-col items-center gap-1">
+                          <input
+                            ref={editingColumnIndex === index ? dateInputRef : undefined}
+                            type="date"
+                            defaultValue={cd.dateKey}
+                            className="rounded border border-gray-300 px-2 py-1 text-xs"
+                            onBlur={(e) => {
+                              const v = e.target.value;
+                              if (v) handleDateOverride(index, v);
+                              setEditingColumnIndex(null);
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                const v = (e.target as HTMLInputElement).value;
+                                if (v) handleDateOverride(index, v);
+                                setEditingColumnIndex(null);
+                              }
+                              if (e.key === "Escape") {
+                                setEditingColumnIndex(null);
+                              }
+                            }}
+                            autoFocus
+                          />
+                          <span className="text-[10px] text-gray-500">
+                            {index + 1}차시
+                          </span>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setEditingColumnIndex(index)}
+                          className="w-full rounded px-1 py-0.5 hover:bg-gray-100"
+                          title="날짜 수정"
+                          aria-label="날짜 수정"
+                        >
+                          <div className="flex items-center justify-center gap-1.5">
+                            <span className="inline-flex items-center rounded-md bg-blue-50 px-1.5 py-0.5 text-[10px] font-semibold text-blue-700 border border-blue-100 whitespace-nowrap">
+                              {cd.sessionNumber}차시
+                            </span>
+                            <span className="whitespace-nowrap">{cd.label}</span>
+                          </div>
+                        </button>
+                      )}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+
+              {/* BODY */}
+              <tbody className="divide-y divide-gray-100 bg-white">
+                {students.map((s) => (
+                  <tr key={s.id} className="hover:bg-gray-50">
+                    <td className="w-28 px-3 py-2 text-gray-900 whitespace-nowrap">
+                      <span className="mr-2 text-xs text-gray-500">
+                        {s.studentProfile?.studentId ?? ""}
+                      </span>
+                      <span>{s.name ?? s.email ?? "이름 없음"}</span>
+                    </td>
+
+                    {effectiveClassDays.map((cd, index) => (
+                      <td key={index} className="px-3 py-2 text-center">
+                        <Select
+                          options={STATUS_OPTIONS}
+                          value={attendanceState[`${cd.dateKey}-${s.id}`] || "present"}
+                          onChange={(e) =>
+                            handleStatusChange(cd.dateKey, s.id, e.target.value)
+                          }
+                          disabled={savedDates[cd.dateKey]}
+                          className="w-20 h-7 px-2 py-1 text-xs mx-auto"
+                        />
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+
+              {/* FOOTER */}
+              <tfoot className="sticky bottom-0 z-10 bg-gray-50 border-t">
+                <tr>
+                  <td className="px-4 py-2 text-xs font-semibold text-gray-600">
+                    저장
+                  </td>
+
+                  {effectiveClassDays.map((cd, index) => (
+                    <td key={index} className="px-3 py-2">
+                      <div className="flex items-center justify-center gap-2">
+                        <div
+                          className="h-4 w-4 rounded-full border-2 flex items-center justify-center"
+                          style={{
+                            borderColor: savedDates[cd.dateKey] ? "#16a34a" : "#9ca3af",
+                            backgroundColor: savedDates[cd.dateKey] ? "#16a34a" : "transparent",
+                          }}
+                        >
+                          {savedDates[cd.dateKey] && (
+                            <div className="h-1.5 w-1.5 rounded-full bg-white" />
+                          )}
+                        </div>
+
+                        <Button
+                          type="button"
+                          variant={savedDates[cd.dateKey] ? "secondary" : "primary"}
+                          onClick={() =>
+                            savedDates[cd.dateKey]
+                              ? handleCancelOneDate(cd)
+                              : handleSaveOneDate(cd)
+                          }
+                          disabled={savingDateKey === cd.dateKey}
+                          className="h-6 px-2 text-[11px]"
+                        >
+                          {savingDateKey === cd.dateKey
+                            ? "처리 중..."
+                            : savedDates[cd.dateKey]
+                              ? "저장됨"
+                              : "저장"}
+                        </Button>
+                      </div>
+                    </td>
+                  ))}
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </div>
+      );
+    }
   }
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-end gap-4">
-        <div className="min-w-[280px]">
-          <label className="mb-1 block text-xs font-medium text-gray-600">학반</label>
-          <Select
-            value={selectedClassGroupId}
-            onChange={(e) => setSelectedClassGroupId(e.target.value)}
-            options={[
-              { value: "", label: "학반 선택" },
-              ...classGroups.map((g) => {
-                const subject = g.courseSubject || "";
-                const namePart = g.name + (g.courseTotalSessions != null && g.courseTotalSessions > 0 ? ` (총 ${g.courseTotalSessions} 차시)` : "");
-                const label = subject ? `${namePart}` : namePart;
-                return { value: g.id, label };
-              }),
-            ]}
-            className="w-full"
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        {/* 왼쪽: 제목 및 설명 영역 */}
+        <div>
+          <h2 className="text-lg font-semibold text-gray-900 mb-2">
+            내 강의 수강생 출석부
+          </h2>
+          <p className="text-sm text-gray-600">
+            학반을 선택한 뒤 강의 시작일과 총 시수를 기준으로 차시별 출결을 확인·저장할 수 있습니다.
+          </p>
+        </div>
+
+        {/* 오른쪽: 매니저 정보 영역 */}
+        <div className="flex-shrink-0">
+          <AfterSchoolManagerInfo
+            managerId={managerId}
+            managerTeachers={managerTeachers}
+            className="text-sm text-gray-700"
           />
         </div>
       </div>
 
-      {selectedClassGroupId && (
+      {classGroups.length === 0 && (
+        <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 p-6 text-center">
+          <p className="text-sm text-gray-500">
+            담당 중인 방과후 강의에 학반이 없습니다. 강의를 먼저 만들고 학반을 생성해주세요.
+          </p>
+        </div>
+      )}
+
+      {classGroups.length > 0 && (
         <>
-          {!selectedGroup ? null : !effectiveCourseStartDate ? (
-            <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-              <h3 className="text-base font-semibold text-gray-900 mb-2">강의 시작일 설정</h3>
-              <p className="text-sm text-gray-600 mb-4">
-                출석부를 사용하려면 이 학반의 강의 시작일(1차시 날짜)을 설정하고 저장해주세요.
-              </p>
-              <div className="flex flex-wrap items-end gap-3">
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-gray-600">
-                    강의 시작일 (1차시)
-                  </label>
-                  <input
-                    type="date"
-                    value={pendingStartDate}
-                    onChange={(e) => setPendingStartDate(e.target.value)}
-                    className="rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                  />
-                </div>
-                <Button
-                  type="button"
-                  variant="primary"
-                  size="sm"
-                  onClick={handleSaveCourseStartDate}
-                  disabled={savingStartDate}
-                >
-                  {savingStartDate ? "저장 중..." : "저장"}
-                </Button>
-              </div>
+          <div className="flex flex-wrap items-end gap-4">
+            <div className="min-w-[280px]">
+              <label className="mb-1 block text-xs font-medium text-gray-600">학반</label>
+              <Select
+                value={selectedClassGroupId}
+                onChange={(e) => setSelectedClassGroupId(e.target.value)}
+                options={[
+                  { value: "", label: "학반 선택" },
+                  ...classGroups.map((g) => {
+                    const subject = g.courseSubject || "";
+                    const namePart =
+                      g.name +
+                      (g.courseTotalSessions != null && g.courseTotalSessions > 0
+                        ? ` (총 ${g.courseTotalSessions} 차시)`
+                        : "");
+                    const label = subject ? `${namePart}` : namePart;
+                    return { value: g.id, label };
+                  }),
+                ]}
+                className="w-full"
+              />
             </div>
-          ) : isEditingStartDate ? (
-            <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-              <h3 className="text-base font-semibold text-gray-900 mb-2">강의 시작일 수정</h3>
-              <div className="flex flex-wrap items-end gap-3">
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-gray-600">
-                    강의 시작일 (1차시)
-                  </label>
-                  <input
-                    type="date"
-                    value={pendingStartDate}
-                    onChange={(e) => setPendingStartDate(e.target.value)}
-                    className="rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                  />
-                </div>
-                <Button
-                  type="button"
-                  variant="primary"
-                  size="sm"
-                  onClick={handleSaveCourseStartDate}
-                  disabled={savingStartDate}
-                >
-                  {savingStartDate ? "저장 중..." : "저장"}
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setIsEditingStartDate(false)}
-                >
-                  취소
-                </Button>
-              </div>
-            </div>
-          ) : classDays.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 p-6 text-center">
-              <p className="text-sm text-gray-500">
-                {totalSessions < 1
-                  ? "강의에 총 시수가 등록되지 않았습니다. 강의 정보에서 총 시수를 설정해주세요."
-                  : "이 학반에 수업 요일·교시가 등록되지 않았습니다. 학반 정보에서 차시별 요일·교시를 설정해주세요."}
-              </p>
-            </div>
-          ) : isLoadingStudents || isLoadingAttendance ? (
-            <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 p-6 text-center">
-              <p className="text-sm text-gray-500">수강생·출결 정보를 불러오는 중...</p>
-            </div>
-          ) : students.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 p-6 text-center">
-              <p className="text-sm text-gray-500">이 학반에 등록된 수강생이 없습니다.</p>
-            </div>
-          ) : (
-            <div className="rounded-xl border border-gray-200 bg-white overflow-hidden">
-              <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-b border-gray-200">
-                <span className="text-sm text-gray-600">
-                  강의 시작일: {effectiveCourseStartDate && formatDateForInput(effectiveCourseStartDate)}
-                </span>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setPendingStartDate(
-                        effectiveCourseStartDate
-                          ? formatDateForInput(effectiveCourseStartDate)
-                          : new Date().toISOString().slice(0, 10)
-                      );
-                      setIsEditingStartDate(true);
-                    }}
-                    className="text-xs text-blue-600 hover:text-blue-800"
-                  >
-                    수정
-                  </button>
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      if (!selectedCourseId || !selectedClassGroupId) return;
-                      const ok = confirm(
-                        "출석부를 삭제할까요?\n삭제하면 강의 시작일/날짜 조정이 초기화되고, 저장된 출결과 저장완료 기록이 모두 삭제됩니다."
-                      );
-                      if (!ok) return;
+          </div>
 
-                      try {
-                        const res = await fetch(
-                          `/api/courses/${selectedCourseId}/class-groups/${selectedClassGroupId}/attendance-book`,
-                          { method: "DELETE" }
-                        );
-                        if (!res.ok) {
-                          const data = await res.json().catch(() => ({}));
-                          throw new Error(data.error || "출석부 삭제에 실패했습니다.");
-                        }
-
-                        setClassGroups((prev) =>
-                          prev.map((g) =>
-                            g.id === selectedClassGroupId
-                              ? { ...g, courseStartDate: null, dateOverrides: null }
-                              : g
-                          )
-                        );
-                        setDateOverrides({});
-                        setAttendanceState({});
-                        setSavedDates({});
-                        setIsEditingStartDate(false);
-                        alert("출석부가 삭제되었습니다.");
-                      } catch (err) {
-                        alert(
-                          err instanceof Error
-                            ? err.message
-                            : "출석부 삭제 중 오류가 발생했습니다."
-                        );
-                      }
-                    }}
-                    className="text-xs text-red-600 hover:text-red-800"
-                  >
-                    삭제
-                  </button>
-                </div>
-              </div>
-              <div className="max-h-[70vh] overflow-auto">
-              <table className="min-w-full table-fixed divide-y divide-gray-200 text-sm">
-  
-                {/* HEADER */}
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="w-20 px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase">
-                      이름
-                    </th>
-
-                    {effectiveClassDays.map((cd, index) => (
-                      <th
-                        key={index}
-                        className="w-28 px-3 py-2 text-center text-xs font-semibold text-gray-600"
-                      >
-                        {editingColumnIndex === index ? (
-                          <div className="flex flex-col items-center gap-1">
-                            <input
-                              ref={editingColumnIndex === index ? dateInputRef : undefined}
-                              type="date"
-                              defaultValue={cd.dateKey}
-                              className="rounded border border-gray-300 px-2 py-1 text-xs"
-                              onBlur={(e) => {
-                                const v = e.target.value;
-                                if (v) handleDateOverride(index, v);
-                                setEditingColumnIndex(null);
-                              }}
-                              onKeyDown={(e) => {
-                                if (e.key === "Enter") {
-                                  const v = (e.target as HTMLInputElement).value;
-                                  if (v) handleDateOverride(index, v);
-                                  setEditingColumnIndex(null);
-                                }
-                                if (e.key === "Escape") {
-                                  setEditingColumnIndex(null);
-                                }
-                              }}
-                              autoFocus
-                            />
-                            <span className="text-[10px] text-gray-500">
-                              {index + 1}차시
-                            </span>
-                          </div>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => setEditingColumnIndex(index)}
-                            className="w-full rounded px-1 py-0.5 hover:bg-gray-100"
-                            title="날짜 수정"
-                            aria-label="날짜 수정"
-                          >
-                            <div className="flex items-center justify-center gap-1.5">
-                              <span className="inline-flex items-center rounded-md bg-blue-50 px-1.5 py-0.5 text-[10px] font-semibold text-blue-700 border border-blue-100 whitespace-nowrap">
-                                {cd.sessionNumber}차시
-                              </span>
-                              <span className="whitespace-nowrap">{cd.label}</span>
-                            </div>
-                          </button>
-                        )}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-
-                {/* BODY */}
-                <tbody className="divide-y divide-gray-100 bg-white">
-                  {students.map((s) => (
-                    <tr key={s.id} className="hover:bg-gray-50">
-                      
-                      <td className="w-20 px-3 py-2 text-gray-900 whitespace-nowrap">
-                        {s.name ?? s.email ?? "이름 없음"}
-                      </td>
-
-                      {effectiveClassDays.map((cd, index) => (
-                        <td key={index} className="px-3 py-2 text-center">
-                          <Select
-                            options={STATUS_OPTIONS}
-                            value={attendanceState[`${cd.dateKey}-${s.id}`] || "present"}
-                            onChange={(e) =>
-                              handleStatusChange(cd.dateKey, s.id, e.target.value)
-                            }
-                            disabled={savedDates[cd.dateKey]}
-                            className="w-20 h-7 px-2 py-1 text-xs mx-auto"
-                          />
-                        </td>
-                      ))}
-                    </tr>
-                  ))}
-                </tbody>
-
-                {/* FOOTER */}
-                <tfoot className="sticky bottom-0 z-10 bg-gray-50 border-t">
-                  <tr>
-                    <td className="px-4 py-2 text-xs font-semibold text-gray-600">
-                      저장
-                    </td>
-
-                    {effectiveClassDays.map((cd, index) => (
-                      <td key={index} className="px-3 py-2">
-                        <div className="flex items-center justify-center gap-2">
-
-                          <div
-                            className="h-4 w-4 rounded-full border-2 flex items-center justify-center"
-                            style={{
-                              borderColor: savedDates[cd.dateKey] ? "#16a34a" : "#9ca3af",
-                              backgroundColor: savedDates[cd.dateKey] ? "#16a34a" : "transparent",
-                            }}
-                          >
-                            {savedDates[cd.dateKey] && (
-                              <div className="h-1.5 w-1.5 rounded-full bg-white" />
-                            )}
-                          </div>
-
-                          <Button
-                            type="button"
-                            variant={savedDates[cd.dateKey] ? "secondary" : "primary"}
-                            onClick={() =>
-                              savedDates[cd.dateKey]
-                                ? handleCancelOneDate(cd)
-                                : handleSaveOneDate(cd)
-                            }
-                            disabled={savingDateKey === cd.dateKey}
-                            className="h-6 px-2 text-[11px]"
-                          >
-                            {savingDateKey === cd.dateKey
-                              ? "처리 중..."
-                              : savedDates[cd.dateKey]
-                                ? "저장됨"
-                                : "저장"}
-                          </Button>
-
-                        </div>
-                      </td>
-                    ))}
-                  </tr>
-                </tfoot>
-
-              </table>
-              </div>
-            </div>
-          )}
+          {attendanceSection}
         </>
       )}
 
