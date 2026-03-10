@@ -141,16 +141,23 @@ export default function EventModal({
         return `${year}-${month}-${day}`;
       };
 
+      const scheduleArea = event.extendedProps.scheduleArea as string | undefined;
+      // 일정 구분이 '기타'인 경우 eventType을 '기타 행사'로 정규화 (DB에 '기타' 등으로 저장된 경우 대비)
+      const eventType =
+        scheduleArea === "기타"
+          ? "기타 행사"
+          : (event.extendedProps.eventType as any);
+
       reset({
         title: event.title,
         description: event.description || "",
         startDate: formatLocalDate(startDate),
         endDate: endDate ? formatLocalDate(endDate) : "",
-        eventType: event.extendedProps.eventType as any,
+        eventType,
         scope: event.extendedProps.scope as any,
         department: event.extendedProps.department || "",
         responsiblePerson: event.extendedProps.responsiblePerson || "",
-        scheduleArea: event.extendedProps.scheduleArea as any,
+        scheduleArea: scheduleArea as any,
         gradeLevels: (event.extendedProps.gradeLevels || []) as GradeValue[],
         periods: (event.extendedProps.periods || []) as PeriodValue[],
       });
