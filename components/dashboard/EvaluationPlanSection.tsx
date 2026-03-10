@@ -234,6 +234,7 @@ export default function EvaluationPlanSection() {
                             target="_blank"
                             rel="noopener noreferrer"
                             className="text-sm text-blue-600 hover:underline truncate block"
+                            title={f.originalFileName}
                           >
                             {f.originalFileName}
                           </a>
