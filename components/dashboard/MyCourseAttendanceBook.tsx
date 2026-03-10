@@ -567,6 +567,43 @@ export default function MyCourseAttendanceBook() {
     }
   };
 
+  const openPrintWindow = () => {
+    if (!selectedGroup || effectiveClassDays.length === 0) {
+      alert("인쇄할 출석부를 먼저 준비해주세요. (학반/강의 시작일/차시 정보 확인)");
+      return;
+    }
+    if (students.length === 0) {
+      alert("인쇄할 수강생이 없습니다.");
+      return;
+    }
+
+    const payload = {
+      classGroupName: selectedGroup.name,
+      students: students.map((s) => ({
+        id: s.id,
+        name: s.name,
+        email: s.email,
+        studentId: s.studentProfile?.studentId ?? null,
+        classLabel: s.studentProfile?.classLabel ?? null,
+      })),
+      dates: effectiveClassDays.map((cd, index) => ({
+        dateKey: cd.dateKey,
+        label: cd.label,
+        sessionNumber: index + 1,
+      })),
+    };
+
+    try {
+      const json = JSON.stringify(payload);
+      const encoded = encodeURIComponent(json);
+      const url = `/dashboard/teacher/after-school/attendance-print?data=${encoded}`;
+      window.open(url, "attendancePrintWindow", "width=1000,height=800,noopener,noreferrer");
+    } catch (err) {
+      console.error("Failed to open print page", err);
+      alert("출석부 인쇄 페이지를 여는 중 오류가 발생했습니다.");
+    }
+  };
+
   if (isLoadingGroups) {
     return (
       <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 p-6 text-center">
@@ -695,12 +732,19 @@ export default function MyCourseAttendanceBook() {
               <p className="text-sm text-gray-500">이 학반에 등록된 수강생이 없습니다.</p>
             </div>
           ) : (
-            <div className="rounded-xl border border-gray-200 bg-white overflow-hidden">
+              <div className="rounded-xl border border-gray-200 bg-white overflow-hidden">
               <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-b border-gray-200">
                 <span className="text-sm text-gray-600">
                   강의 시작일: {effectiveCourseStartDate && formatDateForInput(effectiveCourseStartDate)}
                 </span>
                 <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={openPrintWindow}
+                    className="text-xs text-gray-700 hover:text-gray-900 border border-gray-300 rounded px-2 py-1 bg-white"
+                  >
+                    인쇄
+                  </button>
                   <button
                     type="button"
                     onClick={() => {
@@ -828,9 +872,11 @@ export default function MyCourseAttendanceBook() {
                 <tbody className="divide-y divide-gray-100 bg-white">
                   {students.map((s) => (
                     <tr key={s.id} className="hover:bg-gray-50">
-                      
-                      <td className="w-20 px-3 py-2 text-gray-900 whitespace-nowrap">
-                        {s.name ?? s.email ?? "이름 없음"}
+                      <td className="w-28 px-3 py-2 text-gray-900 whitespace-nowrap">
+                        <span className="mr-2 text-xs text-gray-500">
+                          {s.studentProfile?.studentId ?? ""}
+                        </span>
+                        <span>{s.name ?? s.email ?? "이름 없음"}</span>
                       </td>
 
                       {effectiveClassDays.map((cd, index) => (
