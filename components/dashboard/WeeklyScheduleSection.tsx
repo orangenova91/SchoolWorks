@@ -210,7 +210,7 @@ export default function WeeklyScheduleSection({
                         >
                           <div className="flex items-center gap-2">
                             {event.periods?.length ? (
-                              <span className="text-xs text-gray-500">
+                              <span className="text-xs text-gray-500 whitespace-nowrap">
                                 {event.periods.join(", ")}교시
                               </span>
                             ) : null}
