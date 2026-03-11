@@ -765,7 +765,11 @@ export default function TeacherScheduleClient({
                       };
                       const eventColor = eventType in colors ? colors[eventType] : "#6b7280";
                       const activityContent = (event.extendedProps as { activityContent?: string })?.activityContent;
-                      const activityQuestionCount = (event.extendedProps as { activityQuestionCount?: number })?.activityQuestionCount ?? 0;
+                      const hasActivity =
+                        !!activityContent && activityContent.trim().length > 0;
+                      const activityQuestionCount =
+                        (event.extendedProps as { activityQuestionCount?: number })
+                          ?.activityQuestionCount ?? 0;
 
                       return (
                         <tr
@@ -807,8 +811,12 @@ export default function TeacherScheduleClient({
                             {canEditActivity ? (
                               <button
                                 type="button"
-                                className="inline-flex items-center justify-center px-3 py-1 text-[11px] font-medium rounded-full border border-indigo-600 text-indigo-600 hover:bg-indigo-50"
-                                onClick={(e) => {
+                                className={
+                                  hasActivity
+                                    ? "inline-flex items-center justify-center gap-1 px-3 py-1 text-[11px] font-semibold rounded-full bg-indigo-500 text-white border border-indigo-500"
+                                    : "inline-flex items-center justify-center px-3 py-1 text-[11px] font-medium rounded-full border border-indigo-600 text-indigo-600 hover:bg-indigo-50"
+                                }
+                                  onClick={(e) => {
                                   e.stopPropagation();
                                   setActivityModalEvent({
                                     id: event.id,
@@ -817,7 +825,7 @@ export default function TeacherScheduleClient({
                                   });
                                 }}
                               >
-                                활동 제작
+                                {hasActivity ? "제작 완료" : "활동 제작"}
                               </button>
                             ) : (
                               <span className="text-gray-400">-</span>

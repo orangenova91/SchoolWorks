@@ -109,6 +109,10 @@ export default function EventModal({
   const isReadOnlyEvent = Boolean(
     event && editableScopes?.length && !editableScopes.includes(event.extendedProps.scope)
   );
+  const isPersonalOnlyMode =
+    (!event || event.extendedProps.scope === "personal") &&
+    allowedScheduleAreas?.length === 1 &&
+    allowedScheduleAreas[0] === "개인일정(나만 보기)";
 
   // ESC key to close modal
   useEffect(() => {
@@ -357,6 +361,7 @@ export default function EventModal({
             placeholder="일정 제목을 입력하세요"
             error={errors.title?.message}
             required
+            disabled={isReadOnlyEvent}
           />
 
           <div className="grid grid-cols-2 gap-4">
@@ -385,74 +390,76 @@ export default function EventModal({
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <Input
-              {...register("department")}
-              label="담당 부서"
-              placeholder="예: 교무부, 학생부 등"
-              error={errors.department?.message}
-              disabled={isReadOnlyEvent}
-            />
-            <Input
-              {...register("responsiblePerson")}
-              label="담당자"
-              placeholder="담당자 이름을 입력하세요"
-              error={errors.responsiblePerson?.message}
-              disabled={isReadOnlyEvent}
-            />
-          </div>
-
-          <div className="flex flex-col gap-4 md:flex-row md:gap-6">
-            <div className="w-full md:w-1/3 lg:w-1/4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">학년</label>
-              <div className="flex flex-wrap gap-3">
-                {GRADE_VALUES.map((grade) => (
-                  <label key={grade} className="flex flex-col items-center text-sm text-gray-700">
-                    <span className="mb-1">{grade}학년</span>
-                    <input
-                      type="checkbox"
-                      value={grade}
-                      {...register("gradeLevels")}
-                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                      disabled={isReadOnlyEvent}
-                    />
-                  </label>
-                ))}
-              </div>
-              {errors.gradeLevels && (
-                <p className="mt-1 text-sm text-red-600" role="alert">
-                  {errors.gradeLevels.message as string}
-                </p>
-              )}
+          {!isPersonalOnlyMode && (
+            <div className="grid grid-cols-2 gap-4">
+              <Input
+                {...register("department")}
+                label="담당 부서"
+                placeholder="예: 교무부, 학생부 등"
+                error={errors.department?.message}
+                disabled={isReadOnlyEvent}
+              />
+              <Input
+                {...register("responsiblePerson")}
+                label="담당자"
+                placeholder="담당자 이름을 입력하세요"
+                error={errors.responsiblePerson?.message}
+                disabled={isReadOnlyEvent}
+              />
             </div>
+          )}
 
-            <div className="w-full md:flex-1">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                교시
-              </label>
-              <div className="flex flex-wrap gap-3">
-                {PERIOD_VALUES.map((period) => (
-                  <label key={period} className="flex flex-col items-center text-sm text-gray-700">
-                    <span className="mb-1">{period}교시</span>
-                    <input
-                      type="checkbox"
-                      value={period}
-                      {...register("periods")}
-                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                      disabled={isReadOnlyEvent}
-                    />
-                  </label>
-                ))}
+          {!isPersonalOnlyMode && (
+            <div className="flex flex-col gap-4 md:flex-row md:gap-6">
+              <div className="w-full md:w-1/3 lg:w-1/4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">학년</label>
+                <div className="flex flex-wrap gap-3">
+                  {GRADE_VALUES.map((grade) => (
+                    <label key={grade} className="flex flex-col items-center text-sm text-gray-700">
+                      <span className="mb-1">{grade}학년</span>
+                      <input
+                        type="checkbox"
+                        value={grade}
+                        {...register("gradeLevels")}
+                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        disabled={isReadOnlyEvent}
+                      />
+                    </label>
+                  ))}
+                </div>
+                {errors.gradeLevels && (
+                  <p className="mt-1 text-sm text-red-600" role="alert">
+                    {errors.gradeLevels.message as string}
+                  </p>
+                )}
               </div>
-              {errors.periods && (
-                <p className="mt-1 text-sm text-red-600" role="alert">
-                  {errors.periods.message as string}
-                </p>
-              )}
-            </div>
 
-            
-          </div>
+              <div className="w-full md:flex-1">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  교시
+                </label>
+                <div className="flex flex-wrap gap-3">
+                  {PERIOD_VALUES.map((period) => (
+                    <label key={period} className="flex flex-col items-center text-sm text-gray-700">
+                      <span className="mb-1">{period}교시</span>
+                      <input
+                        type="checkbox"
+                        value={period}
+                        {...register("periods")}
+                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        disabled={isReadOnlyEvent}
+                      />
+                    </label>
+                  ))}
+                </div>
+                {errors.periods && (
+                  <p className="mt-1 text-sm text-red-600" role="alert">
+                    {errors.periods.message as string}
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* 종일 필드 제거 */}
 

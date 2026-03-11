@@ -11,6 +11,8 @@ type ActivityFileItem = {
   id?: string;
   name: string;
   size: number;
+  url?: string;
+  mimeType?: string;
 };
 
 type ActivityBuilderModalProps = {
@@ -152,12 +154,40 @@ export default function ActivityBuilderModal({
 
       onQuestionsSaved(eventId, trimmedQuestions.length);
 
-      showToast("활동 내용과 질문이 저장되었습니다.", "success");
+      // 3) 활동 자료 파일 업로드 (선택)
+      const input = document.querySelector<HTMLInputElement>(
+        `#activity-files-input-${eventId}`
+      );
+      const fileList = input?.files;
+
+      if (fileList && fileList.length > 0) {
+        const formData = new FormData();
+        Array.from(fileList).forEach((file) => {
+          formData.append("files", file);
+        });
+
+        const uploadRes = await fetch(
+          `/api/calendar-events/${eventId}/activity-files`,
+          {
+            method: "POST",
+            body: formData,
+          }
+        );
+        const uploadData = await uploadRes.json();
+        if (!uploadRes.ok) {
+          throw new Error(
+            uploadData.error ||
+              "활동 자료 파일 업로드 중 오류가 발생했습니다."
+          );
+        }
+      }
+
+      showToast("활동 내용, 질문, 자료 파일이 저장되었습니다.", "success");
       onClose();
     } catch (error: any) {
       showToast(
         error.message ||
-          "활동 내용/질문을 저장하는 중 오류가 발생했습니다.",
+          "활동 내용/질문/자료 파일을 저장하는 중 오류가 발생했습니다.",
         "error"
       );
     } finally {
@@ -177,7 +207,7 @@ export default function ActivityBuilderModal({
       }}
     >
       <div
-        className="relative w-full max-w-4xl rounded-xl bg-white shadow-xl p-6 max-h-[90vh] overflow-hidden flex flex-col"
+        className="relative w-full max-w-6xl rounded-xl bg-white shadow-xl p-6 max-h-[90vh] overflow-hidden flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-4 shrink-0">
@@ -192,7 +222,7 @@ export default function ActivityBuilderModal({
         </div>
         {eventTitle && (
           <p
-            className="text-sm text-gray-600 mb-3 truncate shrink-0"
+            className="text-lg font-semibold text-gray-900 mb-3 truncate shrink-0"
             title={eventTitle}
           >
             {eventTitle}
@@ -264,6 +294,7 @@ export default function ActivityBuilderModal({
 
                 <div className="flex items-center gap-2">
                   <input
+                    id={`activity-files-input-${eventId}`}
                     type="file"
                     multiple
                     onChange={handleFilesSelected}

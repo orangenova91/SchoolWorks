@@ -50,8 +50,19 @@ export async function PATCH(
       return NextResponse.json({ error: "일정을 찾을 수 없습니다." }, { status: 404 });
     }
 
-    // 권한 확인: 생성한 사람이거나 개인 일정의 경우에만 수정 가능
-    if (event.createdBy !== session.user.id && event.scope === "personal" && event.teacherId !== session.user.id) {
+    // 창의적 체험활동의 활동 내용만 수정하는 경우에는 모든 교사가 수정 가능
+    const isCreativeActivity = event.scheduleArea === "창의적 체험활동";
+    const updateKeys = Object.keys(validatedData);
+    const onlyActivityContentUpdated =
+      updateKeys.length > 0 && updateKeys.every((key) => key === "activityContent");
+
+    // 권한 확인: (예외가 아닌 경우에만) 생성한 사람이거나 개인 일정의 담당 교사인 경우에만 수정 가능
+    if (
+      !(isCreativeActivity && onlyActivityContentUpdated) &&
+      event.createdBy !== session.user.id &&
+      event.scope === "personal" &&
+      event.teacherId !== session.user.id
+    ) {
       return NextResponse.json(
         { error: "이 일정을 수정할 권한이 없습니다." },
         { status: 403 }
