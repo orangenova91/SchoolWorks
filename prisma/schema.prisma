@@ -396,6 +396,7 @@ model CalendarEvent {
   gradeLevels       String[]  @default([])
   periods           String[]  @default([])
   activityContent   String?   // 활동 내용 (창의적 체험활동용)
+  activityAttachments String? // 활동 자료 파일 JSON: [{filePath, originalFileName, fileSize, mimeType}]
   createdBy         String    @db.ObjectId // 생성한 사용자 ID
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
@@ -415,6 +416,22 @@ model ActivitySheetQuestion {
 
   @@index([calendarEventId])
   @@map("activity_sheet_questions")
+}
+
+model ActivitySheetAnswer {
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  calendarEventId String   @db.ObjectId
+  questionId      String   @db.ObjectId
+  studentId       String   @db.ObjectId
+  answerText      String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([calendarEventId])
+  @@index([questionId])
+  @@index([studentId])
+  @@unique([questionId, studentId])
+  @@map("activity_sheet_answers")
 }
 
 model Announcement {

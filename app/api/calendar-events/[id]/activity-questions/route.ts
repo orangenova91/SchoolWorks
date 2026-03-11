@@ -12,16 +12,38 @@ const patchSchema = z.object({
 
 export const dynamic = "force-dynamic";
 
-async function checkEventPermission(eventId: string, userId: string) {
+async function checkEventPermission(
+  eventId: string,
+  userId: string,
+  userRole?: string | null,
+  userSchool?: string | null
+) {
   const event = await (prisma as any).calendarEvent.findUnique({
     where: { id: eventId },
   });
-  if (!event) return { ok: false, error: "일정을 찾을 수 없습니다.", status: 404 } as const;
+  if (!event)
+    return {
+      ok: false,
+      error: "일정을 찾을 수 없습니다.",
+      status: 404,
+    } as const;
+
+  // 창의적 체험활동인 경우: 동일 학교의 교사는 모두 허용
+  if (event.scheduleArea === "창의적 체험활동" && userRole === "teacher") {
+    if (event.school && userSchool && event.school === userSchool) {
+      return { ok: true, event } as const;
+    }
+  }
+
   const allowed =
     event.createdBy === userId ||
     (event.scope === "personal" && event.teacherId === userId);
   if (!allowed)
-    return { ok: false, error: "이 일정을 수정할 권한이 없습니다.", status: 403 } as const;
+    return {
+      ok: false,
+      error: "이 일정을 수정할 권한이 없습니다.",
+      status: 403,
+    } as const;
   return { ok: true, event } as const;
 }
 
@@ -36,7 +58,12 @@ export async function GET(
     }
 
     const eventId = params.id;
-    const result = await checkEventPermission(eventId, session.user.id);
+    const result = await checkEventPermission(
+      eventId,
+      session.user.id,
+      session.user.role,
+      session.user.school
+    );
     if (!result.ok) {
       return NextResponse.json({ error: result.error }, { status: result.status });
     }
@@ -77,7 +104,12 @@ export async function PATCH(
     }
 
     const eventId = params.id;
-    const result = await checkEventPermission(eventId, session.user.id);
+    const result = await checkEventPermission(
+      eventId,
+      session.user.id,
+      session.user.role,
+      session.user.school
+    );
     if (!result.ok) {
       return NextResponse.json({ error: result.error }, { status: result.status });
     }
