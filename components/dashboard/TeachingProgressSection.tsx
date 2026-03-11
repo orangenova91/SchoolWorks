@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Upload, FileText, Trash2, Download } from "lucide-react";
 
-type EvaluationPlanFile = {
+type TeachingProgressFile = {
   id: string;
   grade: string;
   semester?: string;
@@ -19,20 +19,23 @@ const GRADE_LABELS = [
   { value: "3", label: "3학년" },
 ] as const;
 
-export default function EvaluationPlanSection() {
-  const [files, setFiles] = useState<EvaluationPlanFile[]>([]);
+export default function TeachingProgressSection() {
+  const [files, setFiles] = useState<TeachingProgressFile[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [uploadingGrade, setUploadingGrade] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [downloadingGrade, setDownloadingGrade] = useState<string | null>(null);
   const [semester, setSemester] = useState<"1" | "2">("1");
+  const [dragOverGrade, setDragOverGrade] = useState<string | null>(null);
 
   const fetchFiles = async () => {
     try {
       setLoading(true);
       setError(null);
-      const res = await fetch(`/api/evaluation-plan?semester=${encodeURIComponent(semester)}`);
+      const res = await fetch(
+        `/api/teaching-progress?semester=${encodeURIComponent(semester)}`
+      );
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         throw new Error(data.error || "파일 목록을 불러오는 데 실패했습니다.");
@@ -59,7 +62,7 @@ export default function EvaluationPlanSection() {
       formData.append("grade", grade);
       formData.append("semester", semester);
 
-      const res = await fetch("/api/evaluation-plan", {
+      const res = await fetch("/api/teaching-progress", {
         method: "POST",
         body: formData,
       });
@@ -101,8 +104,6 @@ export default function EvaluationPlanSection() {
     setDragOverGrade(grade);
   };
 
-  const [dragOverGrade, setDragOverGrade] = useState<string | null>(null);
-
   const handleDragLeave = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -117,7 +118,7 @@ export default function EvaluationPlanSection() {
 
     try {
       setDeletingId(id);
-      const res = await fetch(`/api/evaluation-plan/${id}`, { method: "DELETE" });
+      const res = await fetch(`/api/teaching-progress/${id}`, { method: "DELETE" });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         throw new Error(data.error || "파일 삭제에 실패했습니다.");
@@ -140,18 +141,18 @@ export default function EvaluationPlanSection() {
   const handleDownloadZip = (grade: string) => {
     if (uploadingGrade || deletingId) return;
     setDownloadingGrade(grade);
-    // Let the browser handle the file download with cookies/session
     window.location.assign(
-      `/api/evaluation-plan/download?grade=${encodeURIComponent(grade)}&semester=${encodeURIComponent(semester)}`
+      `/api/teaching-progress/download?grade=${encodeURIComponent(
+        grade
+      )}&semester=${encodeURIComponent(semester)}`
     );
-    // Best-effort: clear UI state shortly after
     window.setTimeout(() => setDownloadingGrade(null), 1500);
   };
 
   if (error) {
     return (
       <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-        <h2 className="text-lg font-semibold text-gray-900 mb-2">평가계획서</h2>
+        <h2 className="text-lg font-semibold text-gray-900 mb-2">교수학습진도표</h2>
         <p className="text-sm text-red-600">{error}</p>
       </div>
     );
@@ -160,9 +161,9 @@ export default function EvaluationPlanSection() {
   return (
     <div className="space-y-4">
       <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-        <h2 className="text-lg font-semibold text-gray-900 mb-1">평가계획서</h2>
+        <h2 className="text-lg font-semibold text-gray-900 mb-1">교수학습진도표</h2>
         <p className="text-sm text-gray-600">
-          학년별로 평가계획서 파일을 업로드하고 관리할 수 있습니다.
+          학년별로 교수학습진도표 파일을 업로드하고 관리할 수 있습니다.
         </p>
       </div>
 
@@ -203,9 +204,7 @@ export default function EvaluationPlanSection() {
               className="min-w-0 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm"
             >
               <div className="flex items-start justify-between gap-3 mb-3">
-                <h3 className="text-base font-semibold text-gray-800">
-                  {label}
-                </h3>
+                <h3 className="text-base font-semibold text-gray-800">{label}</h3>
                 <button
                   type="button"
                   onClick={() => handleDownloadZip(value)}
@@ -262,7 +261,7 @@ export default function EvaluationPlanSection() {
                         <FileText className="w-4 h-4 text-gray-500 flex-shrink-0" />
                         <div className="flex-1 min-w-0">
                           <a
-                            href={`/api/evaluation-plan/file/${f.id}`}
+                            href={`/api/teaching-progress/file/${f.id}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="text-sm text-blue-600 hover:underline truncate block"
@@ -278,7 +277,7 @@ export default function EvaluationPlanSection() {
                         </div>
                         <div className="flex items-center gap-1 flex-shrink-0">
                           <a
-                            href={`/api/evaluation-plan/file/${f.id}`}
+                            href={`/api/teaching-progress/file/${f.id}`}
                             className="p-1.5 text-gray-500 hover:text-blue-600 rounded"
                             title="다운로드"
                           >
@@ -306,3 +305,4 @@ export default function EvaluationPlanSection() {
     </div>
   );
 }
+
