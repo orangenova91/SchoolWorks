@@ -30,6 +30,18 @@ const EvaluationPlanSection = dynamic(
   }
 );
 
+const TeachingProgressSection = dynamic(
+  () => import("@/components/dashboard/TeachingProgressSection"),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="rounded-2xl border border-gray-200 bg-white p-6">
+        로딩 중...
+      </div>
+    ),
+  }
+);
+
 export default async function EvaluationPage() {
   const session = await getServerSession(authOptions);
 
@@ -56,6 +68,7 @@ export default async function EvaluationPage() {
         <CourseTabs
           tabs={[
             { id: "announcements", label: "공지사항" },
+            { id: "teaching-progress", label: "교수학습진도표" },
             { id: "evaluation-plan", label: "평가계획서" },
             { id: "regular-exams", label: "정기고사" },
           ]}
@@ -75,6 +88,10 @@ export default async function EvaluationPage() {
                 audience="teacher"
                 boardType="board_evaluation"
               />
+            </article>,
+
+            <article key="teaching-progress" className="min-w-0">
+              <TeachingProgressSection />
             </article>,
 
             <article key="evaluation-plan" className="min-w-0">

@@ -12,7 +12,7 @@ const ALLOWED_TYPES = [
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
   "application/vnd.ms-excel",
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-  // HWP/HWPX (환경에 따라 다르게 올라올 수 있어 여러 MIME 허용)
+  // HWP/HWPX
   "application/haansofthwp",
   "application/x-hwp",
   "application/vnd.hancom.hwp",
@@ -64,16 +64,16 @@ export async function GET(request: NextRequest) {
       where.grade = grade;
     }
 
-    const files = await (prisma as any).evaluationPlanFile.findMany({
+    const files = await (prisma as any).teachingProgressFile.findMany({
       where,
       orderBy: { createdAt: "desc" },
     });
 
     return NextResponse.json({ files });
   } catch (error) {
-    console.error("Evaluation plan list error:", error);
+    console.error("Teaching progress list error:", error);
     return NextResponse.json(
-      { error: "평가계획서 목록을 불러오는 데 실패했습니다." },
+      { error: "교수학습진도표 목록을 불러오는 데 실패했습니다." },
       { status: 500 }
     );
   }
@@ -91,10 +91,7 @@ export async function POST(request: NextRequest) {
 
     const school = await getSchool(session);
     if (!school) {
-      return NextResponse.json(
-        { error: "학교 정보가 없습니다." },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "학교 정보가 없습니다." }, { status: 400 });
     }
 
     const formData = await request.formData();
@@ -103,29 +100,17 @@ export async function POST(request: NextRequest) {
     const semester = ((formData.get("semester") as string) || "1").trim();
 
     if (!file || !file.size) {
-      return NextResponse.json(
-        { error: "파일을 선택해주세요." },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "파일을 선택해주세요." }, { status: 400 });
     }
     if (!grade || !["1", "2", "3"].includes(grade)) {
-      return NextResponse.json(
-        { error: "학년(1, 2, 3)을 선택해주세요." },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "학년(1, 2, 3)을 선택해주세요." }, { status: 400 });
     }
     if (!["1", "2"].includes(semester)) {
-      return NextResponse.json(
-        { error: "학기(1, 2)를 선택해주세요." },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "학기(1, 2)를 선택해주세요." }, { status: 400 });
     }
 
     if (file.size > MAX_FILE_SIZE) {
-      return NextResponse.json(
-        { error: "파일 크기는 20MB 이하여야 합니다." },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "파일 크기는 20MB 이하여야 합니다." }, { status: 400 });
     }
 
     const mime = file.type || "";
@@ -144,14 +129,14 @@ export async function POST(request: NextRequest) {
     const timestamp = Date.now();
     const randomStr = Math.random().toString(36).substring(2, 15);
     const ext = (file.name || "bin").split(".").pop() || "bin";
-    const filename = `evaluation-plan/${school.replace(/[^a-zA-Z0-9가-힣_-]/g, "_")}/${semester}학기/${grade}학년/${timestamp}-${randomStr}.${ext}`;
+    const filename = `teaching-progress/${school.replace(/[^a-zA-Z0-9가-힣_-]/g, "_")}/${semester}학기/${grade}학년/${timestamp}-${randomStr}.${ext}`;
 
     const blob = await put(filename, file, {
       access: "public",
       contentType: file.type || "application/octet-stream",
     });
 
-    const record = await (prisma as any).evaluationPlanFile.create({
+    const record = await (prisma as any).teachingProgressFile.create({
       data: {
         grade,
         semester,
@@ -173,10 +158,11 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error("Evaluation plan upload error:", error);
+    console.error("Teaching progress upload error:", error);
     return NextResponse.json(
       { error: "파일 업로드 중 오류가 발생했습니다." },
       { status: 500 }
     );
   }
 }
+

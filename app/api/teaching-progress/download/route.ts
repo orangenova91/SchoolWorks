@@ -9,14 +9,11 @@ export const runtime = "nodejs";
 
 const sanitizeFileName = (name: string) => {
   const trimmed = (name || "file").trim();
-  // remove path separators and control chars
   const safe = trimmed.replace(/[\/\\\u0000-\u001F\u007F]+/g, "_");
   return safe.length > 0 ? safe : "file";
 };
 
 const encodeContentDisposition = (fileName: string) => {
-  // HTTP header value must be a ByteString (no raw non-ASCII).
-  // Put UTF-8 filename in filename* (RFC 5987) and keep filename as ASCII fallback.
   const safeName = sanitizeFileName(fileName).replace(/[\r\n"]/g, "_");
   const asciiFallback = safeName.replace(/[^\x20-\x7E]+/g, "_");
   const utf8 = encodeURIComponent(safeName);
@@ -62,7 +59,7 @@ export async function GET(request: NextRequest) {
     const semesterParam = (searchParams.get("semester") || "1").trim();
     const semester = ["1", "2"].includes(semesterParam) ? semesterParam : "1";
 
-    const files = await (prisma as any).evaluationPlanFile.findMany({
+    const files = await (prisma as any).teachingProgressFile.findMany({
       where: { school, grade, semester },
       orderBy: { createdAt: "desc" },
     });
@@ -71,7 +68,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "다운로드할 파일이 없습니다." }, { status: 404 });
     }
 
-    const zipName = `평가계획서_${semester}학기_${grade}학년.zip`;
+    const zipName = `교수학습진도표_${semester}학기_${grade}학년.zip`;
 
     const passthrough = new PassThrough();
     const archive = archiver("zip", { zlib: { level: 9 } });
@@ -106,12 +103,10 @@ export async function GET(request: NextRequest) {
         continue;
       }
 
-      // Convert web stream -> Node readable for archiver
       const nodeStream = Readable.fromWeb(resp.body as any);
       archive.append(nodeStream, { name: baseName });
     }
 
-    // finalize zip after appending
     await archive.finalize();
 
     const webStream = Readable.toWeb(passthrough) as unknown as ReadableStream;
@@ -123,7 +118,7 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error("Evaluation plan ZIP download error:", error);
+    console.error("Teaching progress ZIP download error:", error);
     return NextResponse.json(
       { error: "ZIP 다운로드 중 오류가 발생했습니다." },
       { status: 500 }

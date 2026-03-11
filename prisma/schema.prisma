@@ -209,6 +209,7 @@ model EvaluationSubmission {
 model EvaluationPlanFile {
   id               String   @id @default(auto()) @map("_id") @db.ObjectId
   grade            String   // "1", "2", "3"
+  semester         String   @default("1") // "1", "2"
   filePath         String   // Vercel Blob URL
   originalFileName String
   fileSize         Int?
@@ -218,8 +219,25 @@ model EvaluationPlanFile {
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
-  @@index([school, grade])
+  @@index([school, semester, grade])
   @@map("evaluation_plan_files")
+}
+
+model TeachingProgressFile {
+  id               String   @id @default(auto()) @map("_id") @db.ObjectId
+  grade            String   // "1", "2", "3"
+  semester         String   @default("1") // "1", "2"
+  filePath         String   // Vercel Blob URL
+  originalFileName String
+  fileSize         Int?
+  mimeType         String?
+  school           String
+  uploadedById     String   @db.ObjectId
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([school, semester, grade])
+  @@map("teaching_progress_files")
 }
 
 model ClassGroup {
