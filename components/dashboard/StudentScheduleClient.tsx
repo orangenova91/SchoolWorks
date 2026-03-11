@@ -18,12 +18,14 @@ type StudentScheduleClientProps = {
   title: string;
   description: string;
   initialEvents: CalendarEvent[];
+  initialTab?: "academic" | "creative";
 };
 
 export default function StudentScheduleClient({
   title,
   description,
   initialEvents,
+  initialTab,
 }: StudentScheduleClientProps) {
   const [events, setEvents] = useState<CalendarEvent[]>(initialEvents);
   const calendarRef = useRef<CalendarViewHandle | null>(null);
@@ -31,7 +33,13 @@ export default function StudentScheduleClient({
   const [viewDate, setViewDate] = useState<Date>(today);
   const [viewType, setViewType] = useState<string>("dayGridMonth");
   const [showStats, setShowStats] = useState<boolean>(true);
-  const [activeTab, setActiveTab] = useState<"academic" | "creative">("academic");
+  const [activeTab, setActiveTab] = useState<"academic" | "creative">(
+    initialTab ?? "academic"
+  );
+
+  useEffect(() => {
+    setActiveTab(initialTab ?? "academic");
+  }, [initialTab]);
 
   const getAcademicYear = useCallback((date: Date): number => {
     const month = date.getMonth();

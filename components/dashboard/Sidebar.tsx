@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
 
 // SidebarItem 타입 정의
@@ -23,6 +23,7 @@ interface SidebarProps {
 
 export function Sidebar({ items, schoolName, schoolLogoUrl }: SidebarProps) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [isExpanded, setIsExpanded] = useState(false);
   const [isLargeScreen, setIsLargeScreen] = useState(false);
   const [mounted, setMounted] = useState(false);
@@ -70,16 +71,28 @@ export function Sidebar({ items, schoolName, schoolLogoUrl }: SidebarProps) {
 
         <ul className={cn("space-y-3", schoolLogoUrl ? "mt-4" : "")}>
           {items.map((item) => {
-            // --- 수정된 핵심 로직 시작 ---
-            // 1. 대시보드 메인(최상위) 경로 리스트 정의
             const dashboardHomePaths = ["/dashboard", "/dashboard/teacher", "/dashboard/student"];
-            
-            // 2. 만약 현재 아이템이 메인 경로 중 하나라면 '정확히 일치'해야 활성화
-            // 3. 그 외의 하위 메뉴(일정, 게시판 등)는 '시작 경로'가 일치하면 활성화
-            const isActive = dashboardHomePaths.includes(item.href)
-              ? pathname === item.href
-              : pathname.startsWith(item.href);
-            // --- 수정된 핵심 로직 끝 ---
+
+            const [itemPath, itemQueryString] = item.href.split("?");
+
+            const baseIsActive = dashboardHomePaths.includes(itemPath)
+              ? pathname === itemPath
+              : pathname.startsWith(itemPath);
+
+            let isActive = baseIsActive;
+
+            if (itemQueryString) {
+              const itemSearchParams = new URLSearchParams(itemQueryString);
+              let matchesAllParams = true;
+
+              itemSearchParams.forEach((value, key) => {
+                if (searchParams.get(key) !== value) {
+                  matchesAllParams = false;
+                }
+              });
+
+              isActive = baseIsActive && matchesAllParams;
+            }
 
             return (
               <li key={item.href}>

@@ -5,7 +5,11 @@ import { getTranslations } from "@/lib/i18n";
 import { prisma } from "@/lib/prisma";
 import StudentScheduleClient from "@/components/dashboard/StudentScheduleClient";
 
-export default async function StudentSchedulePage() {
+export default async function StudentSchedulePage({
+  searchParams,
+}: {
+  searchParams?: { tab?: string };
+}) {
   const session = await getServerSession(authOptions);
 
   if (!session) {
@@ -57,14 +61,17 @@ export default async function StudentSchedulePage() {
     },
   }));
 
+  const initialTab =
+    searchParams?.tab === "creative" ? "creative" : "academic";
+
   return (
     <div className="space-y-6">
       <StudentScheduleClient
         title={t.dashboard.teacherScheduleTitle}
         description="학교 학사 일정과 창의적 체험활동 일정을 확인할 수 있습니다."
         initialEvents={formattedEvents}
+        initialTab={initialTab}
       />
     </div>
   );
 }
-

@@ -32,7 +32,8 @@ import {
   ClipboardCopy,
   ClipboardList,
   MessageSquare,
-  GraduationCap
+  GraduationCap,
+  Sparkles,
 } from "lucide-react";
 
 export default async function DashboardLayout({
@@ -224,11 +225,17 @@ export default async function DashboardLayout({
             iconName: "Home"
           },
           {
-            href: "/dashboard/student/schedule",
+            href: "/dashboard/student/schedule?tab=academic",
             label: t.sidebar.student.todaysSchedule,
             icon: <Calendar className="w-5 h-5" />,
             iconName: "Calendar",
             dividerBefore: true
+          },
+          {
+            href: "/dashboard/student/schedule?tab=creative",
+            label: "창의적 체험활동",
+            icon: <Sparkles className="w-5 h-5" />,
+            iconName: "Sparkles",
           },
           {
             href: "/dashboard/student/classroom",
