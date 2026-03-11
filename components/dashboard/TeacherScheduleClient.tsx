@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/Button";
 import BulkUploadButton from "@/components/dashboard/BulkUploadButton";
 import ActivityInputModal from "./ActivityInputModal";
 import ActivitySheetModal from "./ActivitySheetModal";
+import ActivityBuilderModal from "./ActivityBuilderModal";
 
 type TeacherScheduleClientProps = {
   initialEvents: CalendarEvent[];
@@ -727,31 +728,29 @@ export default function TeacherScheduleClient({
               </div>
 
               <div className="flex-1 overflow-auto pr-2 max-h-[600px] mt-4">
-                <table className="w-full border-collapse table-fixed min-w-[720px]">
-                  <colgroup>
-                    <col style={{ width: "9%" }} />
-                    <col style={{ width: "9%" }} />
-                    <col style={{ width: "20%" }} />
-                    <col style={{ width: "9%" }} />
-                    <col style={{ width: "9%" }} />
-                    <col style={{ width: "9%" }} />
-                    <col style={{ width: "9%" }} />
-                    <col style={{ width: "13%" }} />
-                    <col style={{ width: "13%" }} />
-                  </colgroup>
-                  <thead className="hidden sm:table-header-group">
-                    <tr className="border-b border-gray-200">
-                      <th className="px-2 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">날짜</th>
-                      <th className="px-2 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">교시</th>
-                      <th className="px-2 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">제목</th>
-                      <th className="px-2 py-2 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">부서</th>
-                      <th className="px-2 py-2 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">담당자</th>
-                      <th className="px-2 py-2 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">학년</th>
-                      <th className="px-2 py-2 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">구분</th>
-                      <th className="px-2 py-2 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">활동 내용</th>
-                      <th className="px-2 py-2 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">활동지</th>
-                    </tr>
-                  </thead>
+              <table className="w-full border-collapse table-fixed min-w-[720px]">
+                <colgroup>
+                  <col style={{ width: "9%" }} />
+                  <col style={{ width: "9%" }} />
+                  <col style={{ width: "20%" }} />
+                  <col style={{ width: "9%" }} />
+                  <col style={{ width: "9%" }} />
+                  <col style={{ width: "9%" }} />
+                  <col style={{ width: "9%" }} />
+                  <col style={{ width: "26%" }} />
+                </colgroup>
+                <thead className="hidden sm:table-header-group">
+                  <tr className="border-b border-gray-200">
+                    <th className="px-2 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">날짜</th>
+                    <th className="px-2 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">교시</th>
+                    <th className="px-2 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">제목</th>
+                    <th className="px-2 py-2 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">부서</th>
+                    <th className="px-2 py-2 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">담당자</th>
+                    <th className="px-2 py-2 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">학년</th>
+                    <th className="px-2 py-2 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">구분</th>
+                    <th className="px-2 py-2 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">활동 제작</th>
+                  </tr>
+                </thead>
                   <tbody className="divide-y divide-gray-100">
                     {creativeEvents.map((event) => {
                       const { startDate, ...eventData } = event;
@@ -804,56 +803,21 @@ export default function TeacherScheduleClient({
                               {eventType}
                             </span>
                           </td>
-                          <td
-                            className="px-2 py-3 text-xs text-center align-middle"
-                            {...(canEditActivity && {
-                              onClick: (e: React.MouseEvent) => {
-                                e.stopPropagation();
-                                setActivityModalEvent({
-                                  id: event.id,
-                                  title: event.title,
-                                  activityContent: activityContent || "",
-                                });
-                              },
-                            })}
-                          >
-                            {activityContent ? (
-                              <span className={canEditActivity ? "text-gray-600 cursor-pointer hover:text-blue-600 line-clamp-2 block" : "text-gray-600 line-clamp-2 block"}>
-                                {activityContent}
-                              </span>
-                            ) : canEditActivity ? (
+                          <td className="px-2 py-3 text-xs text-center align-middle">
+                            {canEditActivity ? (
                               <button
                                 type="button"
-                                className="text-blue-600 hover:text-blue-700 text-xs font-medium cursor-pointer"
+                                className="inline-flex items-center justify-center px-3 py-1 text-[11px] font-medium rounded-full border border-indigo-600 text-indigo-600 hover:bg-indigo-50"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setActivityModalEvent({
+                                    id: event.id,
+                                    title: event.title,
+                                    activityContent: activityContent || "",
+                                  });
+                                }}
                               >
-                                활동 입력
-                              </button>
-                            ) : (
-                              <span className="text-gray-400">-</span>
-                            )}
-                          </td>
-                          <td
-                            className="px-2 py-3 text-xs text-center align-middle"
-                            {...(canEditActivity && {
-                              onClick: (e: React.MouseEvent) => {
-                                e.stopPropagation();
-                                setActivitySheetModalEvent({
-                                  id: event.id,
-                                  title: event.title,
-                                });
-                              },
-                            })}
-                          >
-                            {activityQuestionCount > 0 ? (
-                              <span className={canEditActivity ? "text-gray-600 cursor-pointer hover:text-blue-600" : "text-gray-600"}>
-                                {activityQuestionCount}개 질문
-                              </span>
-                            ) : canEditActivity ? (
-                              <button
-                                type="button"
-                                className="text-blue-600 hover:text-blue-700 text-xs font-medium cursor-pointer"
-                              >
-                                활동지 입력
+                                활동 제작
                               </button>
                             ) : (
                               <span className="text-gray-400">-</span>
@@ -877,6 +841,15 @@ export default function TeacherScheduleClient({
         eventTitle={activityModalEvent?.title ?? ""}
         initialValue={activityModalEvent?.activityContent ?? ""}
         onSaved={handleActivitySaved}
+      />
+      <ActivityBuilderModal
+        isOpen={!!activityModalEvent}
+        onClose={() => setActivityModalEvent(null)}
+        eventId={activityModalEvent?.id ?? ""}
+        eventTitle={activityModalEvent?.title ?? ""}
+        initialActivityContent={activityModalEvent?.activityContent ?? ""}
+        onActivitySaved={handleActivitySaved}
+        onQuestionsSaved={handleActivitySheetSaved}
       />
       <ActivitySheetModal
         isOpen={!!activitySheetModalEvent}
