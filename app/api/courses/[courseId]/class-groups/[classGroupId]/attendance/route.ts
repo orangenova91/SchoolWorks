@@ -14,6 +14,8 @@ const saveAttendanceSchema = z.object({
         "present",
         "late",
         "sick_leave",
+        "sick_result",
+        "sick_early_leave",
         "approved_absence",
         "excused",
       ]),
@@ -76,7 +78,7 @@ export async function POST(
         where: {
           classGroupId: params.classGroupId,
           studentId: { in: presentStudentIds },
-          date: attendanceDate,
+          date: dateOnly,
         },
       });
     }
@@ -90,7 +92,7 @@ export async function POST(
             classGroupId_studentId_date: {
               classGroupId: params.classGroupId,
               studentId: attendance.studentId,
-              date: attendanceDate,
+              date: dateOnly,
             },
           },
           update: {
@@ -100,7 +102,7 @@ export async function POST(
           create: {
             classGroupId: params.classGroupId,
             studentId: attendance.studentId,
-            date: attendanceDate,
+            date: dateOnly,
             status: attendance.status,
             teacherId: session.user.id,
           },
@@ -197,11 +199,11 @@ export async function GET(
     const dateOnly = new Date(attendanceDate);
     dateOnly.setUTCHours(0, 0, 0, 0);
 
-    // 해당 날짜의 출결 조회
+    // 해당 날짜의 출결 조회 (자정 기준 날짜로 통일)
     const attendances = await (prisma as any).attendance.findMany({
       where: {
         classGroupId: params.classGroupId,
-        date: attendanceDate,
+        date: dateOnly,
       },
     });
 
@@ -279,7 +281,7 @@ export async function DELETE(
     const deletedAttendance = await (prisma as any).attendance.deleteMany({
       where: {
         classGroupId: params.classGroupId,
-        date: attendanceDate,
+        date: dateOnly,
       },
     });
 

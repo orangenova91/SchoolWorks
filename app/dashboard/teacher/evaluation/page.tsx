@@ -57,10 +57,10 @@ export default async function EvaluationPage() {
     <div className="space-y-6">
       <header className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm space-y-4">
         <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-bold text-gray-900">평가</h1>
+          <h1 className="text-2xl font-bold text-gray-900">진도 및 평가</h1>
         </div>
         <p className="text-sm text-gray-600 mt-1">
-          평가 공지, 평가계획서, 정기고사 관리를 위한 페이지입니다.
+          평가 공지, 교수학습진도표, 평가계획서, 정기고사 관리를 위한 페이지입니다.
         </p>
       </header>
 

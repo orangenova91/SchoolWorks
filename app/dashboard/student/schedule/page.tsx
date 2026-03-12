@@ -39,15 +39,20 @@ export default async function StudentSchedulePage({
     orderBy: { startDate: "asc" },
   });
 
+  // FullCalendar는 end를 exclusive로 사용하므로, 사용자 선택 종료일(inclusive)을 다음날 00:00으로 넘김
+  const toExclusiveEnd = (d: Date): string =>
+    new Date(
+      Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 1)
+    ).toISOString();
+
   const formattedEvents = events.map((event: any) => ({
     id: event.id,
     title: event.title,
     description: event.description || undefined,
     start: event.startDate.toISOString(),
-    end: event.endDate ? event.endDate.toISOString() : null,
-    allDay:
-      !event.endDate ||
-      event.startDate.toDateString() === event.endDate.toDateString(),
+    end: event.endDate ? toExclusiveEnd(event.endDate) : null,
+    // 학생 학사 일정은 모두 종일 이벤트로 취급하여 "오전 12시"와 같은 시간 표시를 숨김
+    allDay: true,
     extendedProps: {
       eventType: event.eventType,
       scope: event.scope,

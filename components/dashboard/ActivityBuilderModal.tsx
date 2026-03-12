@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/Button";
 import { useToastContext } from "@/components/providers/ToastProvider";
 import { Plus, Trash2 } from "lucide-react";
@@ -13,6 +14,8 @@ type ActivityFileItem = {
   size: number;
   url?: string;
   mimeType?: string;
+  file?: File;
+  isNew?: boolean;
 };
 
 type ActivityBuilderModalProps = {
@@ -46,6 +49,35 @@ export default function ActivityBuilderModal({
     if (isOpen) {
       setActivityContent(initialActivityContent);
       if (eventId) {
+        // 기존 활동 자료 파일 불러오기
+        fetch(`/api/calendar-events/${eventId}/activity-files`)
+          .then((res) => res.json())
+          .then((data) => {
+            if (Array.isArray(data.attachments)) {
+              const existingFiles: ActivityFileItem[] = data.attachments.map(
+                (att: {
+                  filePath: string;
+                  originalFileName: string;
+                  fileSize: number | null;
+                  mimeType: string | null;
+                }) => ({
+                  id: att.filePath,
+                  name: att.originalFileName,
+                  size: att.fileSize ?? 0,
+                  url: att.filePath,
+                  mimeType: att.mimeType ?? undefined,
+                  isNew: false,
+                })
+              );
+              setFiles(existingFiles);
+            } else {
+              setFiles([]);
+            }
+          })
+          .catch(() => {
+            setFiles([]);
+          });
+
         setIsLoadingQuestions(true);
         fetch(`/api/calendar-events/${eventId}/activity-questions`)
           .then((res) => res.json())
@@ -88,9 +120,14 @@ export default function ActivityBuilderModal({
     const newFiles: ActivityFileItem[] = Array.from(fileList).map((file) => ({
       name: file.name,
       size: file.size,
+      mimeType: file.type,
+      file,
+      isNew: true,
     }));
 
     setFiles((prev) => [...prev, ...newFiles]);
+
+    // 같은 파일을 다시 선택할 수 있도록 input 초기화
     e.target.value = "";
   };
 
@@ -154,32 +191,40 @@ export default function ActivityBuilderModal({
 
       onQuestionsSaved(eventId, trimmedQuestions.length);
 
-      // 3) 활동 자료 파일 업로드 (선택)
-      const input = document.querySelector<HTMLInputElement>(
-        `#activity-files-input-${eventId}`
+      // 3) 활동 자료 파일 업로드/삭제 반영
+      const newFiles = files.filter((f) => f.file instanceof File);
+      const existingToKeep = files.filter(
+        (f) => !f.file && typeof f.url === "string"
       );
-      const fileList = input?.files;
 
-      if (fileList && fileList.length > 0) {
-        const formData = new FormData();
-        Array.from(fileList).forEach((file) => {
-          formData.append("files", file);
-        });
+      const formData = new FormData();
 
-        const uploadRes = await fetch(
-          `/api/calendar-events/${eventId}/activity-files`,
-          {
-            method: "POST",
-            body: formData,
-          }
-        );
-        const uploadData = await uploadRes.json();
-        if (!uploadRes.ok) {
-          throw new Error(
-            uploadData.error ||
-              "활동 자료 파일 업로드 중 오류가 발생했습니다."
-          );
+      // 서버에 남겨둘 기존 파일 경로 전달
+      const keepFilePaths = existingToKeep
+        .map((f) => f.url)
+        .filter((v): v is string => typeof v === "string");
+      formData.append("keepFilePaths", JSON.stringify(keepFilePaths));
+
+      // 새로 추가된 파일들 업로드
+      newFiles.forEach((item) => {
+        if (item.file) {
+          formData.append("files", item.file);
         }
+      });
+
+      const uploadRes = await fetch(
+        `/api/calendar-events/${eventId}/activity-files`,
+        {
+          method: "POST",
+          body: formData,
+        }
+      );
+      const uploadData = await uploadRes.json();
+      if (!uploadRes.ok) {
+        throw new Error(
+          uploadData.error ||
+            "활동 자료 파일 업로드 중 오류가 발생했습니다."
+        );
       }
 
       showToast("활동 내용, 질문, 자료 파일이 저장되었습니다.", "success");
@@ -197,7 +242,7 @@ export default function ActivityBuilderModal({
 
   if (!isOpen) return null;
 
-  return (
+  return createPortal(
     <div
       className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 px-4 py-8"
       role="dialog"
@@ -379,7 +424,8 @@ export default function ActivityBuilderModal({
           </div>
         </form>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 

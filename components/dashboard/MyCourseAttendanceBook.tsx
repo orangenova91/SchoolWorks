@@ -41,6 +41,8 @@ const STATUS_OPTIONS = [
   { value: "present", label: "출석" },
   { value: "late", label: "지각" },
   { value: "sick_leave", label: "병결" },
+  { value: "sick_result", label: "병결과" },
+  { value: "sick_early_leave", label: "병조퇴" },
   { value: "approved_absence", label: "인정결" },
   { value: "excused", label: "공결" },
 ];
@@ -465,6 +467,8 @@ export default function MyCourseAttendanceBook() {
             | "present"
             | "late"
             | "sick_leave"
+            | "sick_result"
+            | "sick_early_leave"
             | "approved_absence"
             | "excused",
         }));
@@ -507,6 +511,8 @@ export default function MyCourseAttendanceBook() {
           | "present"
           | "late"
           | "sick_leave"
+          | "sick_result"
+          | "sick_early_leave"
           | "approved_absence"
           | "excused",
       }));
