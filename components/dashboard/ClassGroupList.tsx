@@ -41,7 +41,7 @@ export default function ClassGroupList({
   const [error, setError] = useState<string | null>(null);
   const [updateTick, setUpdateTick] = useState(0);
   const [editingGroup, setEditingGroup] = useState<ClassGroup | null>(null);
-  // 출결 상태 관리: { groupId-studentId: 'present' | 'late' | 'sick_leave' | 'approved_absence' | 'excused' }
+  // 출결 상태 관리: { groupId-studentId: 'present' | 'late' | 'sick_leave' | 'sick_result' | 'sick_early_leave' | 'approved_absence' | 'excused' }
   const [attendanceState, setAttendanceState] = useState<Record<string, string>>({});
   const [savingGroupId, setSavingGroupId] = useState<string | null>(null);
   // 저장된 학반 추적: { groupId-dateKey: true }
@@ -199,7 +199,14 @@ export default function ClassGroupList({
         const status = attendanceState[key] || "present"; // 기본값: 출석
         return {
           studentId: student.id,
-          status: status as "present" | "late" | "sick_leave" | "approved_absence" | "excused",
+          status: status as
+            | "present"
+            | "late"
+            | "sick_leave"
+            | "sick_result"
+            | "sick_early_leave"
+            | "approved_absence"
+            | "excused",
         };
       });
 
@@ -462,6 +469,8 @@ export default function ClassGroupList({
                               { value: "", label: "선택" },
                               { value: "late", label: "지각" },
                               { value: "sick_leave", label: "병결" },
+                              { value: "sick_result", label: "병결과" },
+                              { value: "sick_early_leave", label: "병조퇴" },
                               { value: "approved_absence", label: "인정결" },
                               { value: "excused", label: "공결" },
                             ]}

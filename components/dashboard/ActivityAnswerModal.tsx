@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/Button";
 import { useToastContext } from "@/components/providers/ToastProvider";
 
@@ -119,7 +120,7 @@ export default function ActivityAnswerModal({
 
   if (!isOpen) return null;
 
-  return (
+  return createPortal(
     <div
       className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 px-4 py-8"
       role="dialog"
@@ -271,7 +272,8 @@ export default function ActivityAnswerModal({
           </form>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 

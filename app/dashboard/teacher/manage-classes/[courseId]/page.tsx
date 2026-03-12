@@ -181,6 +181,7 @@ export default async function ManageClassDetailPage({
             { id: "record", label: "생기부" },
             { id: "settings", label: "설정" },
           ]}
+          initialTabId="attendance"
         >
           {[
             <CourseOverview

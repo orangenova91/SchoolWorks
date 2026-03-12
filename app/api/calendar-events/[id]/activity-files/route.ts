@@ -83,6 +83,21 @@ export async function POST(
     }
 
     const formData = await request.formData();
+
+    // 클라이언트에서 남겨두기로 한 기존 파일 경로 목록 (filePath 기준)
+    const keepFilePathsRaw = formData.get("keepFilePaths");
+    let keepFilePaths: string[] | null = null;
+    if (typeof keepFilePathsRaw === "string") {
+      try {
+        const parsed = JSON.parse(keepFilePathsRaw);
+        if (Array.isArray(parsed)) {
+          keepFilePaths = parsed.filter((v: unknown) => typeof v === "string");
+        }
+      } catch {
+        keepFilePaths = null;
+      }
+    }
+
     const filesFromArrayRaw = formData.getAll("files");
     const filesFromArray = filesFromArrayRaw.filter(
       (v): v is File => typeof v !== "string" && v instanceof File
@@ -98,13 +113,6 @@ export async function POST(
         : singleFile
         ? [singleFile]
         : [];
-
-    if (files.length === 0) {
-      return NextResponse.json(
-        { error: "업로드할 파일이 없습니다." },
-        { status: 400 }
-      );
-    }
 
     // 기존 첨부파일 로드
     let existing: Array<{
@@ -125,6 +133,13 @@ export async function POST(
       } catch {
         existing = [];
       }
+    }
+
+    // 남겨둘 파일만 유지 (삭제된 파일은 제외)
+    if (keepFilePaths && keepFilePaths.length >= 0) {
+      existing = existing.filter((att) =>
+        keepFilePaths!.includes(att.filePath)
+      );
     }
 
     const savedFiles: Array<{
@@ -197,6 +212,68 @@ export async function POST(
     console.error("Upload activity files error:", error);
     return NextResponse.json(
       { error: "활동 자료 파일 업로드 중 오류가 발생했습니다." },
+      { status: 500 }
+    );
+  }
+}
+
+export async function GET(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const session = await getServerSession(authOptions);
+
+    if (!session?.user || session.user.role !== "teacher") {
+      return NextResponse.json(
+        { error: "활동 자료 파일을 조회할 권한이 없습니다." },
+        { status: 403 }
+      );
+    }
+
+    const eventId = params.id;
+    const event = await (prisma as any).calendarEvent.findUnique({
+      where: { id: eventId },
+    });
+
+    if (!event) {
+      return NextResponse.json(
+        { error: "일정을 찾을 수 없습니다." },
+        { status: 404 }
+      );
+    }
+
+    let attachments: Array<{
+      filePath: string;
+      originalFileName: string;
+      fileSize: number | null;
+      mimeType: string | null;
+    }> = [];
+
+    if (event.activityAttachments) {
+      try {
+        const parsed =
+          typeof event.activityAttachments === "string"
+            ? JSON.parse(event.activityAttachments)
+            : event.activityAttachments;
+        if (Array.isArray(parsed)) {
+          attachments = parsed;
+        }
+      } catch {
+        attachments = [];
+      }
+    }
+
+    return NextResponse.json(
+      {
+        attachments,
+      },
+      { status: 200 }
+    );
+  } catch (error) {
+    console.error("Get activity files error:", error);
+    return NextResponse.json(
+      { error: "활동 자료 파일 조회 중 오류가 발생했습니다." },
       { status: 500 }
     );
   }

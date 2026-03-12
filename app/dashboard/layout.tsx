@@ -172,7 +172,7 @@ export default async function DashboardLayout({
 
           {
             href: "/dashboard/teacher/evaluation",
-            label: "평가",
+            label: "진도 및 평가",
             icon: <TrendingUp className="w-5 h-5" />,
             iconName: "ClipboardList"
           },

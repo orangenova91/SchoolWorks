@@ -83,13 +83,18 @@ export default async function AcademicPreparationPage({
     periods: string[];
   }>;
 
+  // FullCalendar는 end를 exclusive로 사용하므로, 사용자 선택 종료일(inclusive)을 다음날 00:00으로 넘김
+  const toExclusiveEnd = (d: Date): string =>
+    new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 1)).toISOString();
+
   const formattedEvents = events.map((event) => ({
     id: event.id,
     title: event.title,
     description: event.description || undefined,
     start: event.startDate.toISOString(),
-    end: event.endDate ? event.endDate.toISOString() : null,
-    allDay: !event.endDate || event.startDate.toDateString() === event.endDate.toDateString(),
+    end: event.endDate ? toExclusiveEnd(event.endDate) : null,
+    // 학사 준비 탭의 캘린더에서는 종일 이벤트로만 표시하여 "오전 12시"와 같은 시간 텍스트가 나오지 않도록 처리
+    allDay: true,
     extendedProps: {
       eventType: event.eventType,
       scope: event.scope,
