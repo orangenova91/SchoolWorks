@@ -28,6 +28,7 @@ const createSchema = z
     writtenAt: z.string(),
     studentSignImage: z.string().optional(),
     guardianSignImage: z.string().optional(),
+    teacherSignImage: z.string().optional(),
     attachments: z
       .array(z.object({ name: z.string(), dataUrl: z.string() }))
       .optional(),
@@ -110,6 +111,7 @@ export async function GET(request: NextRequest) {
         writtenAt: r.writtenAt,
         studentSignUrl: r.studentSignUrl,
         guardianSignUrl: r.guardianSignUrl,
+        teacherSignUrl: r.teacherSignUrl ?? null,
         attachments: r.attachments ?? null,
         teacherName,
         school,
@@ -158,6 +160,7 @@ export async function POST(request: NextRequest) {
 
     let studentSignUrl: string | null = null;
     let guardianSignUrl: string | null = null;
+    let teacherSignUrl: string | null = null;
 
     if (parsed.studentSignImage) {
       const { contentType, base64 } = parseSignatureDataUrl(parsed.studentSignImage);
@@ -181,6 +184,18 @@ export async function POST(request: NextRequest) {
         contentType,
       });
       guardianSignUrl = blob.url;
+    }
+
+    if (parsed.teacherSignImage) {
+      const { contentType, base64 } = parseSignatureDataUrl(parsed.teacherSignImage);
+      const buffer = Buffer.from(base64, "base64");
+      const ext = contentType.split("/")[1] || "png";
+      const filename = `homeroom-attendance/${parsed.studentId}-teacher-${Date.now()}.${ext}`;
+      const blob = await put(filename, buffer, {
+        access: "public",
+        contentType,
+      });
+      teacherSignUrl = blob.url;
     }
 
     const MAX_ATTACHMENT_SIZE = 10 * 1024 * 1024; // 10MB
@@ -221,6 +236,7 @@ export async function POST(request: NextRequest) {
         writtenAt,
         studentSignUrl,
         guardianSignUrl,
+        teacherSignUrl,
         attachments: attachmentData.length > 0 ? JSON.stringify(attachmentData) : null,
       },
     });
@@ -237,6 +253,7 @@ export async function POST(request: NextRequest) {
         writtenAt: record.writtenAt,
         studentSignUrl: record.studentSignUrl,
         guardianSignUrl: record.guardianSignUrl,
+        teacherSignUrl: record.teacherSignUrl,
         createdAt: record.createdAt,
       },
     });

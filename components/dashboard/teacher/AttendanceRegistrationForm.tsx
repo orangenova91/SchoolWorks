@@ -65,6 +65,7 @@ export default function AttendanceRegistrationForm({
   );
   const [studentSign, setStudentSign] = useState<string | null>(null);
   const [guardianSign, setGuardianSign] = useState<string | null>(null);
+  const [teacherSign, setTeacherSign] = useState<string | null>(null);
   const [attachmentFiles, setAttachmentFiles] = useState<{ name: string; dataUrl: string }[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -146,11 +147,13 @@ export default function AttendanceRegistrationForm({
           reason: reason.trim(),
           periodFrom: type === "조퇴" ? periodFrom : undefined,
           periodTo: type === "지각" ? periodTo : undefined,
+          period: type === "결과" ? period.trim() : undefined,
           startDate,
           endDate: type === "조퇴" || type === "지각" || type === "결과" ? startDate : endDate,
           writtenAt,
           studentSignImage: studentSign || undefined,
           guardianSignImage: guardianSign || undefined,
+          teacherSignImage: teacherSign || undefined,
           attachments: attachmentFiles.length > 0 ? attachmentFiles : undefined,
         }),
       });
@@ -170,6 +173,7 @@ export default function AttendanceRegistrationForm({
       setWrittenAt(new Date().toISOString().slice(0, 10));
       setStudentSign(null);
       setGuardianSign(null);
+      setTeacherSign(null);
       setAttachmentFiles([]);
       router.refresh();
       onSuccess?.();
@@ -302,7 +306,7 @@ export default function AttendanceRegistrationForm({
         </p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <SignaturePad
           label="학생 서명"
           value={studentSign}
@@ -313,6 +317,12 @@ export default function AttendanceRegistrationForm({
           label="보호자 서명"
           value={guardianSign}
           onChange={setGuardianSign}
+          height={120}
+        />
+        <SignaturePad
+          label="교사 서명"
+          value={teacherSign}
+          onChange={setTeacherSign}
           height={120}
         />
       </div>

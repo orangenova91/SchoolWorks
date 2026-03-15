@@ -236,5 +236,21 @@ body {
     border-radius: 0 !important;
     background: transparent !important;
   }
+
+  /* 출결 상세 모달 인쇄: 모달 열려 있을 때만 본문 숨기고 모달 내용만 출력 */
+  body.attendance-print-active * {
+    visibility: hidden;
+  }
+  body.attendance-print-active #attendance-record-print,
+  body.attendance-print-active #attendance-record-print * {
+    visibility: visible;
+  }
+  body.attendance-print-active #attendance-record-print {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    max-width: none !important;
+  }
 }
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { X } from "lucide-react";
+import { X, Printer } from "lucide-react";
 
 export type AttendanceRecordForModal = {
   id: string;
@@ -18,6 +18,7 @@ export type AttendanceRecordForModal = {
   writtenAt: string;
   studentSignUrl: string | null;
   guardianSignUrl: string | null;
+  teacherSignUrl: string | null;
   attachments: string | null; // JSON: [{url, name}]
   teacherName?: string | null;
   school?: string | null;
@@ -82,7 +83,11 @@ export default function AttendanceRecordDetailModal({
       }
     };
     window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
+    document.body.classList.add("attendance-print-active");
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      document.body.classList.remove("attendance-print-active");
+    };
   }, [isOpen, onClose]);
 
   if (!isOpen) return null;
@@ -116,27 +121,42 @@ export default function AttendanceRecordDetailModal({
       ? getAbsenceDays(record.startDate, record.endDate)
       : 0;
 
+  const handlePrint = () => {
+    window.print();
+  };
+
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+      id="attendance-record-print"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 print:relative print:inset-auto print:block print:min-h-0 print:bg-white"
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
       <div
-        className={`bg-white rounded-lg shadow-xl w-full max-h-[90vh] overflow-y-auto m-4 ${
+        className={`bg-white rounded-lg shadow-xl w-full max-h-[90vh] overflow-y-auto m-4 print:max-w-none print:max-h-none print:overflow-visible print:shadow-none print:rounded-none print:m-0 ${
           record && (isAbsenceType || isAttendanceRecognitionType)
             ? "max-w-2xl"
             : "max-w-lg"
         }`}
       >
-        <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+        <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between print:hidden">
           <h2 className="text-lg font-semibold text-gray-900">출결 상세</h2>
-          <button
-            type="button"
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 focus:outline-none"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handlePrint}
+              className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md focus:outline-none"
+              title="인쇄"
+            >
+              <Printer className="w-5 h-5" />
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="p-2 text-gray-400 hover:text-gray-600 focus:outline-none rounded-md"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
         {record ? (
@@ -174,17 +194,50 @@ export default function AttendanceRecordDetailModal({
                 {formatDate(record.writtenAt)}
               </div>
           
-              {/* 학생/보호자 서명란 - 가로 배치로 변경하여 높이 절약 */}
+              {/* 학생/보호자/교사 서명란 - 가로 배치 */}
               <div className="flex justify-center gap-10 py-2 border-y border-gray-50">
                 <div className="flex items-center gap-2">
                   <span>학 생:</span>
-                  <span className="text-red-500">{record.studentName}</span>
-                  <span>(인)</span>
+                  <span className="text-red-500">{record.studentName ?? "-"}</span>
+                  <div className="relative flex items-center justify-center w-12 h-12">
+                    <span className="z-0">(인)</span>
+                    {record.studentSignUrl && (
+                      <a
+                        href={record.studentSignUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="absolute inset-0 z-10 flex items-center justify-center"
+                      >
+                        <img
+                          src={record.studentSignUrl}
+                          alt="학생 서명"
+                          className="max-h-14 w-auto object-contain mix-blend-multiply opacity-90"
+                        />
+                      </a>
+                    )}
+                  </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span>보호자:</span>
-                  <span className="text-red-500">서명</span>
-                  <span>(인)</span>
+                  <span className="pr-[5ch]">보호자:</span>
+                  <div className="relative flex items-center justify-center w-12 h-12">
+                    <span className="z-0">(인)</span>
+                    {record.guardianSignUrl ? (
+                      <a
+                        href={record.guardianSignUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="absolute inset-0 z-10 flex items-center justify-center"
+                      >
+                        <img
+                          src={record.guardianSignUrl}
+                          alt="보호자 서명"
+                          className="max-h-14 w-auto object-contain mix-blend-multiply opacity-90"
+                        />
+                      </a>
+                    ) : (
+                      <span className="absolute text-xs text-red-500 opacity-50 z-10">서명</span>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -201,13 +254,37 @@ export default function AttendanceRecordDetailModal({
                 유선 연락 등의 방법으로 확인하였습니다.
               </p>
           
-              {/* 날짜와 담임 성함 - 콤팩트하게 배치 */}
+              {/* 날짜와 담임 성함 - 콤팩트하게 배치 (담임 서명은 상단 서명란에 표시) */}
               <div className="py-2">
                 <div className="text-red-500 mb-1">{formatDate(record.writtenAt)}</div>
                 <div className="flex justify-center items-center gap-2">
                   <span>담임:</span>
-                  <span className="text-red-500">{record.teacherName}</span>
-                  <span>(인)</span>
+                  <span className="text-red-500">{record.teacherName ?? "-"}</span>
+                  
+                  {/* (인)과 서명이 겹쳐질 컨테이너 */}
+                  <div className="relative flex items-center justify-center w-12 h-12">
+                    <span className="z-0">(인)</span> 
+                    
+                    {record.teacherSignUrl && (
+                      <a
+                        href={record.teacherSignUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="absolute inset-0 z-10 flex items-center justify-center"
+                      >
+                        <img
+                          src={record.teacherSignUrl}
+                          alt="교사 서명"
+                          /* 서명이 약간 투명하게 겹치면 더 도장 같습니다 (opacity-80) */
+                          className="max-h-14 w-auto object-contain mix-blend-multiply opacity-90"
+                        />
+                      </a>
+                    )}
+                    
+                    {!record.teacherSignUrl && (
+                      <span className="absolute text-xs text-red-500 opacity-50">서명</span>
+                    )}
+                  </div>
                 </div>
               </div>
           
@@ -268,42 +345,47 @@ export default function AttendanceRecordDetailModal({
                     <span className="text-red-500">
                       {record.studentName ?? "-"}
                     </span>
-                    <span>(인)</span>
-                    {record.studentSignUrl && (
-                      <a
-                        href={record.studentSignUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="block"
-                      >
-                        <img
-                          src={record.studentSignUrl}
-                          alt="학생 서명"
-                          className="max-h-12 w-auto object-contain"
-                        />
-                      </a>
-                    )}
+                    <div className="relative flex items-center justify-center w-12 h-12">
+                      <span className="z-0">(인)</span>
+                      {record.studentSignUrl && (
+                        <a
+                          href={record.studentSignUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="absolute inset-0 z-10 flex items-center justify-center"
+                        >
+                          <img
+                            src={record.studentSignUrl}
+                            alt="학생 서명"
+                            className="max-h-14 w-auto object-contain mix-blend-multiply opacity-90"
+                          />
+                        </a>
+                      )}
+                    </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span>보호자:</span>
-                    <span>(인)</span>
-                    {record.guardianSignUrl ? (
-                      <a
-                        href={record.guardianSignUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="block"
-                      >
-                        <img
-                          src={record.guardianSignUrl}
-                          alt="보호자 서명"
-                          className="max-h-12 w-auto object-contain"
-                        />
-                      </a>
-                    ) : (
-                      <span className="text-red-500">서명</span>
-                    )}
+                    <span className="pr-[5ch]">보호자:</span>
+                    <div className="relative flex items-center justify-center w-12 h-12">
+                      <span className="z-0">(인)</span>
+                      {record.guardianSignUrl ? (
+                        <a
+                          href={record.guardianSignUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="absolute inset-0 z-10 flex items-center justify-center"
+                        >
+                          <img
+                            src={record.guardianSignUrl}
+                            alt="보호자 서명"
+                            className="max-h-14 w-auto object-contain mix-blend-multiply opacity-90"
+                          />
+                        </a>
+                      ) : (
+                        <span className="absolute text-xs text-red-500 opacity-50 z-10">서명</span>
+                      )}
+                    </div>
                   </div>
+                 
                 </div>
               </div>
 
@@ -338,7 +420,25 @@ export default function AttendanceRecordDetailModal({
                     <span className="text-red-500">
                       {record.teacherName ?? "-"}
                     </span>
-                    <span>(인)</span>
+                    <div className="relative flex items-center justify-center w-12 h-12">
+                      <span className="z-0">(인)</span>
+                      {record.teacherSignUrl ? (
+                        <a
+                          href={record.teacherSignUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="absolute inset-0 z-10 flex items-center justify-center"
+                        >
+                          <img
+                            src={record.teacherSignUrl}
+                            alt="교사 서명"
+                            className="max-h-14 w-auto object-contain mix-blend-multiply opacity-90"
+                          />
+                        </a>
+                      ) : (
+                        <span className="absolute text-xs text-red-500 opacity-50 z-10">서명</span>
+                      )}
+                    </div>
                   </div>
                 </div>
 
@@ -458,7 +558,7 @@ export default function AttendanceRecordDetailModal({
 
             <section>
               <h3 className="text-sm font-semibold text-gray-700 mb-3">서명</h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
                   <p className="text-xs text-gray-500 mb-2">학생 서명</p>
                   {record.studentSignUrl ? (
@@ -492,6 +592,27 @@ export default function AttendanceRecordDetailModal({
                       <img
                         src={record.guardianSignUrl}
                         alt="보호자 서명"
+                        className="max-h-24 w-auto mx-auto object-contain"
+                      />
+                    </a>
+                  ) : (
+                    <div className="border border-dashed border-gray-200 rounded-lg p-4 text-center text-gray-400 text-sm">
+                      없음
+                    </div>
+                  )}
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 mb-2">교사 서명</p>
+                  {record.teacherSignUrl ? (
+                    <a
+                      href={record.teacherSignUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block border border-gray-200 rounded-lg p-2 hover:border-blue-300"
+                    >
+                      <img
+                        src={record.teacherSignUrl}
+                        alt="교사 서명"
                         className="max-h-24 w-auto mx-auto object-contain"
                       />
                     </a>
