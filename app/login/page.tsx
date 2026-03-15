@@ -252,7 +252,7 @@ export default function LoginPage() {
           <p>© {currentYear} SchoolWorks. All rights reserved.</p>
           <p>
             <a
-              href="/Privacy Policy/Privacy Policy of SchoolHub.pdf"
+              href="/Privacy Policy/Privacy Policy of SchoolWorks.pdf"
               target="_blank"
               rel="noopener noreferrer"
               className="text-blue-600 hover:text-blue-700 hover:underline transition-colors"
