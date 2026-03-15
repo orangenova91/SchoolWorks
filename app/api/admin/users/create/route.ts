@@ -39,10 +39,27 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "유효하지 않은 역할입니다." }, { status: 400 });
     }
 
+    // 같은 학교 내 동일 이름 사용자 확인
+    const schoolTrimmed = body.school?.trim() || null;
+    const nameTrimmed = body.name?.trim() || null;
+    if (schoolTrimmed && nameTrimmed) {
+      const existingSameName = await prisma.user.findFirst({
+        where: {
+          school: schoolTrimmed,
+          name: nameTrimmed,
+        },
+      });
+      if (existingSameName) {
+        return NextResponse.json(
+          { error: "이미 같은 학교에 동일한 이름의 사용자가 등록되어 있습니다." },
+          { status: 400 }
+        );
+      }
+    }
+
     // 학생 역할일 때 학번 중복 확인 (같은 학교 내)
     if (role === "student") {
       const studentIdTrimmed = body.studentId?.trim() || null;
-      const schoolTrimmed = body.school?.trim() || null;
       if (studentIdTrimmed && schoolTrimmed) {
         const existingStudentId = await prisma.studentProfile.findFirst({
           where: {

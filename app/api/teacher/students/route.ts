@@ -48,6 +48,23 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const nameTrimmed = body.name?.trim() || null;
+    if (nameTrimmed) {
+      const existingSameName = await prisma.user.findFirst({
+        where: {
+          role: "student",
+          school: teacherSchool,
+          name: nameTrimmed,
+        },
+      });
+      if (existingSameName) {
+        return NextResponse.json(
+          { error: "이미 같은 이름의 학생이 등록되어 있습니다." },
+          { status: 400 }
+        );
+      }
+    }
+
     const studentIdTrimmed = body.studentId?.trim() || null;
     if (studentIdTrimmed) {
       const existingStudentId = await prisma.studentProfile.findFirst({
