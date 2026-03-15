@@ -109,8 +109,8 @@ export default function LoginPage() {
           {/* 로그인 화면 이미지 */}
             <div className="flex items-center justify-center gap-3 mb-2">
               <Image
-                src="/logo/SchoolLogo.png"
-                alt="SchoolHub Logo"
+                src="/logo/SchoolWorks LogoWhite_Small.png"
+                alt="SchoolWorks Logo"
                 width={48}
                 height={48}
                 className="object-contain"
@@ -120,7 +120,7 @@ export default function LoginPage() {
               </h1>
             </div>
             <p className="text-gray-600 text-base">
-              SchoolHub에 오신 것을 환영합니다
+              SchoolWorks에 오신 것을 환영합니다
             </p>
           </div>
 
@@ -248,9 +248,19 @@ export default function LoginPage() {
         </div>
 
         {/* 하단 정보 */}
-        <p className="mt-6 text-center text-xs text-gray-500">
-          © {currentYear} SchoolHub. All rights reserved.
-        </p>
+        <div className="mt-6 text-center text-xs text-gray-500 space-y-1">
+          <p>© {currentYear} SchoolWorks. All rights reserved.</p>
+          <p>
+            <a
+              href="/Privacy Policy/Privacy Policy of SchoolHub.pdf"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-600 hover:text-blue-700 hover:underline transition-colors"
+            >
+              개인정보처리방침
+            </a>
+          </p>
+        </div>
       </div>
     </div>
   );

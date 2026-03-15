@@ -7,12 +7,14 @@ export function Footer() {
           <div className="flex flex-col sm:flex-row justify-between items-center gap-2 text-sm text-gray-600">
             <div>
               <p className="text-gray-500">
-                © {currentYear} SchoolHub. All rights reserved.
+                © {currentYear} SchoolWorks. All rights reserved.
               </p>
             </div>
             <div className="flex items-center gap-4">
               <a
-                href="#"
+                href="/Privacy Policy/Privacy Policy of SchoolWorks.pdf"
+                target="_blank"
+                rel="noopener noreferrer"
                 className="hover:text-blue-600 transition-colors"
               >
                 개인정보처리방침
