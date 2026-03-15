@@ -402,7 +402,7 @@ export default async function DashboardLayout({
                 </span>
               )}
               <h1 className="text-xl font-bold text-gray-900">
-                SchoolHub
+                SchoolWorks
                 <span className="text-sm font-normal"> {t.app.version}</span>
               </h1>
               <CurrentPageNav items={navItems} />
