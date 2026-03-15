@@ -6,11 +6,11 @@ import { z } from "zod";
 
 export const dynamic = 'force-dynamic';
 
-// 교직원 프로필 업데이트 스키마
+// 교직원 프로필 업데이트 스키마 (빈 값은 null로 저장)
 const updateStaffProfileSchema = z.object({
-  roleLabel: z.string().optional(),
-  major: z.string().optional(),
-  phoneNumber: z.string().optional(),
+  roleLabel: z.string().optional().nullable(),
+  major: z.string().optional().nullable(),
+  phoneNumber: z.string().optional().nullable(),
 });
 
 // PUT: 교사가 교직원 정보 수정

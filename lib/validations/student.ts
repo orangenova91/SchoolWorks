@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { ENROLLMENT_STATUS_OPTIONS } from "@/lib/constants/enrollmentStatus";
 
 // 학생 프로필 수정 스키마
 export const updateStudentProfileSchema = z.object({
@@ -21,6 +22,7 @@ export const updateStudentProfileSchema = z.object({
   phoneNumber: z.string().max(20, "전화번호는 20자 이하여야 합니다").optional().nullable(),
   siblings: z.string().max(100, "형제관계는 100자 이하여야 합니다").optional().nullable(),
   academicStatus: z.string().max(100, "학적상태는 100자 이하여야 합니다").optional().nullable(),
+  enrollmentStatus: z.enum(ENROLLMENT_STATUS_OPTIONS).optional().nullable(),
   remarks: z.string().max(500, "비고는 500자 이하여야 합니다").optional().nullable(),
   club: z.string().max(100, "동아리는 100자 이하여야 합니다").optional().nullable(),
   clubTeacher: z.string().max(50, "동아리 담당교사는 50자 이하여야 합니다").optional().nullable(),

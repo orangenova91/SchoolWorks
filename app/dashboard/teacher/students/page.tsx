@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import StudentListTable from "@/components/dashboard/teacher/StudentListTable";
 import { RosterToggle } from "@/components/dashboard/teacher/RosterToggle";
+import { StudentTitleRow } from "@/components/dashboard/teacher/StudentTitleRow";
 
 export const dynamic = 'force-dynamic';
 
@@ -56,6 +57,7 @@ export default async function TeacherStudentsPage() {
           phoneNumber: true,
           classOfficer: true,
           studentCouncilRole: true,
+          enrollmentStatus: true,
         },
       })
     : [];
@@ -70,6 +72,7 @@ export default async function TeacherStudentsPage() {
     phoneNumber: string | null;
     classOfficer: string | null;
     studentCouncilRole: string | null;
+    enrollmentStatus: string | null;
   };
 
   const profileMap = new Map<string, StudentProfileSummary>(
@@ -94,6 +97,7 @@ export default async function TeacherStudentsPage() {
       phoneNumber: profile?.phoneNumber ?? "-",
       classOfficer: profile?.classOfficer ?? "-",
       studentCouncilRole: profile?.studentCouncilRole ?? "-",
+      enrollmentStatus: profile?.enrollmentStatus ?? "-",
       createdAt: student.createdAt,
     };
 // ... existing code ...
@@ -185,7 +189,7 @@ export default async function TeacherStudentsPage() {
         <div className="flex items-start justify-between gap-8">
           <div className="flex-1">
             <RosterToggle currentPage="students" />
-            <h1 className="text-2xl font-bold text-gray-900">학생명렬</h1>
+            <StudentTitleRow teacherSchool={teacherSchool ?? null} />
             <p className="mt-2 text-sm text-gray-600">
               학생 목록을 확인할 수 있습니다.
             </p>

@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import StaffListTable from "@/components/dashboard/teacher/StaffListTable";
 import { RosterToggle } from "@/components/dashboard/teacher/RosterToggle";
+import { StaffTitleRow } from "@/components/dashboard/teacher/StaffTitleRow";
 
 export const dynamic = 'force-dynamic';
 
@@ -100,7 +101,7 @@ export default async function TeacherStaffPage() {
     <div className="space-y-6">
       <header className="border-4 border-dashed border-gray-200 rounded-lg p-8 bg-white">
         <RosterToggle currentPage="staff" />
-        <h1 className="text-2xl font-bold text-gray-900">교직원 명렬</h1>
+        <StaffTitleRow teacherSchool={teacherSchool ?? null} />
         <p className="mt-2 text-sm text-gray-600">
           교직원 목록을 확인할 수 있습니다.
         </p>
