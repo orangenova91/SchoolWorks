@@ -6,7 +6,7 @@ import CalendarView, { CalendarEvent } from "./CalendarView";
 import { TeacherAutocomplete } from "./TeacherAutocomplete";
 import { useToastContext } from "@/components/providers/ToastProvider";
 import { Button } from "@/components/ui/Button";
-import { ChevronUp, ChevronDown, Printer, Upload } from "lucide-react";
+import { ChevronUp, ChevronDown, Printer, Upload, HelpCircle } from "lucide-react";
 
 const WEEKDAY_LABELS: Record<number, string> = {
   1: "월",
@@ -114,6 +114,7 @@ export default function SupervisionMealCalendar({
   const [csvResult, setCsvResult] = useState<{ inserted?: number; errors?: Array<{ row: number; msg: string }> } | null>(null);
   const csvInputRef = useRef<HTMLInputElement>(null);
   const [scheduleRefreshKey, setScheduleRefreshKey] = useState(0);
+  const [showCsvHelpTooltip, setShowCsvHelpTooltip] = useState(false);
   const router = useRouter();
   const { showToast } = useToastContext();
 
@@ -437,10 +438,50 @@ export default function SupervisionMealCalendar({
   return (
     <div className="space-y-6">
       {/* 화면에만 보이는 영역 (인쇄 시 숨김) */}
-      <div className="mb-4 print:hidden">
-        <h2 className="text-lg font-semibold text-gray-900">급식지도/야자감독</h2>
-        <div className="flex items-center gap-1 mt-1">
-          <p className="text-sm text-gray-500">{description}</p>
+      <div className="mb-4 print:hidden flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+          <h2 className="text-lg font-semibold text-gray-900">급식지도/야자감독</h2>
+          <div className="flex items-center gap-1 mt-1">
+            <p className="text-sm text-gray-500">{description}</p>
+          </div>
+        </div>
+        <div className="flex items-center justify-end gap-2">
+          <div className="flex items-center gap-1 text-xs text-gray-400">
+            <span className="italic">
+              급식지도/야자감독 일정을 CSV로 대량 업로드 할 수 있습니다.
+            </span>
+            <div
+              className="relative cursor-help"
+              onMouseEnter={() => setShowCsvHelpTooltip(true)}
+              onMouseLeave={() => setShowCsvHelpTooltip(false)}
+            >
+              <HelpCircle className="w-4 h-4 text-gray-400" />
+              {showCsvHelpTooltip && (
+                <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 z-50 bg-gray-800 text-white text-xs rounded-lg py-2 px-3 whitespace-nowrap shadow-lg">
+                  템플릿에서 명단을 빈칸으로 두면 기존 data에 영향을 주지 않습니다.
+                  <div className="absolute top-full left-1/2 transform -translate-x-1/2 -mt-1">
+                    <div className="border-4 border-transparent border-t-gray-800"></div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+          <Button variant="outline" size="sm" onClick={downloadCsvTemplate} type="button">
+            템플릿 다운
+          </Button>
+          <label className="inline-flex cursor-pointer">
+            <input
+              ref={csvInputRef}
+              type="file"
+              accept=".csv,text/csv"
+              className="sr-only"
+              onChange={(e) => handleCsvFile(e.target.files?.[0] ?? null)}
+            />
+            <Button variant="outline" size="sm" type="button" onClick={() => csvInputRef.current?.click()}>
+              <Upload className="w-4 h-4 mr-1.5" />
+              CSV 업로드
+            </Button>
+          </label>
         </div>
       </div>
 
@@ -698,38 +739,6 @@ export default function SupervisionMealCalendar({
                 })}
               </tbody>
             </table>
-          </div>
-
-          <div className="flex items-center justify-end gap-2 mt-3 pt-3 border-t border-gray-100">
-            <span className="text-xs italic text-gray-400">
-              급식지도/야자감독 일정을 CSV로 대량 업로드 할 수 있습니다.
-            </span>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={downloadCsvTemplate}
-              type="button"
-            >
-              템플릿 다운
-            </Button>
-            <label className="inline-flex cursor-pointer">
-              <input
-                ref={csvInputRef}
-                type="file"
-                accept=".csv,text/csv"
-                className="sr-only"
-                onChange={(e) => handleCsvFile(e.target.files?.[0] ?? null)}
-              />
-              <Button
-                variant="outline"
-                size="sm"
-                type="button"
-                onClick={() => csvInputRef.current?.click()}
-              >
-                <Upload className="w-4 h-4 mr-1.5" />
-                CSV 업로드
-              </Button>
-            </label>
           </div>
 
           {csvLoading && (

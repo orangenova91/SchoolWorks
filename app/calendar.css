@@ -54,10 +54,11 @@
   line-height: 1.0; /* 최소 라인 높이 */
   min-height: 1rem; /* 최소 높이 */
   margin: 0.0625rem 0; /* 마진 축소 */
+  opacity: 0.5;
 }
 
 .fc-daygrid-event:hover {
-  opacity: 0.8;
+  opacity: 1.0;
 }
 
 /* 월간 뷰 이벤트 제목 크기 조정 */
