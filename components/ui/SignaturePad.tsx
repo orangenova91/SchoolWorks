@@ -52,12 +52,20 @@ export function SignaturePad({
   }, [disabled]);
 
   useEffect(() => {
-    if (!value || !canvasRef.current) return;
     const canvas = canvasRef.current;
+    if (!canvas) return;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
     const rect = canvas.getBoundingClientRect();
     const dpr = window.devicePixelRatio || 1;
+    if (!value) {
+      ctx.save();
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.restore();
+      return;
+    }
     const img = new Image();
     img.onload = () => {
       ctx.save();

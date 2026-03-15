@@ -311,6 +311,7 @@ model HomeroomAttendance {
   writtenAt       DateTime
   studentSignUrl  String?
   guardianSignUrl String?
+  teacherSignUrl  String?
   attachments     String?  // JSON: [{url, name}]
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
