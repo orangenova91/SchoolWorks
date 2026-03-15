@@ -64,9 +64,10 @@ export function EditStaffModal({ staff, isOpen, onClose, onSuccess }: EditStaffM
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          roleLabel: formData.roleLabel || undefined,
-          major: formData.major || undefined,
-          phoneNumber: formData.phoneNumber || undefined,
+          // '선택 안 함'이면 null을 보내서 DB에서 필드를 비움
+          roleLabel: formData.roleLabel === "" ? null : (formData.roleLabel || undefined),
+          major: formData.major === "" ? null : (formData.major || undefined),
+          phoneNumber: formData.phoneNumber === "" ? null : (formData.phoneNumber || undefined),
         }),
       });
 
@@ -200,23 +201,34 @@ export function EditStaffModal({ staff, isOpen, onClose, onSuccess }: EditStaffM
             </div>
           </div>
 
-          <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-200">
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={isSaving}
-              className="px-4 py-2 border border-gray-300 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-50 disabled:bg-gray-100 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-gray-500"
+          <div className="flex items-center justify-between gap-3 pt-4 border-t border-gray-200">
+            {/* 왼쪽: 경고 문구 */}
+            <span 
+              className="text-xs text-red-500 font-medium"
+              style={{ transform: 'translateY(-20px)' }} // 숫자를 조절하여 높이 변경 가능
             >
-              취소
-            </button>
-            <button
-              type="submit"
-              disabled={isSaving}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <Save className="w-4 h-4" />
-              {isSaving ? "저장 중..." : "저장"}
-            </button>
+              ※ user 삭제는 관리자 계정에서 할 수 있습니다.
+            </span>
+
+            {/* 오른쪽: 버튼 그룹 */}
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={onClose}
+                disabled={isSaving}
+                className="px-4 py-2 border border-gray-300 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-50 disabled:bg-gray-100 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-gray-500"
+              >
+                취소
+              </button>
+              <button
+                type="submit"
+                disabled={isSaving}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <Save className="w-4 h-4" />
+                {isSaving ? "저장 중..." : "저장"}
+              </button>
+            </div>
           </div>
         </form>
       </div>

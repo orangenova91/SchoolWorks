@@ -384,7 +384,7 @@ export default async function DashboardLayout({
       : [];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 flex flex-col relative overflow-hidden">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 flex flex-col relative overflow-x-hidden">
       <div className="print:hidden">
         <AnimatedBackground />
       </div>

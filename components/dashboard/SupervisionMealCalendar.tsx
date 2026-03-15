@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import CalendarView, { CalendarEvent } from "./CalendarView";
 import { TeacherAutocomplete } from "./TeacherAutocomplete";
+import { SupervisionMealStats } from "./SupervisionMealStats";
 import { useToastContext } from "@/components/providers/ToastProvider";
 import { Button } from "@/components/ui/Button";
 import { ChevronUp, ChevronDown, Printer, Upload, HelpCircle } from "lucide-react";
@@ -814,6 +815,13 @@ export default function SupervisionMealCalendar({
           )}
         </div>
       </div>
+
+      {/* 접이식 통계 (년간 누적) - 섹션 하단 */}
+      <SupervisionMealStats
+        viewDate={viewDate}
+        scheduleRefreshKey={scheduleRefreshKey}
+        teachers={teachers}
+      />
     </div>
   );
 }

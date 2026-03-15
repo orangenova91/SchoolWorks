@@ -42,10 +42,12 @@ export function TeacherAutocomplete({
 }: TeacherAutocompleteProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const [dropdownPosition, setDropdownPosition] = useState<{ top: number; left: number; width: number } | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const optionRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
   const updateDropdownPosition = useCallback(() => {
     if (inputRef.current) {
@@ -78,6 +80,24 @@ export function TeacherAutocomplete({
       return terms.every((term) => searchText.includes(term));
     });
   }, [sortedTeachers, query]);
+
+  useEffect(() => {
+    if (filteredTeachers.length > 0) {
+      setHighlightedIndex(0);
+    } else {
+      setHighlightedIndex(-1);
+    }
+  }, [filteredTeachers]);
+
+  useEffect(() => {
+    if (!isOpen) setHighlightedIndex(-1);
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (highlightedIndex >= 0 && optionRefs.current[highlightedIndex]) {
+      optionRefs.current[highlightedIndex]?.scrollIntoView({ block: "nearest" });
+    }
+  }, [highlightedIndex]);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -141,6 +161,44 @@ export function TeacherAutocomplete({
     setIsOpen(true);
   };
 
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!showDropdown) {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setIsOpen(false);
+      }
+      return;
+    }
+    if (e.key === "Escape") {
+      e.preventDefault();
+      setIsOpen(false);
+      return;
+    }
+    if (filteredTeachers.length === 0) return;
+    switch (e.key) {
+      case "ArrowDown":
+        e.preventDefault();
+        setHighlightedIndex((i) =>
+          i >= filteredTeachers.length - 1 ? 0 : i + 1
+        );
+        break;
+      case "ArrowUp":
+        e.preventDefault();
+        setHighlightedIndex((i) =>
+          i <= 0 ? filteredTeachers.length - 1 : i - 1
+        );
+        break;
+      case "Enter":
+        e.preventDefault();
+        if (highlightedIndex >= 0 && filteredTeachers[highlightedIndex]) {
+          handleSelect(filteredTeachers[highlightedIndex]);
+        }
+        break;
+      default:
+        break;
+    }
+  };
+
   const showDropdown = isOpen && !disabled;
 
   return (
@@ -152,6 +210,7 @@ export function TeacherAutocomplete({
           value={isOpen ? query : displayText}
           onChange={handleInputChange}
           onFocus={handleInputFocus}
+          onKeyDown={handleKeyDown}
           placeholder={placeholder}
           disabled={disabled}
           className={cn(
@@ -188,13 +247,20 @@ export function TeacherAutocomplete({
             {filteredTeachers.length === 0 ? (
               <div className="px-2 py-2 text-sm text-gray-500">검색 결과가 없습니다.</div>
             ) : (
-              filteredTeachers.map((teacher) => (
+              filteredTeachers.map((teacher, index) => (
                 <button
                   key={teacher.id}
+                  ref={(el) => {
+                    optionRefs.current[index] = el;
+                  }}
                   type="button"
                   role="option"
+                  aria-selected={index === highlightedIndex}
                   onClick={() => handleSelect(teacher)}
-                  className="w-full text-left px-2 py-1.5 text-sm hover:bg-gray-100 focus:bg-gray-100 focus:outline-none text-black cursor-pointer"
+                  className={cn(
+                    "w-full text-left px-2 py-1.5 text-sm hover:bg-gray-100 focus:outline-none text-black cursor-pointer",
+                    index === highlightedIndex && "bg-blue-100 hover:bg-blue-100"
+                  )}
                 >
                   {getTeacherDisplay(teacher)}
                 </button>

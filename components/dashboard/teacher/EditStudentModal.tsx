@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { X, Save } from "lucide-react";
 import { useToastContext } from "@/components/providers/ToastProvider";
+import { ENROLLMENT_STATUS_OPTIONS } from "@/lib/constants/enrollmentStatus";
 
 export type StudentWithProfile = {
   id: string;
@@ -17,6 +18,7 @@ export type StudentWithProfile = {
   phoneNumber: string;
   classOfficer: string;
   studentCouncilRole: string;
+  enrollmentStatus: string;
   createdAt: Date;
 };
 
@@ -34,6 +36,7 @@ export function EditStudentModal({ student, isOpen, onClose, onSuccess }: EditSt
     name: "",
     sex: "",
     phoneNumber: "",
+    enrollmentStatus: "",
   });
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -46,6 +49,7 @@ export function EditStudentModal({ student, isOpen, onClose, onSuccess }: EditSt
       name: student.name || "",
       sex: student.sex === "-" ? "" : student.sex,
       phoneNumber: student.phoneNumber === "-" ? "" : student.phoneNumber,
+      enrollmentStatus: student.enrollmentStatus === "-" ? "" : student.enrollmentStatus,
     });
     setError(null);
   }, [student, isOpen]);
@@ -70,6 +74,8 @@ export function EditStudentModal({ student, isOpen, onClose, onSuccess }: EditSt
           name: formData.name || undefined,
           sex: formData.sex || undefined,
           phoneNumber: formData.phoneNumber || undefined,
+          // 빈 값(선택)이면 null을 보내서 DB에서 필드를 지움
+          enrollmentStatus: formData.enrollmentStatus === "" ? null : (formData.enrollmentStatus || undefined),
         }),
       });
 
@@ -124,19 +130,39 @@ export function EditStudentModal({ student, isOpen, onClose, onSuccess }: EditSt
           )}
 
           <div className="space-y-4">
-            {/* 이메일 (읽기 전용) */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                이메일
-              </label>
-              <input
-                type="email"
-                value={student?.email || ""}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 text-gray-600"
-                disabled
-                readOnly
-              />
-              <p className="text-xs text-gray-500 mt-1">이메일은 편집할 수 없습니다.</p>
+            {/* 이메일 (읽기 전용), 학적 상태 */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  이메일
+                </label>
+                <input
+                  type="email"
+                  value={student?.email || ""}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 text-gray-600"
+                  disabled
+                  readOnly
+                />
+                <p className="text-xs text-gray-500 mt-1">이메일은 편집할 수 없습니다.</p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  학적 상태
+                </label>
+                <select
+                  value={formData.enrollmentStatus}
+                  onChange={(e) => handleChange("enrollmentStatus", e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                  disabled={isSaving}
+                >
+                  <option value="">선택</option>
+                  {ENROLLMENT_STATUS_OPTIONS.map((opt) => (
+                    <option key={opt} value={opt}>
+                      {opt}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
 
             {/* 학번, 이름 */}
@@ -205,23 +231,34 @@ export function EditStudentModal({ student, isOpen, onClose, onSuccess }: EditSt
             </div>
           </div>
 
-          <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-200">
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={isSaving}
-              className="px-4 py-2 border border-gray-300 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-50 disabled:bg-gray-100 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-gray-500"
+          <div className="flex items-center justify-between gap-3 pt-4 border-t border-gray-200">
+            {/* 왼쪽: 경고 문구 (강제로 위로 올림) */}
+            <span 
+              className="text-xs text-red-500 font-medium"
+              style={{ transform: 'translateY(-20px)' }}
             >
-              취소
-            </button>
-            <button
-              type="submit"
-              disabled={isSaving}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <Save className="w-4 h-4" />
-              {isSaving ? "저장 중..." : "저장"}
-            </button>
+              ※ user 삭제는 관리자 계정에서 할 수 있습니다.
+            </span>
+
+            {/* 오른쪽: 버튼 그룹 (기존 간격과 위치 유지) */}
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={onClose}
+                disabled={isSaving}
+                className="px-4 py-2 border border-gray-300 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-50 disabled:bg-gray-100 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-gray-500"
+              >
+                취소
+              </button>
+              <button
+                type="submit"
+                disabled={isSaving}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <Save className="w-4 h-4" />
+                {isSaving ? "저장 중..." : "저장"}
+              </button>
+            </div>
           </div>
         </form>
       </div>

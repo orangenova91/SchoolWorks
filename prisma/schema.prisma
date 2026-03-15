@@ -337,6 +337,7 @@ model StudentProfile {
   phoneNumber                String?
   siblings                   String?
   academicStatus             String?
+  enrollmentStatus           String?   // 학적 상태: 재학, 자퇴, 위탁, 퇴학, 휴학, 졸업, 전출
   remarks                    String?
   club                       String?
   clubTeacher                String?

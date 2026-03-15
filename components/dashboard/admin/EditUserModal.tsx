@@ -10,10 +10,18 @@ type EditUserModalProps = {
   onClose: () => void;
   onSuccess: () => void;
   adminSchool?: string;
+  /** 재학생 추가 모드: 역할을 학생으로 고정 */
+  fixedRole?: "student" | "teacher";
+  /** 재학생/교직원 추가 시 사용할 API 경로 */
+  createEndpoint?: string;
+  /** 재학생/교직원 추가 시 학교 기본값 (교사 학교) */
+  defaultSchool?: string;
 };
 
-export function EditUserModal({ user, isOpen, onClose, onSuccess, adminSchool }: EditUserModalProps) {
+export function EditUserModal({ user, isOpen, onClose, onSuccess, adminSchool, fixedRole, createEndpoint, defaultSchool }: EditUserModalProps) {
   const isCreateMode = user === null;
+  const isAddStudentMode = isCreateMode && fixedRole === "student";
+  const isAddStaffMode = isCreateMode && fixedRole === "teacher";
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -57,12 +65,13 @@ export function EditUserModal({ user, isOpen, onClose, onSuccess, adminSchool }:
         setChildStudents([]);
       }
     } else {
-      // 등록 모드일 때 폼 초기화 (관리자 학교 정보 자동 입력)
+      // 등록 모드일 때 폼 초기화 (관리자/교사 학교 정보 자동 입력)
+      const school = defaultSchool ?? adminSchool ?? "";
       setFormData({
         name: "",
         email: "",
-        school: adminSchool || "",
-        role: "",
+        school,
+        role: fixedRole === "student" ? "student" : fixedRole === "teacher" ? "teacher" : "",
         password: "",
         studentId: "",
         grade: "",
@@ -73,7 +82,7 @@ export function EditUserModal({ user, isOpen, onClose, onSuccess, adminSchool }:
       setError(null);
       setChildStudents([]);
     }
-  }, [user, isOpen, adminSchool]);
+  }, [user, isOpen, adminSchool, fixedRole, defaultSchool]);
 
   const fetchChildStudents = async (userId: string) => {
     try {
@@ -108,14 +117,19 @@ export function EditUserModal({ user, isOpen, onClose, onSuccess, adminSchool }:
 
     try {
       const endpoint = isCreateMode
-        ? "/api/admin/users/create"
+        ? (createEndpoint ?? "/api/admin/users/create")
         : `/api/admin/users/${user!.id}`;
       const method = isCreateMode ? "POST" : "PATCH";
 
       // 등록 모드일 때는 password를 포함, 편집 모드일 때는 제외
-      // 편집 모드에서는 email과 school은 변경하지 않음
+      // 재학생/교직원 추가 모드에서는 role 고정
+      const createBody = fixedRole === "student"
+        ? { ...formData, role: "student", school: defaultSchool ?? formData.school }
+        : fixedRole === "teacher"
+        ? { ...formData, role: "teacher", school: defaultSchool ?? formData.school }
+        : formData;
       const requestBody = isCreateMode
-        ? formData
+        ? createBody
       : {
             name: formData.name,
             role: formData.role,
@@ -142,10 +156,10 @@ export function EditUserModal({ user, isOpen, onClose, onSuccess, adminSchool }:
         onSuccess();
         onClose();
       } else {
-        setError(data.error || (isCreateMode ? "사용자 등록에 실패했습니다." : "사용자 정보 업데이트에 실패했습니다."));
+        setError(data.error || (isAddStudentMode ? "재학생 추가에 실패했습니다." : isAddStaffMode ? "교직원 추가에 실패했습니다." : isCreateMode ? "사용자 등록에 실패했습니다." : "사용자 정보 업데이트에 실패했습니다."));
       }
     } catch (err) {
-      setError(isCreateMode ? "사용자 등록 중 오류가 발생했습니다." : "사용자 정보 업데이트 중 오류가 발생했습니다.");
+      setError(isAddStudentMode ? "재학생 추가 중 오류가 발생했습니다." : isAddStaffMode ? "교직원 추가 중 오류가 발생했습니다." : isCreateMode ? "사용자 등록 중 오류가 발생했습니다." : "사용자 정보 업데이트 중 오류가 발생했습니다.");
     } finally {
       setIsSaving(false);
     }
@@ -188,7 +202,7 @@ export function EditUserModal({ user, isOpen, onClose, onSuccess, adminSchool }:
       <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto m-4">
         <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
           <h2 className="text-lg font-semibold text-gray-900">
-            {isCreateMode ? "새 사용자 등록" : "사용자 정보 편집"}
+            {isAddStudentMode ? "재학생 추가" : isAddStaffMode ? "교직원 추가" : isCreateMode ? "새 사용자 등록" : "사용자 정보 편집"}
           </h2>
           <button
             type="button"
@@ -221,9 +235,9 @@ export function EditUserModal({ user, isOpen, onClose, onSuccess, adminSchool }:
                   disabled={true}
                   readOnly={true}
                 />
-                {isCreateMode && adminSchool && (
+                {isCreateMode && (adminSchool || defaultSchool) && (
                   <p className="text-xs text-gray-500 mt-1">
-                    관리자 계정의 학교 정보가 자동으로 설정되었습니다.
+                    {defaultSchool ? "교사 계정의 학교 정보가 자동으로 설정되었습니다." : "관리자 계정의 학교 정보가 자동으로 설정되었습니다."}
                   </p>
                 )}
                 {!isCreateMode && (
@@ -237,19 +251,35 @@ export function EditUserModal({ user, isOpen, onClose, onSuccess, adminSchool }:
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   역할 <span className="text-red-500">*</span>
                 </label>
-                <select
-                  value={formData.role}
-                  onChange={(e) => handleChange("role", e.target.value)}
-                  required={isCreateMode}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
-                  disabled={isSaving}
-                >
-                  <option value="">선택 안 함</option>
-                  <option value="student">학생</option>
-                  <option value="teacher">교사</option>
-                  <option value="admin">관리자</option>
-                  <option value="parent">학부모</option>
-                </select>
+                {fixedRole === "student" ? (
+                  <input
+                    type="text"
+                    value="학생"
+                    readOnly
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 text-gray-700 cursor-not-allowed"
+                  />
+                ) : fixedRole === "teacher" ? (
+                  <input
+                    type="text"
+                    value="교사"
+                    readOnly
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 text-gray-700 cursor-not-allowed"
+                  />
+                ) : (
+                  <select
+                    value={formData.role}
+                    onChange={(e) => handleChange("role", e.target.value)}
+                    required={isCreateMode}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                    disabled={isSaving}
+                  >
+                    <option value="">선택 안 함</option>
+                    <option value="student">학생</option>
+                    <option value="teacher">교사</option>
+                    <option value="admin">관리자</option>
+                    <option value="parent">학부모</option>
+                  </select>
+                )}
               </div>
             </div>
 
@@ -433,9 +463,13 @@ export function EditUserModal({ user, isOpen, onClose, onSuccess, adminSchool }:
               >
                 <Save className="w-4 h-4" />
                 {isSaving
-                  ? isCreateMode
+                  ? isAddStudentMode || isAddStaffMode
+                    ? "추가 중..."
+                    : isCreateMode
                     ? "등록 중..."
                     : "저장 중..."
+                  : isAddStudentMode || isAddStaffMode
+                  ? "추가"
                   : isCreateMode
                   ? "등록"
                   : "저장"}

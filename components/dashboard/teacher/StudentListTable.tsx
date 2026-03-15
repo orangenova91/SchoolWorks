@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Download, Edit2, ArrowUp, ArrowDown } from "lucide-react";
 import { EditStudentModal, type StudentWithProfile } from "./EditStudentModal";
+import { ENROLLMENT_STATUS_BADGE_CLASS } from "@/lib/constants/enrollmentStatus";
 
 type StudentListTableProps = {
   students: StudentWithProfile[];
@@ -26,7 +27,7 @@ export default function StudentListTable({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState<number | "all">(initialPageSize);
-  type SortKey = "studentId" | "name" | "sex" | "studentCouncilRole" | "classOfficer" | "email" | "phoneNumber";
+  type SortKey = "studentId" | "name" | "sex" | "studentCouncilRole" | "classOfficer" | "email" | "phoneNumber" | "enrollmentStatus";
   const [sortKey, setSortKey] = useState<SortKey | null>(null);
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
 
@@ -205,7 +206,7 @@ export default function StudentListTable({
   // CSV 다운로드 함수
   const handleDownloadCSV = () => {
     // CSV 헤더
-    const headers = ["학번", "이름", "성별", "학생회직", "학급직", "학반", "이메일", "연락처"];
+    const headers = ["학번", "이름", "성별", "학생회직", "학급직", "학반", "이메일", "연락처", "학적상태"];
     
     // CSV 데이터 생성 (Excel 날짜 변환 방지)
     const csvRows = [
@@ -239,6 +240,7 @@ export default function StudentListTable({
           escapeCSV(student.classLabel, true), // 학반: 텍스트로 강제 (날짜 변환 방지)
           escapeCSV(student.email),
           escapeCSV(student.phoneNumber, true), // 연락처: 텍스트로 강제
+          escapeCSV(student.enrollmentStatus && student.enrollmentStatus !== "-" ? student.enrollmentStatus : ""),
         ].join(",");
       }),
     ];
@@ -377,6 +379,7 @@ export default function StudentListTable({
             <col style={{ width: "20%" }} />
             <col style={{ width: "15%" }} />
             <col style={{ width: "15%" }} />
+            <col style={{ width: "8%" }} />
           </colgroup>
           <thead>
             <tr className="border-b border-gray-200">
@@ -446,6 +449,15 @@ export default function StudentListTable({
                   {sortKey === "phoneNumber" && (sortOrder === "asc" ? <ArrowUp className="w-3.5 h-3.5 shrink-0" /> : <ArrowDown className="w-3.5 h-3.5 shrink-0" />)}
                 </span>
               </th>
+              <th
+                className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none overflow-hidden text-ellipsis"
+                onClick={() => handleSort("enrollmentStatus")}
+              >
+                <span className="inline-flex items-center gap-1 min-w-0">
+                  <span className="truncate">학적상태</span>
+                  {sortKey === "enrollmentStatus" && (sortOrder === "asc" ? <ArrowUp className="w-3.5 h-3.5 shrink-0" /> : <ArrowDown className="w-3.5 h-3.5 shrink-0" />)}
+                </span>
+              </th>
               <th className="px-4 py-3 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider">
                 작업
               </th>
@@ -454,7 +466,7 @@ export default function StudentListTable({
           <tbody className="divide-y divide-gray-200">
             {paginatedStudents.length === 0 ? (
               <tr>
-                <td colSpan={9} className="px-4 py-8 text-center text-sm text-gray-500">
+                <td colSpan={10} className="px-4 py-8 text-center text-sm text-gray-500">
                   {searchQuery.trim() || selectedGradeFilter || selectedClassLabelFilter
                     ? "검색 결과가 없습니다."
                     : "등록된 학생이 없습니다."}
@@ -488,6 +500,19 @@ export default function StudentListTable({
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-600">
                       {student.phoneNumber}
+                    </td>
+                    <td className="px-4 py-3 text-sm">
+                      {student.enrollmentStatus && student.enrollmentStatus !== "-" ? (
+                        <span
+                          className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                            ENROLLMENT_STATUS_BADGE_CLASS[student.enrollmentStatus] ?? "bg-gray-100 text-gray-700"
+                          }`}
+                        >
+                          {student.enrollmentStatus}
+                        </span>
+                      ) : (
+                        <span className="text-gray-400">-</span>
+                      )}
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-center gap-1">

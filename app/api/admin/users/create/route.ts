@@ -39,6 +39,23 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "유효하지 않은 역할입니다." }, { status: 400 });
     }
 
+    // 학생 역할일 때 학번 중복 확인 (같은 학교 내)
+    if (role === "student") {
+      const studentIdTrimmed = body.studentId?.trim() || null;
+      const schoolTrimmed = body.school?.trim() || null;
+      if (studentIdTrimmed && schoolTrimmed) {
+        const existingStudentId = await prisma.studentProfile.findFirst({
+          where: {
+            studentId: studentIdTrimmed,
+            school: schoolTrimmed,
+          },
+        });
+        if (existingStudentId) {
+          return NextResponse.json({ error: "이미 사용 중인 학번입니다." }, { status: 400 });
+        }
+      }
+    }
+
     // 비밀번호 처리 (기본값 또는 제공된 값)
     const password = body.password?.trim() || "abcd1234!@";
     if (password.length < 8) {
@@ -106,6 +123,7 @@ export async function POST(request: NextRequest) {
           classLabel: classLabel,
           section: section,
           seatNumber: seatNumber,
+          enrollmentStatus: "재학",
         },
       });
     } else if (user.role === "teacher") {

@@ -236,7 +236,7 @@ export async function PUT(
     const profileFields = [
       "studentId", "grade", "section",
       "major", "sex", "classOfficer", "studentCouncilRole", "specialEducation", "phoneNumber",
-      "siblings", "academicStatus", "remarks", "club", "clubTeacher",
+      "siblings", "academicStatus", "enrollmentStatus", "remarks", "club", "clubTeacher",
       "clubLocation", "dateOfBirth", "address", "residentRegistrationNumber",
       "motherName", "motherPhone", "motherRemarks",
       "fatherName", "fatherPhone", "fatherRemarks", "electiveSubjects"
