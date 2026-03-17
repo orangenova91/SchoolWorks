@@ -42,6 +42,18 @@ const TeachingProgressSection = dynamic(
   }
 );
 
+const MinimumAchievementPlanSection = dynamic(
+  () => import("@/components/dashboard/MinimumAchievementPlanSection"),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="rounded-2xl border border-gray-200 bg-white p-6">
+        로딩 중...
+      </div>
+    ),
+  }
+);
+
 export default async function EvaluationPage() {
   const session = await getServerSession(authOptions);
 
@@ -68,7 +80,8 @@ export default async function EvaluationPage() {
         <CourseTabs
           tabs={[
             { id: "announcements", label: "공지사항" },
-            { id: "teaching-progress", label: "교수학습진도표" },
+            { id: "minimum-achievement-plan", label: "최성보 계획서" },
+            { id: "teaching-progress", label: "교수학습 진도표" },
             { id: "evaluation-plan", label: "평가계획서" },
             { id: "regular-exams", label: "정기고사" },
           ]}
@@ -88,6 +101,10 @@ export default async function EvaluationPage() {
                 audience="teacher"
                 boardType="board_evaluation"
               />
+            </article>,
+
+            <article key="minimum-achievement-plan" className="min-w-0">
+              <MinimumAchievementPlanSection />
             </article>,
 
             <article key="teaching-progress" className="min-w-0">
