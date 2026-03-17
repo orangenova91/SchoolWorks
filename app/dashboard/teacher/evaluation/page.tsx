@@ -80,13 +80,14 @@ export default async function EvaluationPage() {
         <CourseTabs
           tabs={[
             { id: "announcements", label: "공지사항" },
-            { id: "minimum-achievement-plan", label: "최성보 계획서" },
             { id: "teaching-progress", label: "교수학습 진도표" },
+            { id: "minimum-achievement-plan", label: "최성보 운영계획서" },
             { id: "evaluation-plan", label: "평가계획서" },
             { id: "regular-exams", label: "정기고사" },
           ]}
         >
           {[
+
             <article
               key="announcements"
               className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm"
@@ -103,14 +104,13 @@ export default async function EvaluationPage() {
               />
             </article>,
 
-            <article key="minimum-achievement-plan" className="min-w-0">
-              <MinimumAchievementPlanSection />
-            </article>,
-
             <article key="teaching-progress" className="min-w-0">
               <TeachingProgressSection />
             </article>,
 
+            <article key="minimum-achievement-plan" className="min-w-0">
+              <MinimumAchievementPlanSection />
+            </article>,
             <article key="evaluation-plan" className="min-w-0">
               <EvaluationPlanSection />
             </article>,
