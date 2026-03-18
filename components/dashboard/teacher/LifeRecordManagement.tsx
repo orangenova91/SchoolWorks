@@ -130,10 +130,34 @@ export default function LifeRecordManagement({ students }: LifeRecordManagementP
   const firstStudentWithEvents = sortedStudents.find((s) => getEventsForStudent(s).length > 0)?.id;
 
   const academicYear = getAcademicYear(new Date());
-  const teacherIdForLocalStorageKey = (session?.user as any)?.id ?? "unknown";
+  const teacherIdForKeyRef = useRef<string>("unknown");
+  const sessionTeacherIdRef = useRef<string | null>(null);
+
+  // session.user.id가 잡히면(비동기) 로컬스토리지 키용 teacherId도 확정
+  useEffect(() => {
+    const id = (session?.user as any)?.id ?? null;
+    sessionTeacherIdRef.current = id;
+    if (id && teacherIdForKeyRef.current === "unknown") {
+      // active 학생이 이미 열려있는 경우, unknown 키에 저장된 draft를 real 키로 마이그레이션
+      const activeStudentId = lifeRecordActiveStudentIdRef.current;
+      if (activeStudentId) {
+        const oldKey = `lifeRecordDraft:unknown:${activeStudentId}:${academicYear}`;
+        const newKey = `lifeRecordDraft:${id}:${activeStudentId}:${academicYear}`;
+        try {
+          const oldRaw = window.localStorage.getItem(oldKey);
+          if (oldRaw && !window.localStorage.getItem(newKey)) {
+            window.localStorage.setItem(newKey, oldRaw);
+          }
+        } catch {
+          // ignore
+        }
+      }
+      teacherIdForKeyRef.current = id;
+    }
+  }, [academicYear, session?.user]);
 
   const getLifeRecordDraftKey = (studentId: string) =>
-    `lifeRecordDraft:${teacherIdForLocalStorageKey}:${studentId}:${academicYear}`;
+    `lifeRecordDraft:${teacherIdForKeyRef.current}:${studentId}:${academicYear}`;
 
   const loadLifeRecordForStudent = async (studentId: string) => {
     lifeRecordActiveStudentIdRef.current = studentId;
@@ -223,7 +247,7 @@ export default function LifeRecordManagement({ students }: LifeRecordManagementP
 
     void loadLifeRecordForStudent(expandedStudentId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [expandedStudentId, academicYear, teacherIdForLocalStorageKey]);
+  }, [expandedStudentId, academicYear]);
 
   const scheduleLifeRecordSave = (studentId: string, nextContent: string) => {
     const key = getLifeRecordDraftKey(studentId);
@@ -241,16 +265,24 @@ export default function LifeRecordManagement({ students }: LifeRecordManagementP
       // ignore
     }
 
+    // 입력 즉시 화면 value를 갱신해야 컨트롤드 textarea 동작이 정상입니다.
+    lifeRecordContentRef.current = nextContent;
+    setLifeRecordContent(nextContent);
+
     if (lifeRecordDebounceTimerRef.current) {
       clearTimeout(lifeRecordDebounceTimerRef.current);
     }
 
+    const contentToSave = nextContent;
     lifeRecordDebounceTimerRef.current = window.setTimeout(async () => {
       // 사용자가 다른 학생으로 이동했으면 무시
       if (lifeRecordActiveStudentIdRef.current !== studentId) return;
 
+      // 인증/세션 준비 전이면 DB PATCH는 스킵 (로컬 draft는 이미 저장됨)
+      if (!sessionTeacherIdRef.current) return;
+
       // 마지막으로 DB에 저장된 값과 같으면 PATCH 스킵(부하 감소)
-      if (nextContent === lifeRecordLastSavedRef.current) return;
+      if (contentToSave === lifeRecordLastSavedRef.current) return;
 
       setLifeRecordIsSaving(true);
       try {
@@ -260,7 +292,7 @@ export default function LifeRecordManagement({ students }: LifeRecordManagementP
           body: JSON.stringify({
             studentId,
             academicYear,
-            content: nextContent,
+            content: contentToSave,
           }),
         });
 
@@ -269,10 +301,13 @@ export default function LifeRecordManagement({ students }: LifeRecordManagementP
           throw new Error(data.error || "생활기록부 저장에 실패했습니다.");
         }
 
-        const savedContent = typeof data.content === "string" ? data.content : nextContent;
+        const savedContent = typeof data.content === "string" ? data.content : contentToSave;
         const updatedAt = data.updatedAt ? new Date(data.updatedAt).getTime() : Date.now();
 
         if (lifeRecordActiveStudentIdRef.current !== studentId) return;
+
+        // 사용자가 더 입력한 내용이 최신이면, 이전 PATCH 결과로 덮어쓰지 않습니다.
+        if (lifeRecordContentRef.current !== contentToSave) return;
 
         lifeRecordLastSavedRef.current = savedContent;
         lifeRecordContentRef.current = savedContent;
