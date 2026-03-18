@@ -33,6 +33,7 @@ export type AttendanceRecord = {
 
 type AttendanceRecordListProps = {
   classLabel: string;
+  month?: string; // "YYYY-MM"
   refreshTrigger?: number;
   selectedIds: Set<string>;
   onToggleSelected: (id: string) => void;
@@ -74,6 +75,7 @@ function formatDateShort(dateStr: string) {
 
 export default function AttendanceRecordList({
   classLabel,
+  month,
   refreshTrigger = 0,
   selectedIds,
   onToggleSelected,
@@ -96,8 +98,10 @@ export default function AttendanceRecordList({
   const fetchRecords = useCallback(async () => {
     setIsLoading(true);
     try {
+      const qs = new URLSearchParams({ classLabel });
+      if (month) qs.set("month", month);
       const res = await fetch(
-        `/api/teacher/homeroom-attendance?classLabel=${encodeURIComponent(classLabel)}`
+        `/api/teacher/homeroom-attendance?${qs.toString()}`
       );
       const data = await res.json();
       if (!res.ok) {
@@ -113,7 +117,7 @@ export default function AttendanceRecordList({
     } finally {
       setIsLoading(false);
     }
-  }, [classLabel, showToast, onRecordsLoaded]);
+  }, [classLabel, month, showToast, onRecordsLoaded]);
 
   useEffect(() => {
     fetchRecords();

@@ -56,6 +56,7 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const classLabel = searchParams.get("classLabel");
+    const month = searchParams.get("month"); // "YYYY-MM"
 
     if (!classLabel) {
       return NextResponse.json(
@@ -81,12 +82,43 @@ export async function GET(request: NextRequest) {
       classStudents.map((s: any) => [s.id, s])
     );
 
+    let monthFilter: any = {};
+    if (month) {
+      const isValidMonth = /^\d{4}-\d{2}$/.test(month);
+      if (!isValidMonth) {
+        return NextResponse.json(
+          { error: "month 형식이 올바르지 않습니다. (YYYY-MM)" },
+          { status: 400 }
+        );
+      }
+      const [yStr, mStr] = month.split("-");
+      const y = Number(yStr);
+      const m = Number(mStr);
+      if (!Number.isFinite(y) || !Number.isFinite(m) || m < 1 || m > 12) {
+        return NextResponse.json(
+          { error: "month 값이 올바르지 않습니다." },
+          { status: 400 }
+        );
+      }
+
+      // UTC 기준 월 범위 [monthStart, monthEndExclusive)
+      const monthStart = new Date(Date.UTC(y, m - 1, 1));
+      const monthEndExclusive = new Date(Date.UTC(y, m, 1));
+
+      // 해당 월과 "기간이 겹치는" 기록: startDate < monthEndExclusive AND endDate >= monthStart
+      monthFilter = {
+        startDate: { lt: monthEndExclusive },
+        endDate: { gte: monthStart },
+      };
+    }
+
     const records =
       studentIds.length > 0
         ? await (prisma as any).homeroomAttendance.findMany({
             where: {
               teacherId,
               studentId: { in: studentIds },
+              ...monthFilter,
             },
             orderBy: { createdAt: "desc" },
           })

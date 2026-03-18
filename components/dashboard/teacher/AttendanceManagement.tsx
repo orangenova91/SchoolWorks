@@ -20,6 +20,9 @@ export default function AttendanceManagement({
 }: AttendanceManagementProps) {
   const { showToast } = useToastContext();
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [selectedMonth, setSelectedMonth] = useState(() =>
+    new Date().toISOString().slice(0, 7)
+  );
   const [recordsForPrint, setRecordsForPrint] = useState<AttendanceRecord[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isPrintOpen, setIsPrintOpen] = useState(false);
@@ -70,6 +73,13 @@ export default function AttendanceManagement({
     setIsPrintOpen(true);
   }, [selectedRecords.length, showToast]);
 
+  const handleMonthChange = useCallback((nextMonth: string) => {
+    setSelectedMonth(nextMonth);
+    setSelectedIds(new Set());
+    setRecordsForPrint([]);
+    setIsPrintOpen(false);
+  }, []);
+
   if (!hasHomeroom) {
     return (
       <div className="text-sm text-gray-600">
@@ -90,7 +100,16 @@ export default function AttendanceManagement({
       </div>
       <div className="flex min-h-0 flex-1 flex-col rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
         <div className="mb-4 flex shrink-0 items-center justify-between gap-3">
-          <h3 className="text-base font-semibold text-gray-900">출결 목록</h3>
+          <div className="flex items-center gap-3">
+            <h3 className="text-base font-semibold text-gray-900">출결 목록</h3>
+            <input
+              type="month"
+              value={selectedMonth}
+              onChange={(e) => handleMonthChange(e.currentTarget.value)}
+              aria-label="월 선택"
+              className="h-9 rounded-md border border-gray-200 bg-white px-2 text-sm text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
           <button
             type="button"
             onClick={handlePrintSelected}
@@ -105,6 +124,7 @@ export default function AttendanceManagement({
         <div className="min-h-0 flex-1">
           <AttendanceRecordList
             classLabel={classLabel}
+            month={selectedMonth}
             refreshTrigger={refreshTrigger}
             selectedIds={selectedIds}
             onToggleSelected={onToggleSelected}
