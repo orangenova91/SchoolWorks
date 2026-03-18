@@ -306,30 +306,22 @@ export default function AttendanceRegistrationForm({
         </p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <SignaturePad
-          label="학생 서명"
-          value={studentSign}
-          onChange={setStudentSign}
-          height={120}
-        />
-        <SignaturePad
-          label="보호자 서명"
-          value={guardianSign}
-          onChange={setGuardianSign}
-          height={120}
-        />
+      {/* sm:grid-cols-1로 변경하거나 직접 w-full 클래스를 활용해 너비를 확보하세요 */}
+      <div className="grid grid-cols-1 gap-4">
         <SignaturePad
           label="교사 서명"
           value={teacherSign}
           onChange={setTeacherSign}
-          height={120}
+          // 높이를 120에서 200~250 정도로 키우면 훨씬 시원해 보입니다.
+          height={200} 
         />
       </div>
 
-      <Button type="submit" variant="primary" isLoading={isSubmitting}>
-        출결 등록
-      </Button>
+      <div className="flex justify-end mt-6">
+        <Button type="submit" variant="primary" isLoading={isSubmitting}>
+          출결 등록
+        </Button>
+      </div>
     </form>
   );
 }

@@ -238,12 +238,13 @@ body {
   }
 
   /* 출결 상세 모달 인쇄: 모달 열려 있을 때만 본문 숨기고 모달 내용만 출력 */
-  body.attendance-print-active * {
-    visibility: hidden;
-  }
-  body.attendance-print-active #attendance-record-print,
-  body.attendance-print-active #attendance-record-print * {
-    visibility: visible;
+  /* visibility:hidden 은 레이아웃(문서 높이)을 남겨 빈 페이지를 만들 수 있어
+     인쇄 시에는 모달 외 요소를 레이아웃에서 제거(display:none) */
+  body.attendance-print-active
+    :not(#attendance-record-print):not(#attendance-record-print *):not(#attendance-records-print):not(
+      #attendance-records-print *
+    ) {
+    display: none !important;
   }
   body.attendance-print-active #attendance-record-print {
     position: absolute !important;
@@ -251,6 +252,14 @@ body {
     top: 0 !important;
     width: 100% !important;
     max-width: none !important;
+  }
+  body.attendance-print-active #attendance-records-print {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    max-width: none !important;
+    background: white !important;
   }
 }
 
