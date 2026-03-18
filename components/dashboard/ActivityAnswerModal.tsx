@@ -17,7 +17,9 @@ type ActivityAnswerModalProps = {
   eventId: string;
   eventTitle: string;
   activityContent?: string;
-  onAnswered: (eventId: string, hasAnswers: boolean) => void;
+  onAnswered?: (eventId: string, hasAnswers: boolean) => void;
+  mode?: "student" | "teacher";
+  studentId?: string;
 };
 
 export default function ActivityAnswerModal({
@@ -27,11 +29,14 @@ export default function ActivityAnswerModal({
   eventTitle,
   activityContent,
   onAnswered,
+  mode = "student",
+  studentId,
 }: ActivityAnswerModalProps) {
   const { showToast } = useToastContext();
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [answers, setAnswers] = useState<AnswerItem[]>([]);
+  const [activityContentText, setActivityContentText] = useState<string>("");
   const [materials, setMaterials] = useState<
     { filePath: string; originalFileName: string; fileSize?: number | null; mimeType?: string | null }[]
   >([]);
@@ -40,9 +45,21 @@ export default function ActivityAnswerModal({
     if (!isOpen || !eventId) return;
 
     setIsLoading(true);
-    fetch(`/api/calendar-events/${eventId}/activity-answers`)
+    setActivityContentText(activityContent ?? "");
+    const url =
+      mode === "teacher"
+        ? `/api/teacher/calendar-events/${eventId}/activity-answers?studentId=${encodeURIComponent(
+            studentId || ""
+          )}`
+        : `/api/calendar-events/${eventId}/activity-answers`;
+    fetch(url)
       .then((res) => res.json())
       .then((data) => {
+        setActivityContentText(
+          typeof data.activityContent === "string"
+            ? data.activityContent
+            : activityContent ?? ""
+        );
         const qs = (data.questions || []) as Array<{ id: string; text: string }>;
         const as = (data.answers || []) as Array<{
           questionId: string;
@@ -70,10 +87,13 @@ export default function ActivityAnswerModal({
       .catch(() => {
         showToast("활동 응답을 불러오는 데 실패했습니다.", "error");
         setAnswers([]);
+        setActivityContentText(activityContent ?? "");
         setMaterials([]);
       })
       .finally(() => setIsLoading(false));
-  }, [isOpen, eventId, showToast]);
+  }, [isOpen, eventId, mode, studentId, showToast]);
+
+  const displayedActivityContent = activityContentText || activityContent || "";
 
   const handleChange = (questionId: string, text: string) => {
     setAnswers((prev) =>
@@ -85,6 +105,7 @@ export default function ActivityAnswerModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (mode === "teacher") return;
     setIsSubmitting(true);
     try {
       const trimmed = answers.map((a) => ({
@@ -107,7 +128,7 @@ export default function ActivityAnswerModal({
         );
       }
       showToast("활동 응답이 저장되었습니다.", "success");
-      onAnswered(eventId, hasNonEmpty);
+      onAnswered?.(eventId, hasNonEmpty);
     } catch (error: any) {
       showToast(
         error.message || "활동 응답을 저장하는 중 오류가 발생했습니다.",
@@ -159,9 +180,9 @@ export default function ActivityAnswerModal({
           </p>
         ) : answers.length === 0 ? (
           <>
-            {activityContent && (
+            {displayedActivityContent && (
               <div className="mb-4 p-3 rounded-md border border-gray-200 bg-gray-50 text-sm text-gray-800 whitespace-pre-wrap">
-                {activityContent}
+                {displayedActivityContent}
               </div>
             )}
             <p className="text-sm text-gray-500 py-8 text-center border-t border-gray-100 pt-4">
@@ -180,8 +201,8 @@ export default function ActivityAnswerModal({
                   활동 내용
                 </label>
                 <div className="flex-1 w-full rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-900 whitespace-pre-wrap overflow-y-auto min-h-[120px]">
-                  {activityContent
-                    ? activityContent
+                  {displayedActivityContent
+                    ? displayedActivityContent
                     : "교사가 등록한 활동 내용이 없습니다."}
                 </div>
 
@@ -240,16 +261,22 @@ export default function ActivityAnswerModal({
                           {a.questionText}
                         </p>
                       </div>
-                      <textarea
-                        value={a.text}
-                        onChange={(e) =>
-                          handleChange(a.questionId, e.target.value)
-                        }
-                        rows={3}
-                        maxLength={500}
-                        className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 resize-none"
-                        placeholder="여기에 답변을 입력하세요."
-                      />
+                      {mode === "teacher" ? (
+                        <div className="mt-1 w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 whitespace-pre-wrap">
+                          {a.text?.trim() ? a.text : "미제출"}
+                        </div>
+                      ) : (
+                        <textarea
+                          value={a.text}
+                          onChange={(e) =>
+                            handleChange(a.questionId, e.target.value)
+                          }
+                          rows={3}
+                          maxLength={500}
+                          className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 resize-none"
+                          placeholder="여기에 답변을 입력하세요."
+                        />
+                      )}
                       <div className="flex justify-end">
                         <span className="text-xs text-gray-400">
                           {a.text.length}/500
@@ -263,11 +290,13 @@ export default function ActivityAnswerModal({
 
             <div className="flex justify-end gap-2 mt-4 pt-4 border-t border-gray-100 shrink-0">
               <Button type="button" variant="outline" onClick={onClose}>
-                취소
+                닫기
               </Button>
-              <Button type="submit" isLoading={isSubmitting}>
-                저장
-              </Button>
+              {mode !== "teacher" && (
+                <Button type="submit" isLoading={isSubmitting}>
+                  저장
+                </Button>
+              )}
             </div>
           </form>
         )}

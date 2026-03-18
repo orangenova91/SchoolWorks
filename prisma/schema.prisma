@@ -822,3 +822,18 @@ model CounselingRecord {
   @@index([counseledAt])
   @@map("counseling_records")
 }
+
+// 학생별 생활기록부(학년도 단위) - 담임 교사가 작성
+model HomeroomLifeRecord {
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  studentId    String   @db.ObjectId
+  teacherId    String   @db.ObjectId
+  academicYear Int      // 학년도 기준 (3월~다음해 2월)
+  content      String   @default("")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([studentId, academicYear])
+  @@unique([studentId, academicYear, teacherId])
+  @@map("homeroom_life_records")
+}
