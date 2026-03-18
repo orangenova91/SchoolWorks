@@ -829,11 +829,12 @@ model HomeroomLifeRecord {
   studentId    String   @db.ObjectId
   teacherId    String   @db.ObjectId
   academicYear Int      // 학년도 기준 (3월~다음해 2월)
+  eventType    String   @default("자율*자치") // "자율*자치" | "동아리" | "봉사" | "진로"
   content      String   @default("")
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  @@index([studentId, academicYear])
-  @@unique([studentId, academicYear, teacherId])
+  @@index([studentId, academicYear, eventType])
+  @@unique([studentId, academicYear, teacherId, eventType])
   @@map("homeroom_life_records")
 }
