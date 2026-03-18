@@ -9,11 +9,13 @@ export const dynamic = "force-dynamic";
 const getQuerySchema = z.object({
   studentId: z.string().min(1),
   academicYear: z.coerce.number().int(),
+  eventType: z.string().min(1),
 });
 
 const patchSchema = z.object({
   studentId: z.string().min(1),
   academicYear: z.coerce.number().int(),
+  eventType: z.string().min(1),
   content: z.string().max(20000).default(""),
 });
 
@@ -96,6 +98,7 @@ export async function GET(request: NextRequest) {
     const parsed = getQuerySchema.safeParse({
       studentId: searchParams.get("studentId"),
       academicYear: searchParams.get("academicYear"),
+      eventType: searchParams.get("eventType"),
     });
 
     if (!parsed.success) {
@@ -105,20 +108,19 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const { studentId, academicYear } = parsed.data;
+    const { studentId, academicYear, eventType } = parsed.data;
 
     const perm = await checkStudentTeacherPermission(studentId, teacher.teacherId);
     if (!perm.ok) {
       return NextResponse.json({ error: perm.error }, { status: perm.status });
     }
 
-    const record = await (prisma as any).homeroomLifeRecord.findUnique({
+    const record = await (prisma as any).homeroomLifeRecord.findFirst({
       where: {
-        studentId_academicYear_teacherId: {
-          studentId,
-          academicYear,
-          teacherId: teacher.teacherId,
-        },
+        studentId,
+        academicYear,
+        teacherId: teacher.teacherId,
+        eventType,
       },
       select: { content: true, updatedAt: true },
     });
@@ -145,32 +147,39 @@ export async function PATCH(request: NextRequest) {
     }
 
     const body = patchSchema.parse(await request.json());
-    const { studentId, academicYear, content } = body;
+    const { studentId, academicYear, eventType, content } = body;
 
     const perm = await checkStudentTeacherPermission(studentId, teacher.teacherId);
     if (!perm.ok) {
       return NextResponse.json({ error: perm.error }, { status: perm.status });
     }
 
-    const record = await (prisma as any).homeroomLifeRecord.upsert({
+    const existing = await (prisma as any).homeroomLifeRecord.findFirst({
       where: {
-        studentId_academicYear_teacherId: {
-          studentId,
-          academicYear,
-          teacherId: teacher.teacherId,
-        },
-      },
-      create: {
         studentId,
-        teacherId: teacher.teacherId,
         academicYear,
-        content,
+        teacherId: teacher.teacherId,
+        eventType,
       },
-      update: {
-        content,
-      },
-      select: { content: true, updatedAt: true },
+      select: { id: true },
     });
+
+    const record = existing
+      ? await (prisma as any).homeroomLifeRecord.update({
+          where: { id: existing.id },
+          data: { content },
+          select: { content: true, updatedAt: true },
+        })
+      : await (prisma as any).homeroomLifeRecord.create({
+          data: {
+            studentId,
+            teacherId: teacher.teacherId,
+            academicYear,
+            eventType,
+            content,
+          },
+          select: { content: true, updatedAt: true },
+        });
 
     return NextResponse.json({
       content: record.content ?? "",

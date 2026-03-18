@@ -85,7 +85,8 @@ export default function LifeRecordManagement({ students }: LifeRecordManagementP
   const [events, setEvents] = useState<CreativeEventRow[]>([]);
   const [loading, setLoading] = useState(true);
   // 기본 필터: "자" (자율*자치)
-  const [eventTypeFilter, setEventTypeFilter] = useState<string | null>("자율*자치");
+  // 필터는 끌 수 없도록 항상 하나의 값만 유지합니다.
+  const [eventTypeFilter, setEventTypeFilter] = useState<string>("자율*자치");
   const [expandedStudentId, setExpandedStudentId] = useState<string | null>(null);
   const [statusLoadingStudentId, setStatusLoadingStudentId] = useState<string | null>(null);
   const [statusCache, setStatusCache] = useState<Record<string, Record<string, boolean>>>({});
@@ -103,10 +104,9 @@ export default function LifeRecordManagement({ students }: LifeRecordManagementP
   const lifeRecordContentRef = useRef<string>("");
   const lifeRecordLastSavedRef = useRef<string>("");
   const lifeRecordActiveStudentIdRef = useRef<string | null>(null);
+  const lifeRecordActiveEventTypeRef = useRef<string | null>(null);
 
-  const filteredEvents = eventTypeFilter
-    ? events.filter((e) => e.eventType === eventTypeFilter)
-    : events;
+  const filteredEvents = events.filter((e) => e.eventType === eventTypeFilter);
 
   const sortedStudents = [...(students || [])].sort((a, b) => {
     const aNo = normalizeStudentNumber(a.studentProfile?.studentId);
@@ -141,12 +141,24 @@ export default function LifeRecordManagement({ students }: LifeRecordManagementP
       // active 학생이 이미 열려있는 경우, unknown 키에 저장된 draft를 real 키로 마이그레이션
       const activeStudentId = lifeRecordActiveStudentIdRef.current;
       if (activeStudentId) {
-        const oldKey = `lifeRecordDraft:unknown:${activeStudentId}:${academicYear}`;
-        const newKey = `lifeRecordDraft:${id}:${activeStudentId}:${academicYear}`;
         try {
-          const oldRaw = window.localStorage.getItem(oldKey);
-          if (oldRaw && !window.localStorage.getItem(newKey)) {
-            window.localStorage.setItem(newKey, oldRaw);
+          const legacyOldKeyWithoutType = `lifeRecordDraft:unknown:${activeStudentId}:${academicYear}`;
+          const legacyOldRawWithoutType = window.localStorage.getItem(legacyOldKeyWithoutType);
+
+          for (const { key: eventType } of FILTER_BADGES) {
+            // unknown 키 + eventType이 같이 있던 경우(이번 변경 이후)까지 함께 마이그레이션합니다.
+            const oldKeyWithType = `lifeRecordDraft:unknown:${activeStudentId}:${academicYear}:${eventType}`;
+            const legacyOldRawWithType = window.localStorage.getItem(oldKeyWithType);
+
+            const newKey = `lifeRecordDraft:${id}:${activeStudentId}:${academicYear}:${eventType}`;
+            if (window.localStorage.getItem(newKey)) continue;
+
+            // eventType 포함 unknown 값이 있으면 그걸 우선 적용
+            // 없으면(=legacy 버전) eventType을 분리하기 전 old 값(타입 없는 키)을 복사
+            const rawToCopy = legacyOldRawWithType ?? legacyOldRawWithoutType ?? "";
+            if (rawToCopy) {
+              window.localStorage.setItem(newKey, rawToCopy);
+            }
           }
         } catch {
           // ignore
@@ -156,25 +168,37 @@ export default function LifeRecordManagement({ students }: LifeRecordManagementP
     }
   }, [academicYear, session?.user]);
 
-  const getLifeRecordDraftKey = (studentId: string) =>
-    `lifeRecordDraft:${teacherIdForKeyRef.current}:${studentId}:${academicYear}`;
+  const getLifeRecordDraftKey = (studentId: string, eventType: string) =>
+    `lifeRecordDraft:${teacherIdForKeyRef.current}:${studentId}:${academicYear}:${eventType}`;
 
-  const loadLifeRecordForStudent = async (studentId: string) => {
+  const loadLifeRecordForStudent = async (studentId: string, eventType: string) => {
     lifeRecordActiveStudentIdRef.current = studentId;
+    lifeRecordActiveEventTypeRef.current = eventType;
     setLifeRecordLoading(true);
     setLifeRecordIsSaving(false);
 
-    const key = getLifeRecordDraftKey(studentId);
+    const key = getLifeRecordDraftKey(studentId, eventType);
 
     // 1) 로컬 임시저장 먼저 로드(입력 유실 방지)
     let draftContent = "";
     let draftUpdatedAt = 0;
     try {
-      const raw = window.localStorage.getItem(key);
+      // 이전 버전은 eventType이 키에 없었습니다.
+      const raw =
+        window.localStorage.getItem(key) ??
+        window.localStorage.getItem(
+          `lifeRecordDraft:${teacherIdForKeyRef.current}:${studentId}:${academicYear}`
+        );
+
       if (raw) {
         const parsed = JSON.parse(raw) as { content?: string; updatedAt?: number };
         draftContent = parsed.content ?? "";
         draftUpdatedAt = typeof parsed.updatedAt === "number" ? parsed.updatedAt : 0;
+
+        // 신규 키가 없으면 복사해 둡니다(다음 로드부터는 eventType별로 분리됨)
+        if (!window.localStorage.getItem(key)) {
+          window.localStorage.setItem(key, raw);
+        }
       }
     } catch {
       // ignore
@@ -187,7 +211,9 @@ export default function LifeRecordManagement({ students }: LifeRecordManagementP
     // 2) 서버 저장값 로드(권한/최종 진실)
     try {
       const res = await fetch(
-        `/api/teacher/life-record?studentId=${encodeURIComponent(studentId)}&academicYear=${academicYear}`
+        `/api/teacher/life-record?studentId=${encodeURIComponent(
+          studentId
+        )}&academicYear=${academicYear}&eventType=${encodeURIComponent(eventType)}`
       );
       const data = await res.json();
       if (!res.ok) {
@@ -202,8 +228,9 @@ export default function LifeRecordManagement({ students }: LifeRecordManagementP
       const chosenUpdatedAt =
         draftUpdatedAt > dbUpdatedAt ? draftUpdatedAt : dbUpdatedAt || Date.now();
 
-      // 학생이 바뀌었으면 stale 응답 무시
+      // 학생/타입이 바뀌었으면 stale 응답 무시
       if (lifeRecordActiveStudentIdRef.current !== studentId) return;
+      if (lifeRecordActiveEventTypeRef.current !== eventType) return;
 
       setLifeRecordContent(chosenContent);
       lifeRecordContentRef.current = chosenContent;
@@ -223,9 +250,13 @@ export default function LifeRecordManagement({ students }: LifeRecordManagementP
       }
     } catch {
       if (lifeRecordActiveStudentIdRef.current !== studentId) return;
+      if (lifeRecordActiveEventTypeRef.current !== eventType) return;
       setLifeRecordSavedAt(null);
     } finally {
-      if (lifeRecordActiveStudentIdRef.current === studentId) {
+      if (
+        lifeRecordActiveStudentIdRef.current === studentId &&
+        lifeRecordActiveEventTypeRef.current === eventType
+      ) {
         setLifeRecordLoading(false);
       }
     }
@@ -240,17 +271,18 @@ export default function LifeRecordManagement({ students }: LifeRecordManagementP
 
     if (!expandedStudentId) {
       lifeRecordActiveStudentIdRef.current = null;
+      lifeRecordActiveEventTypeRef.current = null;
       setLifeRecordLoading(false);
       setLifeRecordIsSaving(false);
       return;
     }
 
-    void loadLifeRecordForStudent(expandedStudentId);
+    void loadLifeRecordForStudent(expandedStudentId, eventTypeFilter);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [expandedStudentId, academicYear]);
+  }, [expandedStudentId, academicYear, eventTypeFilter]);
 
-  const scheduleLifeRecordSave = (studentId: string, nextContent: string) => {
-    const key = getLifeRecordDraftKey(studentId);
+  const scheduleLifeRecordSave = (studentId: string, eventType: string, nextContent: string) => {
+    const key = getLifeRecordDraftKey(studentId, eventType);
 
     // localStorage는 즉시 기록(임시저장)
     try {
@@ -266,8 +298,14 @@ export default function LifeRecordManagement({ students }: LifeRecordManagementP
     }
 
     // 입력 즉시 화면 value를 갱신해야 컨트롤드 textarea 동작이 정상입니다.
-    lifeRecordContentRef.current = nextContent;
-    setLifeRecordContent(nextContent);
+    // 현재 열려있는 학생/타입에 대한 입력만 즉시 상태로 반영합니다.
+    if (
+      lifeRecordActiveStudentIdRef.current === studentId &&
+      lifeRecordActiveEventTypeRef.current === eventType
+    ) {
+      lifeRecordContentRef.current = nextContent;
+      setLifeRecordContent(nextContent);
+    }
 
     if (lifeRecordDebounceTimerRef.current) {
       clearTimeout(lifeRecordDebounceTimerRef.current);
@@ -275,8 +313,9 @@ export default function LifeRecordManagement({ students }: LifeRecordManagementP
 
     const contentToSave = nextContent;
     lifeRecordDebounceTimerRef.current = window.setTimeout(async () => {
-      // 사용자가 다른 학생으로 이동했으면 무시
+      // 사용자가 다른 학생/타입으로 이동했으면 무시
       if (lifeRecordActiveStudentIdRef.current !== studentId) return;
+      if (lifeRecordActiveEventTypeRef.current !== eventType) return;
 
       // 인증/세션 준비 전이면 DB PATCH는 스킵 (로컬 draft는 이미 저장됨)
       if (!sessionTeacherIdRef.current) return;
@@ -292,6 +331,7 @@ export default function LifeRecordManagement({ students }: LifeRecordManagementP
           body: JSON.stringify({
             studentId,
             academicYear,
+            eventType,
             content: contentToSave,
           }),
         });
@@ -305,6 +345,7 @@ export default function LifeRecordManagement({ students }: LifeRecordManagementP
         const updatedAt = data.updatedAt ? new Date(data.updatedAt).getTime() : Date.now();
 
         if (lifeRecordActiveStudentIdRef.current !== studentId) return;
+        if (lifeRecordActiveEventTypeRef.current !== eventType) return;
 
         // 사용자가 더 입력한 내용이 최신이면, 이전 PATCH 결과로 덮어쓰지 않습니다.
         if (lifeRecordContentRef.current !== contentToSave) return;
@@ -328,7 +369,10 @@ export default function LifeRecordManagement({ students }: LifeRecordManagementP
       } catch {
         // 실패해도 draft는 localStorage에 남아있음
       } finally {
-        if (lifeRecordActiveStudentIdRef.current === studentId) {
+        if (
+          lifeRecordActiveStudentIdRef.current === studentId &&
+          lifeRecordActiveEventTypeRef.current === eventType
+        ) {
           setLifeRecordIsSaving(false);
         }
       }
@@ -448,7 +492,8 @@ export default function LifeRecordManagement({ students }: LifeRecordManagementP
               <button
                 key={key}
                 type="button"
-                onClick={() => setEventTypeFilter(isActive ? null : key)}
+                // 필터는 끌 수 없도록 항상 하나의 값이 유지되게 합니다.
+                onClick={() => setEventTypeFilter(key)}
                 className="text-xs font-medium px-1 py-0 rounded-full border-2 transition-all hover:opacity-90"
                 style={{
                   backgroundColor: isActive ? color : "transparent",
@@ -783,6 +828,7 @@ export default function LifeRecordManagement({ students }: LifeRecordManagementP
                                               onChange={(e) =>
                                                 scheduleLifeRecordSave(
                                                   student.id,
+                                                  eventTypeFilter,
                                                   e.target.value
                                                 )
                                               }
