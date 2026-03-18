@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { Pencil, Trash2 } from "lucide-react";
 import { useToastContext } from "@/components/providers/ToastProvider";
@@ -9,7 +9,7 @@ import AttendanceRecordDetailModal, {
 } from "./AttendanceRecordDetailModal";
 import AttendanceRecordEditModal from "./AttendanceRecordEditModal";
 
-type AttendanceRecord = {
+export type AttendanceRecord = {
   id: string;
   studentId: string;
   studentName: string | null;
@@ -24,6 +24,7 @@ type AttendanceRecord = {
   writtenAt: string;
   studentSignUrl: string | null;
   guardianSignUrl: string | null;
+  teacherSignUrl: string | null;
   attachments: string | null;
   teacherName?: string | null;
   school?: string | null;
@@ -33,6 +34,10 @@ type AttendanceRecord = {
 type AttendanceRecordListProps = {
   classLabel: string;
   refreshTrigger?: number;
+  selectedIds: Set<string>;
+  onToggleSelected: (id: string) => void;
+  onToggleAllSelected: (ids: string[], nextChecked: boolean) => void;
+  onRecordsLoaded?: (records: AttendanceRecord[]) => void;
 };
 
 // 기존 DB 데이터("질병" 등) 및 새 데이터("결석 (질병)" 등) 모두 올바르게 표시
@@ -70,6 +75,10 @@ function formatDateShort(dateStr: string) {
 export default function AttendanceRecordList({
   classLabel,
   refreshTrigger = 0,
+  selectedIds,
+  onToggleSelected,
+  onToggleAllSelected,
+  onRecordsLoaded,
 }: AttendanceRecordListProps) {
   const { showToast } = useToastContext();
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
@@ -77,6 +86,7 @@ export default function AttendanceRecordList({
   const [selectedRecord, setSelectedRecord] = useState<AttendanceRecord | null>(null);
   const [editingRecord, setEditingRecord] = useState<AttendanceRecord | null>(null);
   const [mounted, setMounted] = useState(false);
+  const selectAllRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -93,14 +103,17 @@ export default function AttendanceRecordList({
       if (!res.ok) {
         throw new Error(data.error ?? "목록을 불러오지 못했습니다.");
       }
-      setRecords(data.records ?? []);
+      const nextRecords = (data.records ?? []) as AttendanceRecord[];
+      setRecords(nextRecords);
+      onRecordsLoaded?.(nextRecords);
     } catch (err: any) {
       showToast(err.message ?? "목록을 불러오지 못했습니다.", "error");
       setRecords([]);
+      onRecordsLoaded?.([]);
     } finally {
       setIsLoading(false);
     }
-  }, [classLabel, showToast]);
+  }, [classLabel, showToast, onRecordsLoaded]);
 
   useEffect(() => {
     fetchRecords();
@@ -121,6 +134,16 @@ export default function AttendanceRecordList({
       showToast(err.message ?? "삭제에 실패했습니다.", "error");
     }
   };
+
+  const recordIds = records.map((r) => r.id);
+  const allSelected =
+    recordIds.length > 0 && recordIds.every((id) => selectedIds.has(id));
+  const someSelected = recordIds.some((id) => selectedIds.has(id));
+
+  useEffect(() => {
+    if (!selectAllRef.current) return;
+    selectAllRef.current.indeterminate = !allSelected && someSelected;
+  }, [allSelected, someSelected]);
 
   if (isLoading) {
     return (
@@ -145,6 +168,19 @@ export default function AttendanceRecordList({
         <table className="min-w-full table-fixed divide-y divide-gray-200">
           <thead className="bg-gray-50 sticky top-0">
             <tr>
+              <th className="w-10 px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase">
+                <input
+                  ref={selectAllRef}
+                  type="checkbox"
+                  checked={allSelected}
+                  onChange={(e) =>
+                    onToggleAllSelected(recordIds, e.currentTarget.checked)
+                  }
+                  onClick={(e) => e.stopPropagation()}
+                  aria-label="전체 선택"
+                  className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                />
+              </th>
               <th className="w-[80px] px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
                 학생
               </th>
@@ -169,6 +205,18 @@ export default function AttendanceRecordList({
                 className="hover:bg-gray-50 cursor-pointer transition-colors"
                 onClick={() => setSelectedRecord(r)}
               >
+                <td
+                  className="w-10 px-3 py-3 text-center"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <input
+                    type="checkbox"
+                    checked={selectedIds.has(r.id)}
+                    onChange={() => onToggleSelected(r.id)}
+                    aria-label={`${r.studentName ?? "학생"} 선택`}
+                    className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                </td>
                 <td className="w-[80px] px-4 py-3 text-sm">
                   <div className="font-medium text-gray-900 whitespace-nowrap">
                     {r.studentName ?? "-"}
