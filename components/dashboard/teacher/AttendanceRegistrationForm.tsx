@@ -271,6 +271,8 @@ export default function AttendanceRegistrationForm({
         />
       </div>
 
+      {/* 숨기기 위해 false && 를 추가했습니다. 다시 보이게 하려면 true로 바꾸세요. */}
+      {false && (
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">
           첨부 파일 (선택)
@@ -304,7 +306,7 @@ export default function AttendanceRegistrationForm({
         <p className="mt-1 text-xs text-gray-500">
          진단서, 진료확인서, 처방전, 처방약봉지, 입퇴원확인서 등 (파일당 최대 10MB)
         </p>
-      </div>
+      </div>)}
 
       {/* sm:grid-cols-1로 변경하거나 직접 w-full 클래스를 활용해 너비를 확보하세요 */}
       <div className="grid grid-cols-1 gap-4">
