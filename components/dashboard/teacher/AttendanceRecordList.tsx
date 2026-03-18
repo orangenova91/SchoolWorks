@@ -135,7 +135,41 @@ export default function AttendanceRecordList({
     }
   };
 
-  const recordIds = records.map((r) => r.id);
+  const getPeriodNumber = (r: AttendanceRecord): number => {
+    const raw =
+      r.type === "조퇴"
+        ? r.periodFrom
+        : r.type === "지각"
+          ? r.periodTo
+          : r.type === "결과"
+            ? r.period
+            : null;
+    if (!raw) return 0;
+    const m = String(raw).match(/\d+/);
+    return m ? Number(m[0]) : 0;
+  };
+
+  const sortedRecords = [...records].sort((a, b) => {
+    const aStart = new Date(a.startDate).getTime();
+    const bStart = new Date(b.startDate).getTime();
+    if (aStart !== bStart) return aStart - bStart;
+
+    const aPeriod = getPeriodNumber(a);
+    const bPeriod = getPeriodNumber(b);
+    if (aPeriod !== bPeriod) return aPeriod - bPeriod;
+
+    const aEnd = new Date(a.endDate).getTime();
+    const bEnd = new Date(b.endDate).getTime();
+    if (aEnd !== bEnd) return aEnd - bEnd;
+
+    const aWritten = new Date(a.writtenAt).getTime();
+    const bWritten = new Date(b.writtenAt).getTime();
+    if (aWritten !== bWritten) return aWritten - bWritten;
+
+    return String(a.id).localeCompare(String(b.id));
+  });
+
+  const recordIds = sortedRecords.map((r) => r.id);
   const allSelected =
     recordIds.length > 0 && recordIds.every((id) => selectedIds.has(id));
   const someSelected = recordIds.some((id) => selectedIds.has(id));
@@ -199,7 +233,7 @@ export default function AttendanceRecordList({
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {records.map((r) => (
+            {sortedRecords.map((r) => (
               <tr
                 key={r.id}
                 className="hover:bg-gray-50 cursor-pointer transition-colors"
