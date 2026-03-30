@@ -148,14 +148,21 @@ export default function MinimumAchievementPlanSection() {
       );
 
   const handleDownloadZip = (grade: string) => {
-    if (uploadingGrade || deletingId) return;
+    if (uploadingGrade || deletingId || downloadingGrade) return;
     setDownloadingGrade(grade);
-    window.location.assign(
-      `/api/minimum-achievement-plan/download?grade=${encodeURIComponent(
-        grade
-      )}&semester=${encodeURIComponent(semester)}`
-    );
-    window.setTimeout(() => setDownloadingGrade(null), 1500);
+
+    const url = `/api/minimum-achievement-plan/download?grade=${encodeURIComponent(
+      grade
+    )}&semester=${encodeURIComponent(semester)}`;
+
+    const link = document.createElement("a");
+    link.href = url;
+    link.rel = "noopener noreferrer";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+
+    window.setTimeout(() => setDownloadingGrade(null), 2500);
   };
 
   if (error) {

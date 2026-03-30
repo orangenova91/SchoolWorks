@@ -138,14 +138,21 @@ export default function EvaluationPlanSection() {
       );
 
   const handleDownloadZip = (grade: string) => {
-    if (uploadingGrade || deletingId) return;
+    if (uploadingGrade || deletingId || downloadingGrade) return;
     setDownloadingGrade(grade);
-    // Let the browser handle the file download with cookies/session
-    window.location.assign(
-      `/api/evaluation-plan/download?grade=${encodeURIComponent(grade)}&semester=${encodeURIComponent(semester)}`
-    );
-    // Best-effort: clear UI state shortly after
-    window.setTimeout(() => setDownloadingGrade(null), 1500);
+
+    const url = `/api/evaluation-plan/download?grade=${encodeURIComponent(
+      grade
+    )}&semester=${encodeURIComponent(semester)}`;
+
+    const link = document.createElement("a");
+    link.href = url;
+    link.rel = "noopener noreferrer";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+
+    window.setTimeout(() => setDownloadingGrade(null), 2500);
   };
 
   if (error) {
