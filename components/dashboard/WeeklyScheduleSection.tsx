@@ -185,7 +185,7 @@ export default function WeeklyScheduleSection({
                 <p className="md:hidden text-sm font-semibold text-gray-900 mb-2">
                   {day.dateLabel}
                 </p>
-                <div className="flex-1 min-h-0 overflow-y-auto space-y-3">
+                <div className="flex-1 min-h-0 overflow-y-auto space-y-1">
                   {day.events.length === 0 && !hasSupervisionMeal ? (
                     <p className="text-xs text-gray-400">등록된 일정이 없습니다.</p>
                   ) : (
@@ -206,7 +206,7 @@ export default function WeeklyScheduleSection({
                       >
                         <button
                           type="button"
-                          className="w-full text-left rounded-lg border py-2 px-3 shadow-sm transition focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 border-gray-100 bg-white/50 hover:bg-white hover:border-blue-200"
+                          className="w-full text-left rounded-lg border py-1 px-2 shadow-sm transition focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 border-gray-100 bg-white/50 hover:bg-white hover:border-blue-200"
                         >
                           <div className="flex items-center gap-2">
                             {event.periods?.length ? (
