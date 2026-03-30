@@ -100,7 +100,9 @@ export default function WeeklyScheduleSection({
         )}
       </div>
       <div className="rounded-xl border border-gray-100 overflow-hidden">
-        <div className="hidden md:grid grid-cols-7 bg-gray-50 text-sm font-semibold uppercase tracking-wide text-gray-500">
+        <div className="overflow-x-auto">
+          <div className="min-w-[760px]">
+        <div className="grid grid-cols-7 bg-gray-50 text-xs md:text-sm font-semibold uppercase tracking-wide text-gray-500">
           {schedule.map((day) => {
             const isToday = day.isoDate === todayIsoDate;
             const dayOfWeek = getDayOfWeek(day.isoDate);
@@ -123,40 +125,14 @@ export default function WeeklyScheduleSection({
             return (
               <div
                 key={`${day.dateLabel}-header`}
-                className={`px-4 py-3 border-r border-gray-100 last:border-r-0 ${headerBgClass} ${headerTextClass}`}
+                className={`px-2 md:px-4 py-2.5 md:py-3 border-r border-gray-100 last:border-r-0 ${headerBgClass} ${headerTextClass}`}
               >
                 {day.dateLabel}
               </div>
             );
           })}
         </div>
-        <div className="md:hidden grid grid-cols-2 text-xs font-semibold uppercase tracking-wide text-gray-500 bg-gray-50">
-          {schedule.map((day) => {
-            const dayOfWeek = getDayOfWeek(day.isoDate);
-            const isSunday = dayOfWeek === 0;
-            const isSaturday = dayOfWeek === 6;
-            
-            let headerBgClass = "";
-            let headerTextClass = "";
-            if (isSunday) {
-              headerBgClass = "bg-red-50";
-              headerTextClass = "text-red-700";
-            } else if (isSaturday) {
-              headerBgClass = "bg-blue-50";
-              headerTextClass = "text-blue-600";
-            }
-            
-            return (
-              <div
-                key={`${day.dateLabel}-header-mobile`}
-                className={`px-2 py-2 border-r border-gray-100 last:border-r-0 ${headerBgClass} ${headerTextClass}`}
-              >
-                {day.dateLabel}
-              </div>
-            );
-          })}
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-7 divide-y md:divide-y-0 md:divide-x divide-gray-100 max-h-[280px]">
+        <div className="grid grid-cols-7 divide-x divide-gray-100 max-h-[280px]">
           {schedule.map((day) => {
             const isToday = day.isoDate === todayIsoDate;
             const dayOfWeek = getDayOfWeek(day.isoDate);
@@ -180,9 +156,9 @@ export default function WeeklyScheduleSection({
             return (
               <div
                 key={`${day.dateLabel}-body`}
-                className={`py-3 px-2 flex flex-col max-h-[240px] md:min-h-0 ${bodyBgClass}`}
+                className={`py-3 px-2 flex flex-col max-h-[240px] min-h-0 ${bodyBgClass}`}
               >
-                <p className="md:hidden text-sm font-semibold text-gray-900 mb-2">
+                <p className="hidden text-sm font-semibold text-gray-900 mb-2">
                   {day.dateLabel}
                 </p>
                 <div className="flex-1 min-h-0 overflow-y-auto space-y-1">
@@ -290,6 +266,8 @@ export default function WeeklyScheduleSection({
               </div>
             );
           })}
+        </div>
+          </div>
         </div>
       </div>
 
