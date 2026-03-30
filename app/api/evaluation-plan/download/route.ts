@@ -83,38 +83,51 @@ export async function GET(request: NextRequest) {
 
     archive.pipe(passthrough);
 
-    const usedNames = new Map<string, number>();
-    for (const f of files) {
-      const url = String(f.filePath || "");
-      if (!url) continue;
-
-      let baseName = sanitizeFileName(String(f.originalFileName || "file"));
-      const count = usedNames.get(baseName) ?? 0;
-      usedNames.set(baseName, count + 1);
-      if (count > 0) {
-        const dot = baseName.lastIndexOf(".");
-        if (dot > 0) {
-          baseName = `${baseName.slice(0, dot)} (${count + 1})${baseName.slice(dot)}`;
-        } else {
-          baseName = `${baseName} (${count + 1})`;
-        }
-      }
-
-      const resp = await fetch(url);
-      if (!resp.ok || !resp.body) {
-        console.warn("Skipping file (fetch failed):", { url, status: resp.status });
-        continue;
-      }
-
-      // Convert web stream -> Node readable for archiver
-      const nodeStream = Readable.fromWeb(resp.body as any);
-      archive.append(nodeStream, { name: baseName });
-    }
-
-    // finalize zip after appending
-    await archive.finalize();
-
     const webStream = Readable.toWeb(passthrough) as unknown as ReadableStream;
+    void (async () => {
+      try {
+        const usedNames = new Map<string, number>();
+        let appendedCount = 0;
+
+        for (const f of files) {
+          const url = String(f.filePath || "");
+          if (!url) continue;
+
+          let baseName = sanitizeFileName(String(f.originalFileName || "file"));
+          const count = usedNames.get(baseName) ?? 0;
+          usedNames.set(baseName, count + 1);
+          if (count > 0) {
+            const dot = baseName.lastIndexOf(".");
+            if (dot > 0) {
+              baseName = `${baseName.slice(0, dot)} (${count + 1})${baseName.slice(dot)}`;
+            } else {
+              baseName = `${baseName} (${count + 1})`;
+            }
+          }
+
+          const resp = await fetch(url);
+          if (!resp.ok || !resp.body) {
+            console.warn("Skipping file (fetch failed):", { url, status: resp.status });
+            continue;
+          }
+
+          // Convert web stream -> Node readable for archiver
+          const nodeStream = Readable.fromWeb(resp.body as any);
+          archive.append(nodeStream, { name: baseName });
+          appendedCount += 1;
+        }
+
+        if (appendedCount === 0) {
+          throw new Error("No downloadable files could be fetched for ZIP.");
+        }
+
+        await archive.finalize();
+      } catch (err) {
+        console.error("Evaluation plan ZIP stream error:", err);
+        passthrough.destroy(err as Error);
+      }
+    })();
+
     return new NextResponse(webStream, {
       headers: {
         "Content-Type": "application/zip",
