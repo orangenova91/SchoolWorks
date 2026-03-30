@@ -180,7 +180,7 @@ export default function WeeklyScheduleSection({
             return (
               <div
                 key={`${day.dateLabel}-body`}
-                className={`p-4 flex flex-col max-h-[240px] md:min-h-0 ${bodyBgClass}`}
+                className={`py-3 px-2 flex flex-col max-h-[240px] md:min-h-0 ${bodyBgClass}`}
               >
                 <p className="md:hidden text-sm font-semibold text-gray-900 mb-2">
                   {day.dateLabel}
