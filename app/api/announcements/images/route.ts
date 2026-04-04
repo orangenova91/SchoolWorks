@@ -2,16 +2,20 @@ import { put } from '@vercel/blob';
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
+import { rejectMissingSchool } from '@/lib/api-auth';
 
 export async function POST(request: NextRequest) {
   try {
     // 인증 확인
     const session = await getServerSession(authOptions);
-    if (!session) {
+    if (!session?.user) {
       return NextResponse.json(
         { error: '인증이 필요합니다.' },
         { status: 401 }
       );
+    }
+    if (!session.user.school) {
+      return rejectMissingSchool();
     }
 
     const formData = await request.formData();

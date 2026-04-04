@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import {
+  assertSameSchoolForAnnouncement,
+  rejectUnauthenticated,
+  requireSession,
+} from "@/lib/api-auth";
 
 export async function GET(
   request: NextRequest,
@@ -10,8 +15,8 @@ export async function GET(
   try {
     const session = await getServerSession(authOptions);
 
-    if (!session || !session.user) {
-      return NextResponse.json({ error: "인증이 필요합니다." }, { status: 401 });
+    if (!requireSession(session)) {
+      return rejectUnauthenticated();
     }
 
     if (session.user.role !== "teacher") {
@@ -33,15 +38,14 @@ export async function GET(
       return NextResponse.json({ error: "안내문을 찾을 수 없습니다." }, { status: 404 });
     }
 
+    const pendingSchoolErr = assertSameSchoolForAnnouncement(session, announcement.school);
+    if (pendingSchoolErr) return pendingSchoolErr;
+
     if (announcement.authorId !== session.user.id) {
       return NextResponse.json(
         { error: "작성한 교사만 확인할 수 있습니다." },
         { status: 403 }
       );
-    }
-
-    if (session.user.school && announcement.school !== session.user.school) {
-      return NextResponse.json({ error: "권한이 없습니다." }, { status: 403 });
     }
 
     const normalizeNumber = (value: string) => value.trim().replace(/^0+/, "");

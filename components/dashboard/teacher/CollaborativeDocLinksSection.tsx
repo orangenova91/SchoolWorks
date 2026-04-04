@@ -57,7 +57,7 @@ export default function CollaborativeDocLinksSection() {
   return (
     <section className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-semibold text-gray-900">협업 문서 링크 생성</h2>
+        <h2 className="text-lg font-semibold text-gray-900"> 임시 업무 Link 생성</h2>
         <button
           type="button"
           onClick={() => {

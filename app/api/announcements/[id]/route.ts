@@ -3,6 +3,11 @@ import { getServerSession } from "next-auth";
 import { z } from "zod";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import {
+  assertSameSchoolForAnnouncement,
+  rejectUnauthenticated,
+  requireSession,
+} from "@/lib/api-auth";
 import { put } from '@vercel/blob';
 
 const AUDIENCE_VALUES = ["all", "grade-1", "grade-2", "grade-3", "parents", "teacher", "students"] as const;
@@ -162,8 +167,8 @@ export async function GET(
   try {
     const session = await getServerSession(authOptions);
 
-    if (!session || !session.user) {
-      return NextResponse.json({ error: "인증이 필요합니다." }, { status: 401 });
+    if (!requireSession(session)) {
+      return rejectUnauthenticated();
     }
 
     const announcement = await (prisma as any).announcement.findUnique({
@@ -174,10 +179,8 @@ export async function GET(
       return NextResponse.json({ error: "안내문을 찾을 수 없습니다." }, { status: 404 });
     }
 
-    // 학교 필터 확인
-    if (session.user.school && announcement.school !== session.user.school) {
-      return NextResponse.json({ error: "권한이 없습니다." }, { status: 403 });
-    }
+    const schoolErr = assertSameSchoolForAnnouncement(session, announcement.school);
+    if (schoolErr) return schoolErr;
 
     // 교사만 수정 가능하도록 권한 확인 (조회는 모든 인증된 사용자 가능)
     return NextResponse.json({
@@ -198,7 +201,6 @@ export async function GET(
         selectedClassGroupIds: announcement.selectedClassGroupIds || [],
         selectedClasses: announcement.selectedClasses || null,
         parentSelectedClasses: announcement.parentSelectedClasses || null,
-        selectedClassGroupIds: announcement.selectedClassGroupIds || [],
         surveyData: announcement.surveyData || null,
         surveyStartDate: announcement.surveyStartDate?.toISOString() || null,
         surveyEndDate: announcement.surveyEndDate?.toISOString() || null,
@@ -227,8 +229,8 @@ export async function PATCH(
   try {
     const session = await getServerSession(authOptions);
     
-    if (!session || !session.user) {
-      return NextResponse.json({ error: "인증이 필요합니다." }, { status: 401 });
+    if (!requireSession(session)) {
+      return rejectUnauthenticated();
     }
 
     // 안내문 존재 여부 확인
@@ -243,10 +245,8 @@ export async function PATCH(
       );
     }
 
-    // 학교 필터 확인
-    if (session.user.school && existingAnnouncement.school !== session.user.school) {
-      return NextResponse.json({ error: "권한이 없습니다." }, { status: 403 });
-    }
+    const patchSchoolErr = assertSameSchoolForAnnouncement(session, existingAnnouncement.school);
+    if (patchSchoolErr) return patchSchoolErr;
 
     // 이미 조회한 이력이 있는지 확인
     const existingView = await (prisma as any).announcementView.findUnique({
@@ -356,6 +356,13 @@ export async function PUT(
       );
     }
 
+    if (!session.user.school) {
+      return NextResponse.json(
+        { error: "학교 정보가 필요합니다. 관리자에게 문의하세요." },
+        { status: 403 }
+      );
+    }
+
     // 기존 안내문 조회
     const existingAnnouncement = await (prisma as any).announcement.findUnique({
       where: { id: params.id },
@@ -368,6 +375,9 @@ export async function PUT(
       );
     }
 
+    const putSchoolErr = assertSameSchoolForAnnouncement(session, existingAnnouncement.school);
+    if (putSchoolErr) return putSchoolErr;
+
     // 작성자 확인 (본인이 작성한 안내문 또는 수정 권한이 있는 경우만 수정 가능)
     const editableBy = existingAnnouncement.editableBy || [];
     if (existingAnnouncement.authorId !== session.user.id && !editableBy.includes(session.user.id)) {
@@ -375,11 +385,6 @@ export async function PUT(
         { error: "본인이 작성한 안내문만 수정할 수 있습니다." },
         { status: 403 }
       );
-    }
-
-    // 학교 필터 확인
-    if (session.user.school && existingAnnouncement.school !== session.user.school) {
-      return NextResponse.json({ error: "권한이 없습니다." }, { status: 403 });
     }
 
     // FormData 또는 JSON 처리
@@ -603,6 +608,13 @@ export async function DELETE(
       );
     }
 
+    if (!session.user.school) {
+      return NextResponse.json(
+        { error: "학교 정보가 필요합니다. 관리자에게 문의하세요." },
+        { status: 403 }
+      );
+    }
+
     // 기존 안내문 조회
     const existingAnnouncement = await (prisma as any).announcement.findUnique({
       where: { id },
@@ -615,17 +627,15 @@ export async function DELETE(
       );
     }
 
+    const delSchoolErr = assertSameSchoolForAnnouncement(session, existingAnnouncement.school);
+    if (delSchoolErr) return delSchoolErr;
+
     // 작성자 확인 (본인이 작성한 안내문만 삭제 가능)
     if (existingAnnouncement.authorId !== session.user.id) {
       return NextResponse.json(
         { error: "본인이 작성한 안내문만 삭제할 수 있습니다." },
         { status: 403 }
       );
-    }
-
-    // 학교 필터 확인
-    if (session.user.school && existingAnnouncement.school !== session.user.school) {
-      return NextResponse.json({ error: "권한이 없습니다." }, { status: 403 });
     }
 
     // 연관 데이터를 순서대로 삭제 (Comment는 self-relation이라 리프부터 삭제)

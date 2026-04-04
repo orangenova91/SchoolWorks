@@ -139,7 +139,7 @@ export default function AddCollaborativeDocModal({
       >
         <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
           <h2 id="modal-title" className="text-lg font-semibold text-gray-900">
-            {isEditMode ? "협업 문서 링크 수정" : "협업 문서 링크 추가"}
+            {isEditMode ? "임시 업무 Link 수정" : "임시 업무 Link 추가"}
           </h2>
           <button
             type="button"

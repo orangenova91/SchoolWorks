@@ -3,6 +3,11 @@ import { getServerSession } from "next-auth";
 import { z } from "zod";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import {
+  assertSameSchoolForAnnouncement,
+  rejectUnauthenticated,
+  requireSession,
+} from "@/lib/api-auth";
 
 export const dynamic = 'force-dynamic';
 
@@ -18,8 +23,8 @@ export async function PUT(
   try {
     const session = await getServerSession(authOptions);
 
-    if (!session || !session.user) {
-      return NextResponse.json({ error: "인증이 필요합니다." }, { status: 401 });
+    if (!requireSession(session)) {
+      return rejectUnauthenticated();
     }
 
     // 댓글 조회
@@ -39,10 +44,11 @@ export async function PUT(
       return NextResponse.json({ error: "잘못된 요청입니다." }, { status: 400 });
     }
 
-    // 학교 필터 확인
-    if (session.user.school && comment.announcement.school !== session.user.school) {
-      return NextResponse.json({ error: "권한이 없습니다." }, { status: 403 });
-    }
+    const putCommentSchoolErr = assertSameSchoolForAnnouncement(
+      session,
+      comment.announcement.school
+    );
+    if (putCommentSchoolErr) return putCommentSchoolErr;
 
     // 작성자만 수정 가능
     if (comment.authorId !== session.user.id) {
@@ -143,8 +149,8 @@ export async function DELETE(
   try {
     const session = await getServerSession(authOptions);
 
-    if (!session || !session.user) {
-      return NextResponse.json({ error: "인증이 필요합니다." }, { status: 401 });
+    if (!requireSession(session)) {
+      return rejectUnauthenticated();
     }
 
     // 댓글 조회
@@ -164,10 +170,11 @@ export async function DELETE(
       return NextResponse.json({ error: "잘못된 요청입니다." }, { status: 400 });
     }
 
-    // 학교 필터 확인
-    if (session.user.school && comment.announcement.school !== session.user.school) {
-      return NextResponse.json({ error: "권한이 없습니다." }, { status: 403 });
-    }
+    const delCommentSchoolErr = assertSameSchoolForAnnouncement(
+      session,
+      comment.announcement.school
+    );
+    if (delCommentSchoolErr) return delCommentSchoolErr;
 
     // 작성자 또는 교사만 삭제 가능
     const isAuthor = comment.authorId === session.user.id;

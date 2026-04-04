@@ -9,7 +9,8 @@ import BannerSection from "@/components/dashboard/teacher/BannerSection";
 import TodaySummaryBanner from "@/components/dashboard/teacher/TodaySummaryBanner";
 import { WeeklySchedulePanel } from "@/components/dashboard/teacher/WeeklySchedulePanel";
 import CollaborativeDocLinksSection from "@/components/dashboard/teacher/CollaborativeDocLinksSection";
-import { Calendar, Users, UserCheck, MessageSquare, Paperclip } from "lucide-react";
+import TeacherBoardQuickLinks from "@/components/dashboard/teacher/TeacherBoardQuickLinks";
+import { Paperclip } from "lucide-react";
 
 const t = getTranslations("ko");
 
@@ -763,61 +764,18 @@ export default async function TeacherDashboardPage() {
           currentTeacherEmail={session.user.email ?? undefined}
         />
 
+        <TeacherBoardQuickLinks />
+
         <BannerSection />
+      </div>
+      
+      <div className="flex flex-col gap-6">
+              <CollaborativeDocLinksSection />
       </div>
       
       {showExtraTeacherDashboardSections && (
         <>
-          <div className="flex flex-col gap-6">
-              <section className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
-                <h2 className="text-lg font-semibold text-gray-900 mb-4">바로가기</h2>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <Link
-                    href="/dashboard/teacher/schedule"
-                    className="flex flex-col items-center justify-center p-6 rounded-lg border border-gray-200 bg-white hover:bg-blue-50 hover:border-blue-300 transition-all duration-200 cursor-pointer group"
-                  >
-                    <Calendar className="w-8 h-8 text-blue-600 mb-3 group-hover:text-blue-700" />
-                    <span className="text-sm font-medium text-gray-700 group-hover:text-blue-900">
-                      학사일정
-                    </span>
-                  </Link>
-
-                  <Link
-                    href="/dashboard/teacher/students"
-                    className="flex flex-col items-center justify-center p-6 rounded-lg border border-gray-200 bg-white hover:bg-green-50 hover:border-green-300 transition-all duration-200 cursor-pointer group"
-                  >
-                    <Users className="w-8 h-8 text-green-600 mb-3 group-hover:text-green-700" />
-                    <span className="text-sm font-medium text-gray-700 group-hover:text-green-900">
-                      학생명렬
-                    </span>
-                  </Link>
-
-                  <Link
-                    href="/dashboard/teacher/staff"
-                    className="flex flex-col items-center justify-center p-6 rounded-lg border border-gray-200 bg-white hover:bg-purple-50 hover:border-purple-300 transition-all duration-200 cursor-pointer group"
-                  >
-                    <UserCheck className="w-8 h-8 text-purple-600 mb-3 group-hover:text-purple-700" />
-                    <span className="text-sm font-medium text-gray-700 group-hover:text-purple-900">
-                      교직원 명렬
-                    </span>
-                  </Link>
-
-                  <Link
-                    href="/dashboard/chat"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex flex-col items-center justify-center p-6 rounded-lg border border-gray-200 bg-white hover:bg-orange-50 hover:border-orange-300 transition-all duration-200 cursor-pointer group"
-                  >
-                    <MessageSquare className="w-8 h-8 text-orange-600 mb-3 group-hover:text-orange-700" />
-                    <span className="text-sm font-medium text-gray-700 group-hover:text-orange-900">
-                      채팅하기
-                    </span>
-                  </Link>
-                </div>
-              </section>
-
-              <CollaborativeDocLinksSection />
-          </div>
+          
 
           <section className="grid gap-6 lg:grid-cols-2">
             {/* 교직원 게시판 */}
@@ -878,7 +836,7 @@ export default async function TeacherDashboardPage() {
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-semibold text-gray-900">가정 안내문</h2>
                 <Link
-                  href="/dashboard/teacher/announcements"
+                  href="/dashboard/teacher/board_parents"
                   className="text-sm text-blue-600 hover:text-blue-700 font-medium"
                 >
                   더보기 →
@@ -895,7 +853,7 @@ export default async function TeacherDashboardPage() {
                     return (
                       <Link
                         key={announcement.id}
-                        href={`/dashboard/teacher/announcements`}
+                        href={`/dashboard/teacher/board_parents`}
                         className="block p-3 rounded-lg border border-gray-100 hover:bg-gray-50 hover:border-gray-200 transition-colors"
                       >
                         <div className="flex items-start gap-3">
