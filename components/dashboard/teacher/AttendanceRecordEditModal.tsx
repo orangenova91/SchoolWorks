@@ -7,6 +7,12 @@ import { useToastContext } from "@/components/providers/ToastProvider";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Button } from "@/components/ui/Button";
+import {
+  isShortPeriodType,
+  todayLocalYmd,
+  addOneDaySkipWeekendYmd,
+  toLocalDateInputValue,
+} from "@/lib/attendanceWrittenDate";
 
 const ATTENDANCE_TYPES = [
   { value: "결석 (질병)", label: "결석 (질병)" },
@@ -57,12 +63,6 @@ type AttendanceRecordEditModalProps = {
   onSuccess: () => void;
 };
 
-function toDateInputValue(dateStr: string) {
-  if (!dateStr) return "";
-  const d = new Date(dateStr);
-  return d.toISOString().slice(0, 10);
-}
-
 export default function AttendanceRecordEditModal({
   record,
   isOpen,
@@ -88,10 +88,18 @@ export default function AttendanceRecordEditModal({
     setPeriodFrom(record.periodFrom ?? "");
     setPeriodTo(record.periodTo ?? "");
     setPeriod(record.period ?? "");
-    setStartDate(toDateInputValue(record.startDate));
-    setEndDate(toDateInputValue(record.endDate));
-    setWrittenAt(toDateInputValue(record.writtenAt));
+    setStartDate(toLocalDateInputValue(record.startDate));
+    setEndDate(toLocalDateInputValue(record.endDate));
   }, [isOpen, record]);
+
+  useEffect(() => {
+    if (!isOpen || !record) return;
+    if (isShortPeriodType(type)) {
+      setWrittenAt(startDate ? addOneDaySkipWeekendYmd(startDate) : todayLocalYmd());
+    } else {
+      setWrittenAt(endDate ? addOneDaySkipWeekendYmd(endDate) : todayLocalYmd());
+    }
+  }, [isOpen, record, type, startDate, endDate]);
 
   useEffect(() => {
     if (!isOpen) return;

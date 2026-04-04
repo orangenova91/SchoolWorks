@@ -8,6 +8,11 @@ import { Select } from "@/components/ui/Select";
 import { Button } from "@/components/ui/Button";
 import { SignaturePad } from "@/components/ui/SignaturePad";
 import { StudentAutocomplete } from "@/components/dashboard/StudentAutocomplete";
+import {
+  isShortPeriodType,
+  todayLocalYmd,
+  addOneDaySkipWeekendYmd,
+} from "@/lib/attendanceWrittenDate";
 
 const ATTENDANCE_TYPES = [
   { value: "결석 (질병)", label: "결석 (질병)" },
@@ -44,43 +49,6 @@ function toStudentOptions(students: any[]): StudentOption[] {
     studentId: s.studentProfile?.studentId ?? null,
     classLabel: s.studentProfile?.classLabel ?? null,
   }));
-}
-
-function isShortPeriodType(type: string) {
-  return type === "조퇴" || type === "지각" || type === "결과";
-}
-
-function formatYmdLocal(d: Date): string {
-  const y = d.getFullYear();
-  const mo = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${mo}-${day}`;
-}
-
-function todayLocalYmd(): string {
-  const n = new Date();
-  return formatYmdLocal(new Date(n.getFullYear(), n.getMonth(), n.getDate(), 12, 0, 0, 0));
-}
-
-/** YYYY-MM-DD에 하루 더함 (로컬 달력). */
-function addOneDayYmd(ymd: string): string {
-  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(ymd.trim());
-  if (!m) return ymd;
-  const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), 12, 0, 0, 0);
-  d.setDate(d.getDate() + 1);
-  return formatYmdLocal(d);
-}
-
-/** 시작/종료일 +1일; 그날이 토·일이면 다음 월요일 (작성 일자 자동 입력용). */
-function addOneDaySkipWeekendYmd(ymd: string): string {
-  const next = addOneDayYmd(ymd);
-  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(next.trim());
-  if (!m) return next;
-  const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), 12, 0, 0, 0);
-  while (d.getDay() === 0 || d.getDay() === 6) {
-    d.setDate(d.getDate() + 1);
-  }
-  return formatYmdLocal(d);
 }
 
 export default function AttendanceRegistrationForm({
