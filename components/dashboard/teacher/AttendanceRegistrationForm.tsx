@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useToastContext } from "@/components/providers/ToastProvider";
 import { Input } from "@/components/ui/Input";
@@ -46,6 +46,43 @@ function toStudentOptions(students: any[]): StudentOption[] {
   }));
 }
 
+function isShortPeriodType(type: string) {
+  return type === "조퇴" || type === "지각" || type === "결과";
+}
+
+function formatYmdLocal(d: Date): string {
+  const y = d.getFullYear();
+  const mo = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${mo}-${day}`;
+}
+
+function todayLocalYmd(): string {
+  const n = new Date();
+  return formatYmdLocal(new Date(n.getFullYear(), n.getMonth(), n.getDate(), 12, 0, 0, 0));
+}
+
+/** YYYY-MM-DD에 하루 더함 (로컬 달력). */
+function addOneDayYmd(ymd: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(ymd.trim());
+  if (!m) return ymd;
+  const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), 12, 0, 0, 0);
+  d.setDate(d.getDate() + 1);
+  return formatYmdLocal(d);
+}
+
+/** 시작/종료일 +1일; 그날이 토·일이면 다음 월요일 (작성 일자 자동 입력용). */
+function addOneDaySkipWeekendYmd(ymd: string): string {
+  const next = addOneDayYmd(ymd);
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(next.trim());
+  if (!m) return next;
+  const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), 12, 0, 0, 0);
+  while (d.getDay() === 0 || d.getDay() === 6) {
+    d.setDate(d.getDate() + 1);
+  }
+  return formatYmdLocal(d);
+}
+
 export default function AttendanceRegistrationForm({
   students,
   onSuccess,
@@ -60,14 +97,20 @@ export default function AttendanceRegistrationForm({
   const [periodFrom, setPeriodFrom] = useState("");
   const [periodTo, setPeriodTo] = useState("");
   const [period, setPeriod] = useState("");
-  const [writtenAt, setWrittenAt] = useState(
-    () => new Date().toISOString().slice(0, 10)
-  );
+  const [writtenAt, setWrittenAt] = useState(() => todayLocalYmd());
   const [studentSign, setStudentSign] = useState<string | null>(null);
   const [guardianSign, setGuardianSign] = useState<string | null>(null);
   const [teacherSign, setTeacherSign] = useState<string | null>(null);
   const [attachmentFiles, setAttachmentFiles] = useState<{ name: string; dataUrl: string }[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (isShortPeriodType(type)) {
+      setWrittenAt(startDate ? addOneDaySkipWeekendYmd(startDate) : todayLocalYmd());
+    } else {
+      setWrittenAt(endDate ? addOneDaySkipWeekendYmd(endDate) : todayLocalYmd());
+    }
+  }, [type, startDate, endDate]);
 
   const readFileAsDataUrl = (file: File): Promise<string> =>
     new Promise((resolve, reject) => {
@@ -170,7 +213,7 @@ export default function AttendanceRegistrationForm({
       setPeriodFrom("");
       setPeriodTo("");
       setPeriod("");
-      setWrittenAt(new Date().toISOString().slice(0, 10));
+      setWrittenAt(todayLocalYmd());
       setStudentSign(null);
       setGuardianSign(null);
       setTeacherSign(null);
