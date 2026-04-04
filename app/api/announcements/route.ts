@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { z } from "zod";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { rejectMissingSchool } from "@/lib/api-auth";
 import { put } from '@vercel/blob';
 
 const AUDIENCE_VALUES = ["all", "grade-1", "grade-2", "grade-3", "parents", "teacher", "students"] as const;
@@ -155,6 +156,10 @@ export async function POST(request: NextRequest) {
         { error: "공지사항 생성 권한이 없습니다." },
         { status: 403 }
       );
+    }
+
+    if (!session.user.school) {
+      return rejectMissingSchool();
     }
 
     // FormData 또는 JSON 처리

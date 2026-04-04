@@ -3,6 +3,11 @@ import { getServerSession } from "next-auth";
 import { z } from "zod";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import {
+  assertSameSchoolForAnnouncement,
+  rejectUnauthenticated,
+  requireSession,
+} from "@/lib/api-auth";
 import { put } from "@vercel/blob";
 
 const signatureSchema = z.object({
@@ -44,8 +49,8 @@ export async function GET(
   try {
     const session = await getServerSession(authOptions);
 
-    if (!session || !session.user) {
-      return NextResponse.json({ error: "인증이 필요합니다." }, { status: 401 });
+    if (!requireSession(session)) {
+      return rejectUnauthenticated();
     }
 
     const announcement = await (prisma as any).announcement.findUnique({
@@ -57,9 +62,8 @@ export async function GET(
       return NextResponse.json({ error: "안내문을 찾을 수 없습니다." }, { status: 404 });
     }
 
-    if (session.user.school && announcement.school !== session.user.school) {
-      return NextResponse.json({ error: "권한이 없습니다." }, { status: 403 });
-    }
+    const getConsentSchoolErr = assertSameSchoolForAnnouncement(session, announcement.school);
+    if (getConsentSchoolErr) return getConsentSchoolErr;
 
     const consentMeta = parseConsentMeta(announcement.consentData);
     const requiresSignature =
@@ -104,8 +108,8 @@ export async function POST(
   try {
     const session = await getServerSession(authOptions);
 
-    if (!session || !session.user) {
-      return NextResponse.json({ error: "인증이 필요합니다." }, { status: 401 });
+    if (!requireSession(session)) {
+      return rejectUnauthenticated();
     }
 
     if (!["parent", "student"].includes(session.user.role || "")) {
@@ -121,9 +125,8 @@ export async function POST(
       return NextResponse.json({ error: "안내문을 찾을 수 없습니다." }, { status: 404 });
     }
 
-    if (session.user.school && announcement.school !== session.user.school) {
-      return NextResponse.json({ error: "권한이 없습니다." }, { status: 403 });
-    }
+    const postConsentSchoolErr = assertSameSchoolForAnnouncement(session, announcement.school);
+    if (postConsentSchoolErr) return postConsentSchoolErr;
 
     const consentMeta = parseConsentMeta(announcement.consentData);
     const requiresSignature =
@@ -228,13 +231,26 @@ export async function PATCH(
   try {
     const session = await getServerSession(authOptions);
 
-    if (!session || !session.user) {
-      return NextResponse.json({ error: "인증이 필요합니다." }, { status: 401 });
+    if (!requireSession(session)) {
+      return rejectUnauthenticated();
     }
 
     if (!["parent", "student"].includes(session.user.role || "")) {
       return NextResponse.json({ error: "수정 권한이 없습니다." }, { status: 403 });
     }
+
+    const announcementForPatch = await (prisma as any).announcement.findUnique({
+      where: { id: params.id },
+      select: { school: true },
+    });
+    if (!announcementForPatch) {
+      return NextResponse.json({ error: "안내문을 찾을 수 없습니다." }, { status: 404 });
+    }
+    const patchConsentSchoolErr = assertSameSchoolForAnnouncement(
+      session,
+      announcementForPatch.school
+    );
+    if (patchConsentSchoolErr) return patchConsentSchoolErr;
 
     const existingConsent = await (prisma as any).announcementConsent.findUnique({
       where: {

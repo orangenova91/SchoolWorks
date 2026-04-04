@@ -33,7 +33,7 @@ async function getUserSchool(user: {
   return null;
 }
 
-// 협업 문서 링크 수정
+// 임시 업무 Link 수정
 export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -110,7 +110,7 @@ export async function PUT(
     }
     console.error("Error updating collaborative doc link:", error);
     return NextResponse.json(
-      { error: "협업 문서 링크 수정에 실패했습니다." },
+      { error: "임시 업무 Link 수정에 실패했습니다." },
       { status: 500 }
     );
   }

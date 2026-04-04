@@ -1,5 +1,14 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  async redirects() {
+    return [
+      {
+        source: "/dashboard/teacher/announcements",
+        destination: "/dashboard/teacher/board_parents",
+        permanent: true,
+      },
+    ];
+  },
   reactStrictMode: true,
   experimental: {
     serverActions: {

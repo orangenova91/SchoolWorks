@@ -3,6 +3,11 @@ import { getServerSession } from "next-auth";
 import { z } from "zod";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import {
+  assertSameSchoolForAnnouncement,
+  rejectUnauthenticated,
+  requireSession,
+} from "@/lib/api-auth";
 
 export const dynamic = 'force-dynamic';
 
@@ -44,8 +49,8 @@ export async function GET(
   try {
     const session = await getServerSession(authOptions);
 
-    if (!session || !session.user) {
-      return NextResponse.json({ error: "인증이 필요합니다." }, { status: 401 });
+    if (!requireSession(session)) {
+      return rejectUnauthenticated();
     }
 
     const { searchParams } = new URL(request.url);
@@ -62,10 +67,8 @@ export async function GET(
       return NextResponse.json({ error: "공지사항을 찾을 수 없습니다." }, { status: 404 });
     }
 
-    // 학교 필터 확인
-    if (session.user.school && announcement.school !== session.user.school) {
-      return NextResponse.json({ error: "권한이 없습니다." }, { status: 403 });
-    }
+    const listSchoolErr = assertSameSchoolForAnnouncement(session, announcement.school);
+    if (listSchoolErr) return listSchoolErr;
 
     // 재귀적으로 replies를 가져오는 함수
     const getRepliesRecursively = async (parentId: string): Promise<any[]> => {
@@ -239,8 +242,8 @@ export async function POST(
   try {
     const session = await getServerSession(authOptions);
 
-    if (!session || !session.user) {
-      return NextResponse.json({ error: "인증이 필요합니다." }, { status: 401 });
+    if (!requireSession(session)) {
+      return rejectUnauthenticated();
     }
 
     // 공지사항 존재 확인
@@ -252,10 +255,8 @@ export async function POST(
       return NextResponse.json({ error: "공지사항을 찾을 수 없습니다." }, { status: 404 });
     }
 
-    // 학교 필터 확인
-    if (session.user.school && announcement.school !== session.user.school) {
-      return NextResponse.json({ error: "권한이 없습니다." }, { status: 403 });
-    }
+    const postSchoolErr = assertSameSchoolForAnnouncement(session, announcement.school);
+    if (postSchoolErr) return postSchoolErr;
 
     const body = await request.json();
     const validatedData = createCommentSchema.parse(body);

@@ -3,6 +3,11 @@ import { getServerSession } from "next-auth";
 import { z } from "zod";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import {
+  assertSameSchoolForAnnouncement,
+  rejectUnauthenticated,
+  requireSession,
+} from "@/lib/api-auth";
 import { put } from "@vercel/blob";
 
 const answerSchema = z.object({
@@ -37,17 +42,19 @@ export async function GET(
 ) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session || !session.user) {
-      return NextResponse.json({ error: "인증이 필요합니다." }, { status: 401 });
+    if (!requireSession(session)) {
+      return rejectUnauthenticated();
     }
 
     const announcement = await (prisma as any).announcement.findUnique({
       where: { id: params.id },
-      select: { id: true, category: true, surveyData: true },
+      select: { id: true, category: true, surveyData: true, school: true },
     });
     if (!announcement) {
       return NextResponse.json({ error: "안내문을 찾을 수 없습니다." }, { status: 404 });
     }
+    const getSurveySchoolErr = assertSameSchoolForAnnouncement(session, announcement.school);
+    if (getSurveySchoolErr) return getSurveySchoolErr;
     if (announcement.category !== "survey") {
       return NextResponse.json({ error: "설문이 아닙니다." }, { status: 400 });
     }
@@ -84,8 +91,8 @@ export async function POST(
 ) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session || !session.user) {
-      return NextResponse.json({ error: "인증이 필요합니다." }, { status: 401 });
+    if (!requireSession(session)) {
+      return rejectUnauthenticated();
     }
 
     const announcement = await (prisma as any).announcement.findUnique({
@@ -104,6 +111,8 @@ export async function POST(
     if (!announcement) {
       return NextResponse.json({ error: "안내문을 찾을 수 없습니다." }, { status: 404 });
     }
+    const postSurveySchoolErr = assertSameSchoolForAnnouncement(session, announcement.school);
+    if (postSurveySchoolErr) return postSurveySchoolErr;
     if (announcement.category !== "survey") {
       return NextResponse.json({ error: "설문이 아닙니다." }, { status: 400 });
     }
