@@ -119,7 +119,7 @@ export function AttendanceRecordPrintable({ record }: { record: AttendanceRecord
             </p>
           </div>
 
-          <div className="text-base leading-7">
+          <div className="space-y-4 text-base leading-7">
             <p>
               위 학생은 ( <span className="text-red-500">{record.reason ?? "-"}</span> )으로
               인하여
@@ -138,7 +138,7 @@ export function AttendanceRecordPrintable({ record }: { record: AttendanceRecord
             <div className="flex items-center gap-2">
               <span>학 생:</span>
               <span className="text-red-500">{record.studentName ?? "-"}</span>
-              <div className="relative flex items-center justify-center w-12 h-12">
+              <div className="relative flex items-center justify-center w-24 h-24">
                 <span className="z-0">(인)</span>
                 {record.studentSignUrl && (
                   <a
@@ -150,7 +150,7 @@ export function AttendanceRecordPrintable({ record }: { record: AttendanceRecord
                     <img
                       src={record.studentSignUrl}
                       alt="학생 서명"
-                      className="max-h-14 w-auto object-contain mix-blend-multiply opacity-90"
+                      className="max-h-28 w-auto object-contain mix-blend-multiply opacity-90"
                     />
                   </a>
                 )}
@@ -158,9 +158,9 @@ export function AttendanceRecordPrintable({ record }: { record: AttendanceRecord
             </div>
             <div className="flex items-center gap-2">
               <span className="pr-[5ch]">보호자:</span>
-              <div className="relative flex items-center justify-center w-12 h-12">
+              <div className="relative flex items-center justify-center w-24 h-24">
                 <span className="z-0">(인)</span>
-                {record.guardianSignUrl ? (
+                {record.guardianSignUrl && (
                   <a
                     href={record.guardianSignUrl}
                     target="_blank"
@@ -170,11 +170,9 @@ export function AttendanceRecordPrintable({ record }: { record: AttendanceRecord
                     <img
                       src={record.guardianSignUrl}
                       alt="보호자 서명"
-                      className="max-h-14 w-auto object-contain mix-blend-multiply opacity-90"
+                      className="max-h-28 w-auto object-contain mix-blend-multiply opacity-90"
                     />
                   </a>
-                ) : (
-                  <span className="absolute text-xs text-red-500 opacity-50 z-10">서명</span>
                 )}
               </div>
             </div>
@@ -185,13 +183,16 @@ export function AttendanceRecordPrintable({ record }: { record: AttendanceRecord
 
         <h2 className="text-3xl font-bold mb-6 tracking-[0.5rem]">담임 확인서</h2>
 
-        <div className="space-y-4 leading-relaxed">
+        <div className="space-y-4 text-base leading-7">
           <p>
             위 학생의 결석 사유가{" "}
             <span className="text-red-500 underline underline-offset-4">
               {TYPE_LABELS[record.type] ?? record.type}
             </span>{" "}
-            임을 유선 연락 등의 방법으로 확인하였습니다.
+            임을 
+          </p>
+          <p>
+          유선 연락 등의 방법으로 확인하였습니다.
           </p>
 
           <div className="py-2">
@@ -200,7 +201,7 @@ export function AttendanceRecordPrintable({ record }: { record: AttendanceRecord
               <span>담임:</span>
               <span className="text-red-500">{record.teacherName ?? "-"}</span>
 
-              <div className="relative flex items-center justify-center w-12 h-12">
+              <div className="relative flex items-center justify-center w-24 h-24">
                 <span className="z-0">(인)</span>
 
                 {record.teacherSignUrl && (
@@ -213,7 +214,7 @@ export function AttendanceRecordPrintable({ record }: { record: AttendanceRecord
                     <img
                       src={record.teacherSignUrl}
                       alt="교사 서명"
-                      className="max-h-14 w-auto object-contain mix-blend-multiply opacity-90"
+                      className="max-h-28 w-auto object-contain mix-blend-multiply opacity-90"
                     />
                   </a>
                 )}
@@ -253,7 +254,7 @@ export function AttendanceRecordPrintable({ record }: { record: AttendanceRecord
             </p>
           </div>
 
-          <div className="text-base leading-7 text-left pl-10">
+          <div className="space-y-4 text-base leading-7">
             <p>
               위 학생은 ( <span className="text-red-500">{record.reason ?? "-"}</span> )
               으로 인하여
@@ -271,7 +272,7 @@ export function AttendanceRecordPrintable({ record }: { record: AttendanceRecord
             <div className="flex items-center gap-2">
               <span>학 생:</span>
               <span className="text-red-500">{record.studentName ?? "-"}</span>
-              <div className="relative flex items-center justify-center w-12 h-12">
+              <div className="relative flex items-center justify-center w-24 h-24">
                 <span className="z-0">(인)</span>
                 {record.studentSignUrl && (
                   <a
@@ -283,7 +284,7 @@ export function AttendanceRecordPrintable({ record }: { record: AttendanceRecord
                     <img
                       src={record.studentSignUrl}
                       alt="학생 서명"
-                      className="max-h-14 w-auto object-contain mix-blend-multiply opacity-90"
+                      className="max-h-28 w-auto object-contain mix-blend-multiply opacity-90"
                     />
                   </a>
                 )}
@@ -291,9 +292,9 @@ export function AttendanceRecordPrintable({ record }: { record: AttendanceRecord
             </div>
             <div className="flex items-center gap-2">
               <span className="pr-[5ch]">보호자:</span>
-              <div className="relative flex items-center justify-center w-12 h-12">
+              <div className="relative flex items-center justify-center w-24 h-24">
                 <span className="z-0">(인)</span>
-                {record.guardianSignUrl ? (
+                {record.guardianSignUrl && (
                   <a
                     href={record.guardianSignUrl}
                     target="_blank"
@@ -303,11 +304,9 @@ export function AttendanceRecordPrintable({ record }: { record: AttendanceRecord
                     <img
                       src={record.guardianSignUrl}
                       alt="보호자 서명"
-                      className="max-h-14 w-auto object-contain mix-blend-multiply opacity-90"
+                      className="max-h-28 w-auto object-contain mix-blend-multiply opacity-90"
                     />
                   </a>
-                ) : (
-                  <span className="absolute text-xs text-red-500 opacity-50 z-10">서명</span>
                 )}
               </div>
             </div>
@@ -318,13 +317,16 @@ export function AttendanceRecordPrintable({ record }: { record: AttendanceRecord
 
         <h2 className="text-3xl font-bold mb-6 tracking-[0.5rem]">담임 확인서</h2>
 
-        <div className="space-y-4 leading-relaxed text-left pl-10">
+        <div className="space-y-4 text-base leading-7">
           <p>
-            위 학생의 <span className="text-red-500">{getPeriodText()}</span>,{" "}
+            위 학생의 <span className="text-red-500">{getPeriodText()}</span>,{" "} 
             <span className="text-red-500">{TYPE_LABELS[record.type] ?? record.type}</span>
-            가 ( <span className="text-red-500">{record.reason ?? "-"}</span> )으로 인한
+            가 
+          </p>
+          <p>
+          ( <span className="text-red-500">{record.reason ?? "-"}</span> )으로 인한
             출석인정( <span className="text-red-500">{TYPE_LABELS[record.type] ?? record.type}</span> )
-            임을 유선 연락의 방법으로 확인하였습니다.
+            임을 유선 연락의 방법으로 확인하였습니다. 
           </p>
 
           <div className="py-2 flex flex-col items-center">
@@ -332,7 +334,7 @@ export function AttendanceRecordPrintable({ record }: { record: AttendanceRecord
             <div className="flex items-center gap-2">
               <span>담임:</span>
               <span className="text-red-500">{record.teacherName ?? "-"}</span>
-              <div className="relative flex items-center justify-center w-12 h-12">
+              <div className="relative flex items-center justify-center w-24 h-24">
                 <span className="z-0">(인)</span>
                 {record.teacherSignUrl ? (
                   <a
@@ -344,7 +346,7 @@ export function AttendanceRecordPrintable({ record }: { record: AttendanceRecord
                     <img
                       src={record.teacherSignUrl}
                       alt="교사 서명"
-                      className="max-h-14 w-auto object-contain mix-blend-multiply opacity-90"
+                      className="max-h-28 w-auto object-contain mix-blend-multiply opacity-90"
                     />
                   </a>
                 ) : (
@@ -476,7 +478,7 @@ export function AttendanceRecordPrintable({ record }: { record: AttendanceRecord
                 <img
                   src={record.studentSignUrl}
                   alt="학생 서명"
-                  className="max-h-24 w-auto mx-auto object-contain"
+                  className="max-h-48 w-auto mx-auto object-contain"
                 />
               </a>
             ) : (
@@ -497,7 +499,7 @@ export function AttendanceRecordPrintable({ record }: { record: AttendanceRecord
                 <img
                   src={record.guardianSignUrl}
                   alt="보호자 서명"
-                  className="max-h-24 w-auto mx-auto object-contain"
+                  className="max-h-48 w-auto mx-auto object-contain"
                 />
               </a>
             ) : (
@@ -518,7 +520,7 @@ export function AttendanceRecordPrintable({ record }: { record: AttendanceRecord
                 <img
                   src={record.teacherSignUrl}
                   alt="교사 서명"
-                  className="max-h-24 w-auto mx-auto object-contain"
+                  className="max-h-48 w-auto mx-auto object-contain"
                 />
               </a>
             ) : (
