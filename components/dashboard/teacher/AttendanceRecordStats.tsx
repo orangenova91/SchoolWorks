@@ -45,7 +45,7 @@ export function AttendanceRecordStats({
     const byLabel: Record<string, number> = {};
     const byStudent = new Map<
       string,
-      { name: string | null; count: number }
+      { name: string | null; studentNumber: string | null; count: number }
     >();
     let weekdayDaysSum = 0;
 
@@ -56,6 +56,7 @@ export function AttendanceRecordStats({
       const prev = byStudent.get(r.studentId);
       byStudent.set(r.studentId, {
         name: r.studentName ?? prev?.name ?? null,
+        studentNumber: r.studentNumber ?? prev?.studentNumber ?? null,
         count: (prev?.count ?? 0) + 1,
       });
 
@@ -79,6 +80,7 @@ export function AttendanceRecordStats({
       .map(([studentId, v]) => ({
         studentId,
         name: v.name,
+        studentNumber: v.studentNumber,
         count: v.count,
       }))
       .sort((a, b) => b.count - a.count)
@@ -182,11 +184,14 @@ export function AttendanceRecordStats({
                       key={row.studentId}
                       className="flex items-center justify-between gap-2 px-3 py-2 text-sm"
                     >
-                      <span className="flex min-w-0 items-center gap-2">
+                      <span className="flex min-w-0 flex-1 items-center gap-2">
                         <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-gray-100 text-xs font-medium text-gray-600">
                           {i + 1}
                         </span>
-                        <span className="truncate text-gray-900">
+                        <span className="shrink-0 text-xs tabular-nums text-gray-500 w-[2.5rem]">
+                          {row.studentNumber ?? "—"}
+                        </span>
+                        <span className="min-w-0 truncate text-gray-900">
                           {row.name ?? "(이름 없음)"}
                         </span>
                       </span>
