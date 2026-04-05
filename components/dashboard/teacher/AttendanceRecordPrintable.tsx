@@ -1,5 +1,10 @@
 "use client";
 
+import {
+  ATTENDANCE_TYPE_LABELS as TYPE_LABELS,
+} from "@/lib/attendanceTypeLabels";
+import { getWeekdayAbsenceDayCount } from "@/lib/attendanceAbsenceDays";
+
 export type AttendanceRecordForPrint = {
   id: string;
   studentId: string;
@@ -22,19 +27,6 @@ export type AttendanceRecordForPrint = {
   createdAt: string;
 };
 
-// 기존 DB 데이터("질병" 등) 및 새 데이터("결석 (질병)" 등) 모두 올바르게 표시
-const TYPE_LABELS: Record<string, string> = {
-  질병: "결석 (질병)",
-  인정: "결석 (인정)",
-  기타: "결석 (기타)",
-  "결석 (질병)": "결석 (질병)",
-  "결석 (인정)": "결석 (인정)",
-  "결석 (기타)": "결석 (기타)",
-  조퇴: "조퇴",
-  지각: "지각",
-  결과: "결과",
-};
-
 function formatDate(dateStr: string) {
   if (!dateStr) return "-";
   const d = new Date(dateStr);
@@ -43,32 +35,6 @@ function formatDate(dateStr: string) {
     month: "long",
     day: "numeric",
   });
-}
-
-/** ISO/날짜 문자열을 로컬 달력 날짜로 파싱 (정오 기준으로 하루 단위 반복 시 DST 이슈 완화). */
-function parseDateForCalendar(dateStr: string): Date {
-  const part = dateStr.includes("T") ? dateStr.split("T")[0]! : dateStr.slice(0, 10);
-  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(part);
-  if (!m) return new Date(dateStr);
-  const y = Number(m[1]);
-  const mo = Number(m[2]);
-  const d = Number(m[3]);
-  return new Date(y, mo - 1, d, 12, 0, 0, 0);
-}
-
-/** 시작일~종료일(포함) 사이의 평일(월~금) 일수. 토·일은 제외. */
-function getAbsenceDays(startDate: string, endDate: string): number {
-  const start = parseDateForCalendar(startDate);
-  const end = parseDateForCalendar(endDate);
-  if (start > end) return 0;
-  let count = 0;
-  const cur = new Date(start);
-  while (cur <= end) {
-    const dow = cur.getDay();
-    if (dow !== 0 && dow !== 6) count++;
-    cur.setDate(cur.getDate() + 1);
-  }
-  return count;
 }
 
 export function AttendanceRecordPrintable({ record }: { record: AttendanceRecordForPrint }) {
@@ -96,7 +62,7 @@ export function AttendanceRecordPrintable({ record }: { record: AttendanceRecord
 
   const absenceDays =
     record && record.startDate && record.endDate
-      ? getAbsenceDays(record.startDate, record.endDate)
+      ? getWeekdayAbsenceDayCount(record.startDate, record.endDate)
       : 0;
 
   if (isAbsenceType) {

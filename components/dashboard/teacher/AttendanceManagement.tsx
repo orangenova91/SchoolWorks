@@ -6,6 +6,7 @@ import AttendanceRegistrationForm from "./AttendanceRegistrationForm";
 import AttendanceRecordList, { type AttendanceRecord } from "./AttendanceRecordList";
 import { useToastContext } from "@/components/providers/ToastProvider";
 import { AttendanceRecordsPrintModal } from "./AttendanceRecordsPrintModal";
+import { AttendanceRecordStats } from "./AttendanceRecordStats";
 
 type AttendanceManagementProps = {
   hasHomeroom: boolean;
@@ -26,8 +27,13 @@ export default function AttendanceManagement({
   const [recordsForPrint, setRecordsForPrint] = useState<AttendanceRecord[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isPrintOpen, setIsPrintOpen] = useState(false);
+  const [listLoading, setListLoading] = useState(true);
 
   const selectedCount = selectedIds.size;
+
+  const handleListLoadingChange = useCallback((loading: boolean) => {
+    setListLoading(loading);
+  }, []);
 
   const selectedRecords = useMemo(() => {
     if (selectedIds.size === 0) return [];
@@ -78,6 +84,7 @@ export default function AttendanceManagement({
     setSelectedIds(new Set());
     setRecordsForPrint([]);
     setIsPrintOpen(false);
+    setListLoading(true);
   }, []);
 
   if (!hasHomeroom) {
@@ -90,7 +97,8 @@ export default function AttendanceManagement({
 
   return (
     <>
-      <div className="flex h-full min-h-0 gap-6">
+      <div className="flex h-full min-h-0 flex-col gap-6">
+      <div className="flex min-h-0 flex-1 gap-6">
       <div className="flex-1 shrink-0 overflow-auto rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
         <h3 className="text-base font-semibold text-gray-900 mb-4">학생 출결 등록</h3>
         <AttendanceRegistrationForm
@@ -130,9 +138,17 @@ export default function AttendanceManagement({
             onToggleSelected={onToggleSelected}
             onToggleAllSelected={onToggleAllSelected}
             onRecordsLoaded={onRecordsLoaded}
+            onLoadingChange={handleListLoadingChange}
           />
         </div>
       </div>
+      </div>
+
+      <AttendanceRecordStats
+        records={recordsForPrint}
+        monthKey={selectedMonth}
+        isLoading={listLoading}
+      />
       </div>
 
       <AttendanceRecordsPrintModal

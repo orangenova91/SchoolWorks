@@ -13,6 +13,7 @@ import {
   addOneDaySkipWeekendYmd,
   toLocalDateInputValue,
 } from "@/lib/attendanceWrittenDate";
+import { labelAttendanceType } from "@/lib/attendanceTypeLabels";
 
 const ATTENDANCE_TYPES = [
   { value: "결석 (질병)", label: "결석 (질병)" },
@@ -22,19 +23,6 @@ const ATTENDANCE_TYPES = [
   { value: "지각", label: "지각" },
   { value: "결과", label: "결과" },
 ];
-
-// 기존 DB 데이터("질병" 등)를 새 값("결석 (질병)" 등)으로 매핑
-const TYPE_LABELS: Record<string, string> = {
-  질병: "결석 (질병)",
-  인정: "결석 (인정)",
-  기타: "결석 (기타)",
-  "결석 (질병)": "결석 (질병)",
-  "결석 (인정)": "결석 (인정)",
-  "결석 (기타)": "결석 (기타)",
-  조퇴: "조퇴",
-  지각: "지각",
-  결과: "결과",
-};
 
 const PERIOD_OPTIONS = Array.from({ length: 8 }, (_, i) => ({
   value: String(i + 1),
@@ -83,7 +71,7 @@ export default function AttendanceRecordEditModal({
 
   useEffect(() => {
     if (!isOpen || !record) return;
-    setType(TYPE_LABELS[record.type] ?? record.type);
+    setType(labelAttendanceType(record.type));
     setReason(record.reason ?? "");
     setPeriodFrom(record.periodFrom ?? "");
     setPeriodTo(record.periodTo ?? "");

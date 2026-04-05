@@ -8,6 +8,7 @@ import AttendanceRecordDetailModal, {
   type AttendanceRecordForModal,
 } from "./AttendanceRecordDetailModal";
 import AttendanceRecordEditModal from "./AttendanceRecordEditModal";
+import { labelAttendanceType } from "@/lib/attendanceTypeLabels";
 
 export type AttendanceRecord = {
   id: string;
@@ -39,19 +40,7 @@ type AttendanceRecordListProps = {
   onToggleSelected: (id: string) => void;
   onToggleAllSelected: (ids: string[], nextChecked: boolean) => void;
   onRecordsLoaded?: (records: AttendanceRecord[]) => void;
-};
-
-// 기존 DB 데이터("질병" 등) 및 새 데이터("결석 (질병)" 등) 모두 올바르게 표시
-const TYPE_LABELS: Record<string, string> = {
-  질병: "결석 (질병)",
-  인정: "결석 (인정)",
-  기타: "결석 (기타)",
-  "결석 (질병)": "결석 (질병)",
-  "결석 (인정)": "결석 (인정)",
-  "결석 (기타)": "결석 (기타)",
-  조퇴: "조퇴",
-  지각: "지각",
-  결과: "결과",
+  onLoadingChange?: (loading: boolean) => void;
 };
 
 function formatDate(dateStr: string) {
@@ -81,6 +70,7 @@ export default function AttendanceRecordList({
   onToggleSelected,
   onToggleAllSelected,
   onRecordsLoaded,
+  onLoadingChange,
 }: AttendanceRecordListProps) {
   const { showToast } = useToastContext();
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
@@ -97,6 +87,7 @@ export default function AttendanceRecordList({
 
   const fetchRecords = useCallback(async () => {
     setIsLoading(true);
+    onLoadingChange?.(true);
     try {
       const qs = new URLSearchParams({ classLabel });
       if (month) qs.set("month", month);
@@ -116,8 +107,9 @@ export default function AttendanceRecordList({
       onRecordsLoaded?.([]);
     } finally {
       setIsLoading(false);
+      onLoadingChange?.(false);
     }
-  }, [classLabel, month, showToast, onRecordsLoaded]);
+  }, [classLabel, month, showToast, onRecordsLoaded, onLoadingChange]);
 
   useEffect(() => {
     fetchRecords();
@@ -264,7 +256,7 @@ export default function AttendanceRecordList({
                   </div>
                 </td>
                 <td className="w-[80px] px-4 py-3 text-sm text-gray-700 whitespace-nowrap">
-                  {TYPE_LABELS[r.type] ?? r.type}
+                  {labelAttendanceType(r.type)}
                 </td>
                 <td className="w-[100px] px-4 py-3 text-sm text-gray-700 whitespace-nowrap">
                   {r.type === "조퇴" && r.periodFrom

@@ -657,10 +657,6 @@ export default async function TeacherDashboardPage() {
   // 상위 5개만 표시
   const parentAnnouncements = parentAnnouncementsSorted.slice(0, 5);
 
-  // 디버깅: 실제 가져온 데이터 개수 확인 (개발 환경에서만)
-  if (process.env.NODE_ENV === "development") {
-    console.log(`[가정 안내문] 전체 개수: ${parentAnnouncementsCount}, 실제 가져온 개수: ${parentAnnouncementsRaw.length}`);
-  }
 
   // 첨부파일 확인 함수
   const hasAttachments = (attachments: string | null | undefined): boolean => {
