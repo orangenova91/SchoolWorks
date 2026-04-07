@@ -1,81 +1,214 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo, type ComponentType } from "react";
 import {
-  BookOpen,
-  Users,
-  Calendar,
-  FileText,
-  Settings,
-  BarChart3,
-  MessageSquare,
-  Home,
-  GraduationCap,
-  ClipboardList,
-  Award,
-  Bell,
-  Search,
-  HelpCircle,
-  Mail,
-  Phone,
-  MapPin,
-  Link as LinkIcon,
-  Save,
-  X,
-  UtensilsCrossed,
-  Coffee,
-  Radio,
-  Mic,
-  ClipboardCheck,
-  ListChecks,
-  FileSearch,
-  User,
-  UserCircle,
-  UsersRound,
-} from "lucide-react";
+  closestCorners,
+  DndContext,
+  type DragEndEvent,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  rectSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import { Save, X, GripVertical } from "lucide-react";
 import { useToast } from "@/components/ui/Toast";
+import { AVAILABLE_BANNER_ICONS, HelpCircle } from "@/components/dashboard/teacher/bannerIcons";
+import {
+  BANNER_COLUMNS,
+  BANNER_MAX_ROWS,
+} from "@/lib/bannerConstants";
 
-// 사용 가능한 아이콘 목록
-const availableIcons = [
-  { name: "BookOpen", component: BookOpen },
-  { name: "Users", component: Users },
-  { name: "Calendar", component: Calendar },
-  { name: "FileText", component: FileText },
-  { name: "Settings", component: Settings },
-  { name: "BarChart3", component: BarChart3 },
-  { name: "MessageSquare", component: MessageSquare },
-  { name: "Home", component: Home },
-  { name: "GraduationCap", component: GraduationCap },
-  { name: "ClipboardList", component: ClipboardList },
-  { name: "Award", component: Award },
-  { name: "Bell", component: Bell },
-  { name: "Search", component: Search },
-  { name: "HelpCircle", component: HelpCircle },
-  { name: "Mail", component: Mail },
-  { name: "Phone", component: Phone },
-  { name: "MapPin", component: MapPin },
-  { name: "LinkIcon", component: LinkIcon },
-  { name: "UtensilsCrossed", component: UtensilsCrossed },
-  { name: "Coffee", component: Coffee },
-  { name: "Radio", component: Radio },
-  { name: "Mic", component: Mic },
-  { name: "ClipboardCheck", component: ClipboardCheck },
-  { name: "ListChecks", component: ListChecks },
-  { name: "FileSearch", component: FileSearch },
-  { name: "User", component: User },
-  { name: "UserCircle", component: UserCircle },
-  { name: "UsersRound", component: UsersRound },
-];
+const BANNER_SLOT_ID_PREFIX = "banner-slot-";
 
-// 편집 화면에서 허용할 최대 배너 줄 수 및 한 줄 칸 수
-const MAX_ROWS = 4;
-const COLUMNS = 7;
+function bannerSlotId(index: number) {
+  return `${BANNER_SLOT_ID_PREFIX}${index}`;
+}
+
+function parseBannerSlotIndex(id: string | number): number | null {
+  const s = String(id);
+  if (!s.startsWith(BANNER_SLOT_ID_PREFIX)) return null;
+  const n = parseInt(s.slice(BANNER_SLOT_ID_PREFIX.length), 10);
+  return Number.isFinite(n) ? n : null;
+}
 
 export type Banner = {
   icon: string;
   title: string;
   url: string;
 };
+
+type SortableBannerSlotProps = {
+  id: string;
+  index: number;
+  banner: Banner;
+  IconComponent: ComponentType<{ className?: string }>;
+  openIconDropdownIndex: number | null;
+  setOpenIconDropdownIndex: React.Dispatch<React.SetStateAction<number | null>>;
+  iconDropdownRef: React.RefObject<HTMLDivElement | null>;
+  onBannerChange: (index: number, field: keyof Banner, value: string) => void;
+  onRemoveBanner: (index: number) => void;
+};
+
+function SortableBannerSlot({
+  id,
+  index,
+  banner,
+  IconComponent,
+  openIconDropdownIndex,
+  setOpenIconDropdownIndex,
+  iconDropdownRef,
+  onBannerChange,
+  onRemoveBanner,
+}: SortableBannerSlotProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    zIndex: isDragging ? 20 : undefined,
+    opacity: isDragging ? 0.92 : 1,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="border border-gray-200 rounded-lg p-2 bg-white space-y-3"
+     >
+      <div className="flex items-center justify-between gap-1">
+        <div className="flex items-center gap-1 min-w-0 flex-1">
+          <button
+            type="button"
+            className="touch-none shrink-0 -ml-2 p-1 rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 cursor-grab active:cursor-grabbing focus:outline-none focus:ring-2 focus:ring-blue-500"
+            aria-label={`배너 ${index + 1} 위치 이동`}
+            {...attributes}
+            {...listeners}
+          >
+            <GripVertical className="w-4 h-4" />
+          </button>
+          <span className="text-sm font-medium text-gray-700 truncate">
+            배너 {index + 1}
+          </span>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <div className="w-10 h-10 flex items-center justify-center bg-gray-100 rounded-lg">
+            <IconComponent className="w-5 h-5 text-gray-600" />
+          </div>
+          <button
+            type="button"
+            onClick={() => onRemoveBanner(index)}
+            className="p-1 rounded-full text-gray-400 hover:text-red-500 hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-500"
+            aria-label={`배너 ${index + 1} 삭제`}
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <div>
+          <label className="block text-xs font-medium text-gray-700 mb-1">
+            아이콘
+          </label>
+          <div
+            className="relative"
+            ref={
+              (openIconDropdownIndex === index ? iconDropdownRef : undefined) as
+                | React.Ref<HTMLDivElement>
+                | undefined
+            }
+          >
+            <button
+              type="button"
+              onClick={() =>
+                setOpenIconDropdownIndex((prev) => (prev === index ? null : index))
+              }
+              className="w-full min-w-0 px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white flex items-center gap-2 text-left overflow-hidden"
+            >
+              <IconComponent className="w-4 h-4 text-gray-600 flex-shrink-0" />
+              <span className="min-w-0 truncate">{banner.icon || "아이콘 선택"}</span>
+            </button>
+            {openIconDropdownIndex === index && (
+              <div className="absolute top-full left-0 right-0 mt-1 py-1 bg-white border border-gray-200 rounded-md shadow-lg z-50 max-h-96 overflow-y-auto">
+                <button
+                  type="button"
+                  onClick={() => {
+                    onBannerChange(index, "icon", "");
+                    setOpenIconDropdownIndex(null);
+                  }}
+                  className="w-full px-3 py-2 text-sm text-left flex items-center gap-2 hover:bg-gray-100 text-gray-500 whitespace-nowrap"
+                >
+                  <HelpCircle className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                  아이콘 선택
+                </button>
+                {[...AVAILABLE_BANNER_ICONS]
+                  .sort((a, b) => a.name.localeCompare(b.name))
+                  .map((icon) => {
+                    const IconItem = icon.component;
+                    return (
+                      <button
+                        key={icon.name}
+                        type="button"
+                        onClick={() => {
+                          onBannerChange(index, "icon", icon.name);
+                          setOpenIconDropdownIndex(null);
+                        }}
+                        className="w-full px-3 py-2 text-sm text-left flex items-center gap-2 hover:bg-gray-100 text-gray-900"
+                      >
+                        <IconItem className="w-4 h-4 text-gray-600 flex-shrink-0" />
+                        {icon.name}
+                      </button>
+                    );
+                  })}
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-xs font-medium text-gray-700 mb-1">
+            제목
+          </label>
+          <input
+            type="text"
+            value={banner.title}
+            onChange={(e) => onBannerChange(index, "title", e.target.value)}
+            placeholder="배너 제목"
+            className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 placeholder:text-gray-500"
+          />
+        </div>
+
+        <div>
+          <label className="block text-xs font-medium text-gray-700 mb-1">
+            URL 주소
+          </label>
+          <input
+            type="text"
+            value={banner.url}
+            onChange={(e) => onBannerChange(index, "url", e.target.value)}
+            placeholder="/dashboard/teacher/..."
+            className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 placeholder:text-gray-500"
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
 
 interface BannerEditorProps {
   banners: Banner[];
@@ -95,6 +228,15 @@ export default function BannerEditor({
   const [isSaving, setIsSaving] = useState(false);
   const [openIconDropdownIndex, setOpenIconDropdownIndex] = useState<number | null>(null);
   const iconDropdownRef = useRef<HTMLDivElement>(null);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: { distance: 8 },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
 
   useEffect(() => {
     if (openIconDropdownIndex === null) return;
@@ -127,8 +269,8 @@ export default function BannerEditor({
   };
 
   const handleIncreaseRows = () => {
-    if (rows >= MAX_ROWS) {
-      showToast(`배너 줄 수는 최대 ${MAX_ROWS}줄까지 설정할 수 있습니다.`, "error");
+    if (rows >= BANNER_MAX_ROWS) {
+      showToast(`배너 줄 수는 최대 ${BANNER_MAX_ROWS}줄까지 설정할 수 있습니다.`, "error");
       return;
     }
     setRows((prev) => prev + 1);
@@ -145,8 +287,8 @@ export default function BannerEditor({
     if (rows <= 1) return;
 
     const newRows = rows - 1;
-    const start = newRows * COLUMNS;
-    const end = rows * COLUMNS;
+    const start = newRows * BANNER_COLUMNS;
+    const end = rows * BANNER_COLUMNS;
 
     const hasContentInLastRow = editedBanners
       .slice(start, end)
@@ -169,10 +311,40 @@ export default function BannerEditor({
     setRows(newRows);
   };
 
-  const slotCount = rows * COLUMNS;
+  const slotCount = rows * BANNER_COLUMNS;
+
+  const sortableIds = useMemo(
+    () => Array.from({ length: slotCount }, (_, i) => bannerSlotId(i)),
+    [slotCount]
+  );
+
+  const handleDragStart = () => {
+    setOpenIconDropdownIndex(null);
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over) return;
+
+    const activeIndex = parseBannerSlotIndex(active.id);
+    const overIndex = parseBannerSlotIndex(over.id);
+    if (activeIndex === null || overIndex === null || activeIndex === overIndex) {
+      return;
+    }
+
+    setEditedBanners((prev) => {
+      const next = [...prev];
+      while (next.length < slotCount) {
+        next.push({ icon: "", title: "", url: "" });
+      }
+      const head = arrayMove(next.slice(0, slotCount), activeIndex, overIndex);
+      const tail = next.slice(slotCount);
+      return [...head, ...tail];
+    });
+  };
 
   const getIconComponent = (iconName: string) => {
-    const icon = availableIcons.find((i) => i.name === iconName);
+    const icon = AVAILABLE_BANNER_ICONS.find((i) => i.name === iconName);
     return icon ? icon.component : HelpCircle;
   };
 
@@ -192,12 +364,12 @@ export default function BannerEditor({
               -
             </button>
             <span className="text-sm font-semibold text-gray-800">{rows}</span>
-            <span className="text-[11px] text-gray-400">/ {MAX_ROWS}</span>
+            <span className="text-[11px] text-gray-400">/ {BANNER_MAX_ROWS}</span>
             <button
               type="button"
               onClick={handleIncreaseRows}
               className="px-2 py-1 border border-gray-300 rounded-md text-xs disabled:opacity-50"
-              disabled={rows >= MAX_ROWS}
+              disabled={rows >= BANNER_MAX_ROWS}
             >
               +
             </button>
@@ -221,121 +393,35 @@ export default function BannerEditor({
         </div>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-4 lg:grid-cols-7">
-        {Array.from({ length: slotCount }, (_, index) => {
-          const banner = editedBanners[index] ?? { icon: "", title: "", url: "" };
-          const IconComponent = getIconComponent(banner.icon);
-          return (
-            <div
-              key={index}
-              className="border border-gray-200 rounded-lg p-4 bg-white space-y-3"
-            >
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-gray-700">
-                  배너 {index + 1}
-                </span>
-                <div className="flex items-center gap-2">
-                  <div className="w-10 h-10 flex items-center justify-center bg-gray-100 rounded-lg">
-                    <IconComponent className="w-5 h-5 text-gray-600" />
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveBanner(index)}
-                    className="p-1 rounded-full text-gray-400 hover:text-red-500 hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-500"
-                    aria-label={`배너 ${index + 1} 삭제`}
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">
-                    아이콘
-                  </label>
-                  <div
-                    className="relative"
-                    ref={openIconDropdownIndex === index ? iconDropdownRef : undefined}
-                  >
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setOpenIconDropdownIndex((prev) => (prev === index ? null : index))
-                      }
-                      className="w-full min-w-0 px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white flex items-center gap-2 text-left overflow-hidden"
-                    >
-                      <IconComponent className="w-4 h-4 text-gray-600 flex-shrink-0" />
-                      <span className="min-w-0 truncate">{banner.icon || "아이콘 선택"}</span>
-                    </button>
-                    {openIconDropdownIndex === index && (
-                      <div className="absolute top-full left-0 right-0 mt-1 py-1 bg-white border border-gray-200 rounded-md shadow-lg z-50 max-h-96 overflow-y-auto">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            handleBannerChange(index, "icon", "");
-                            setOpenIconDropdownIndex(null);
-                          }}
-                          className="w-full px-3 py-2 text-sm text-left flex items-center gap-2 hover:bg-gray-100 text-gray-500 whitespace-nowrap"
-                        >
-                          <HelpCircle className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                          아이콘 선택
-                        </button>
-                        {[...availableIcons]
-                          .sort((a, b) => a.name.localeCompare(b.name))
-                          .map((icon) => {
-                          const IconItem = icon.component;
-                          return (
-                            <button
-                              key={icon.name}
-                              type="button"
-                              onClick={() => {
-                                handleBannerChange(index, "icon", icon.name);
-                                setOpenIconDropdownIndex(null);
-                              }}
-                              className="w-full px-3 py-2 text-sm text-left flex items-center gap-2 hover:bg-gray-100 text-gray-900"
-                            >
-                              <IconItem className="w-4 h-4 text-gray-600 flex-shrink-0" />
-                              {icon.name}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">
-                    제목
-                  </label>
-                  <input
-                    type="text"
-                    value={banner.title}
-                    onChange={(e) => handleBannerChange(index, "title", e.target.value)}
-                    placeholder="배너 제목"
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 placeholder:text-gray-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">
-                    URL 주소
-                  </label>
-                  <input
-                    type="text"
-                    value={banner.url}
-                    onChange={(e) => handleBannerChange(index, "url", e.target.value)}
-                    placeholder="/dashboard/teacher/..."
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 placeholder:text-gray-500"
-                  />
-                </div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCorners}
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
+      >
+        <SortableContext items={sortableIds} strategy={rectSortingStrategy}>
+          <div className="grid gap-4 sm:grid-cols-4 lg:grid-cols-7">
+            {Array.from({ length: slotCount }, (_, index) => {
+              const banner = editedBanners[index] ?? { icon: "", title: "", url: "" };
+              const IconComponent = getIconComponent(banner.icon);
+              return (
+                <SortableBannerSlot
+                  key={bannerSlotId(index)}
+                  id={bannerSlotId(index)}
+                  index={index}
+                  banner={banner}
+                  IconComponent={IconComponent}
+                  openIconDropdownIndex={openIconDropdownIndex}
+                  setOpenIconDropdownIndex={setOpenIconDropdownIndex}
+                  iconDropdownRef={iconDropdownRef}
+                  onBannerChange={handleBannerChange}
+                  onRemoveBanner={handleRemoveBanner}
+                />
+              );
+            })}
+          </div>
+        </SortableContext>
+      </DndContext>
     </div>
   );
 }
-

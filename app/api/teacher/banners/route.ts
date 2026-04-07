@@ -3,14 +3,14 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
+import {
+  BANNER_COLUMNS,
+  BANNER_DEFAULT_ROWS,
+  BANNER_MAX_ROWS,
+  BANNER_MAX_SLOTS,
+} from "@/lib/bannerConstants";
 
 export const dynamic = "force-dynamic";
-
-// 허용할 최대 배너 줄 수 및 개수 (프론트 편집 UI와 맞춰야 함)
-const MAX_ROWS = 4;
-const COLUMNS = 7;
-const MAX_BANNERS = MAX_ROWS * COLUMNS;
-const DEFAULT_ROWS = 3;
 
 const bannerSchema = z.object({
   icon: z.string().optional(),
@@ -18,15 +18,15 @@ const bannerSchema = z.object({
   url: z.string().optional(),
 });
 
-const bannersSchema = z.array(bannerSchema).max(MAX_BANNERS);
+const bannersSchema = z.array(bannerSchema).max(BANNER_MAX_SLOTS);
 
 const saveSchema = z.object({
   banners: bannersSchema,
-  rows: z.number().int().min(1).max(MAX_ROWS),
+  rows: z.number().int().min(1).max(BANNER_MAX_ROWS),
 });
 
 function defaultBannersList() {
-  return Array(21)
+  return Array(BANNER_DEFAULT_ROWS * BANNER_COLUMNS)
     .fill(null)
     .map(() => ({ icon: "", title: "", url: "" }));
 }
@@ -47,13 +47,13 @@ export async function GET(request: NextRequest) {
     const userSchool = session.user.school;
 
     if (role !== "admin" && role !== "teacher") {
-      return NextResponse.json({ banners: [], rows: DEFAULT_ROWS });
+      return NextResponse.json({ banners: [], rows: BANNER_DEFAULT_ROWS });
     }
 
     if (!userSchool || userSchool.trim() === "") {
       return NextResponse.json({
         banners: defaultBannersList(),
-        rows: DEFAULT_ROWS,
+        rows: BANNER_DEFAULT_ROWS,
       });
     }
 
@@ -67,7 +67,7 @@ export async function GET(request: NextRequest) {
         data: {
           school: userSchool,
           banners: JSON.stringify(defaultBannersList()),
-          rows: DEFAULT_ROWS,
+          rows: BANNER_DEFAULT_ROWS,
         },
       });
     }
@@ -77,9 +77,9 @@ export async function GET(request: NextRequest) {
         ? JSON.parse(schoolBanner.banners)
         : defaultBannersList();
     const rawRows =
-      typeof schoolBanner.rows === "number" ? schoolBanner.rows : DEFAULT_ROWS;
+      typeof schoolBanner.rows === "number" ? schoolBanner.rows : BANNER_DEFAULT_ROWS;
     const rows =
-      rawRows < 1 ? 1 : rawRows > MAX_ROWS ? MAX_ROWS : rawRows;
+      rawRows < 1 ? 1 : rawRows > BANNER_MAX_ROWS ? BANNER_MAX_ROWS : rawRows;
 
     return NextResponse.json({ banners, rows });
   } catch (error) {

@@ -1,8 +1,13 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import BannerGrid from "./BannerGrid";
 import BannerEditor, { Banner } from "./BannerEditor";
+import BannerSlotModal from "./BannerSlotModal";
+import {
+  BANNER_DEFAULT_ROWS,
+  BANNER_MAX_ROWS,
+} from "@/lib/bannerConstants";
 
 interface BannerSectionProps {
   isEditable?: boolean;
@@ -10,9 +15,10 @@ interface BannerSectionProps {
 
 export default function BannerSection({ isEditable = true }: BannerSectionProps) {
   const [banners, setBanners] = useState<Banner[]>([]);
-  const [rows, setRows] = useState<number>(3);
+  const [rows, setRows] = useState<number>(BANNER_DEFAULT_ROWS);
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [modalSlotIndex, setModalSlotIndex] = useState<number | null>(null);
 
   useEffect(() => {
     fetchBanners();
@@ -30,44 +36,70 @@ export default function BannerSection({ isEditable = true }: BannerSectionProps)
 
       setBanners(serverBanners);
       const serverRows =
-        typeof data.rows === "number" && data.rows >= 1 && data.rows <= 4
+        typeof data.rows === "number" &&
+        data.rows >= 1 &&
+        data.rows <= BANNER_MAX_ROWS
           ? data.rows
-          : 3;
+          : BANNER_DEFAULT_ROWS;
       setRows(serverRows);
     } catch (error) {
       console.error("배너 조회 오류:", error);
-      // 오류 발생 시 빈 배열로 설정
       setBanners([]);
-      setRows(3);
+      setRows(BANNER_DEFAULT_ROWS);
     } finally {
       setIsLoading(false);
     }
   };
 
+  const persistBanners = async (nextBanners: Banner[], nextRows: number) => {
+    const response = await fetch("/api/teacher/banners", {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        banners: nextBanners,
+        rows: nextRows,
+      }),
+    });
+
+    if (!response.ok) throw new Error("배너 저장 실패");
+
+    setBanners(nextBanners);
+    setRows(nextRows);
+  };
+
   const handleSave = async (payload: { banners: Banner[]; rows: number }) => {
     const { banners: updatedBanners, rows: updatedRows } = payload;
     try {
-      const response = await fetch("/api/teacher/banners", {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          banners: updatedBanners,
-          rows: updatedRows,
-        }),
-      });
-
-      if (!response.ok) throw new Error("배너 저장 실패");
-
-      setBanners(updatedBanners);
-      setRows(updatedRows);
+      await persistBanners(updatedBanners, updatedRows);
       setIsEditing(false);
     } catch (error) {
       console.error("배너 저장 오류:", error);
       throw error;
     }
   };
+
+  const handleModalSave = async (banner: Banner) => {
+    if (modalSlotIndex === null) return;
+    const next = [...banners];
+    while (next.length <= modalSlotIndex) {
+      next.push({ icon: "", title: "", url: "" });
+    }
+    next[modalSlotIndex] = banner;
+    await persistBanners(next, rows);
+  };
+
+  const modalInitialBanner = useMemo((): Banner => {
+    if (modalSlotIndex === null) {
+      return { icon: "", title: "", url: "" };
+    }
+    return {
+      icon: banners[modalSlotIndex]?.icon ?? "",
+      title: banners[modalSlotIndex]?.title ?? "",
+      url: banners[modalSlotIndex]?.url ?? "",
+    };
+  }, [modalSlotIndex, banners]);
 
   if (isLoading) {
     return (
@@ -112,10 +144,22 @@ export default function BannerSection({ isEditable = true }: BannerSectionProps)
           banners={banners}
           rows={rows}
           onEdit={() => isEditable && setIsEditing(true)}
-          isEditable={isEditable && isEditing} // 편집 버튼을 헤더로 이동
+          onEmptySlotClick={
+            isEditable ? (slotIndex) => setModalSlotIndex(slotIndex) : undefined
+          }
+          isEditable={isEditable}
+        />
+      )}
+
+      {modalSlotIndex !== null && (
+        <BannerSlotModal
+          key={modalSlotIndex}
+          slotLabel={`슬롯 ${modalSlotIndex + 1}`}
+          initialBanner={modalInitialBanner}
+          onClose={() => setModalSlotIndex(null)}
+          onSave={handleModalSave}
         />
       )}
     </section>
   );
 }
-
