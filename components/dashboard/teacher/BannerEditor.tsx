@@ -88,13 +88,13 @@ function SortableBannerSlot({
     <div
       ref={setNodeRef}
       style={style}
-      className="border border-gray-200 rounded-lg p-4 bg-white space-y-3"
-    >
+      className="border border-gray-200 rounded-lg p-2 bg-white space-y-3"
+     >
       <div className="flex items-center justify-between gap-1">
         <div className="flex items-center gap-1 min-w-0 flex-1">
           <button
             type="button"
-            className="touch-none shrink-0 p-1 rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 cursor-grab active:cursor-grabbing focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="touch-none shrink-0 -ml-2 p-1 rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 cursor-grab active:cursor-grabbing focus:outline-none focus:ring-2 focus:ring-blue-500"
             aria-label={`배너 ${index + 1} 위치 이동`}
             {...attributes}
             {...listeners}
