@@ -7,6 +7,8 @@ import {
   Home,
   Calendar,
   BookOpen,
+  BookOpenCheck,
+  GraduationCap,
   FileText,
   Folder,
   BarChart,
@@ -19,6 +21,7 @@ import {
   User,
   UserCheck,
   MessageCircle,
+  MessageSquare,
   ChevronDown,
   ChevronRight,
   Newspaper,
@@ -26,6 +29,8 @@ import {
   ClipboardMinus,
   ClipboardCopy,
   ClipboardList,
+  PartyPopper,
+  Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -35,6 +40,7 @@ type NavItem = {
   iconName?: string;
   icon?: React.ReactNode;
   external?: boolean;
+  dividerBefore?: boolean;
 };
 
 interface CurrentPageNavProps {
@@ -53,6 +59,8 @@ const iconMap: Record<string, React.ReactNode> = {
   Home: <Home className="w-5 h-5" />,
   Calendar: <Calendar className="w-5 h-5" />,
   BookOpen: <BookOpen className="w-5 h-5" />,
+  BookOpenCheck: <BookOpenCheck className="w-5 h-5" />,
+  GraduationCap: <GraduationCap className="w-5 h-5" />,
   FileText: <FileText className="w-5 h-5" />,
   Folder: <Folder className="w-5 h-5" />,
   BarChart: <BarChart className="w-5 h-5" />,
@@ -65,11 +73,14 @@ const iconMap: Record<string, React.ReactNode> = {
   User: <User className="w-5 h-5" />,
   UserCheck: <UserCheck className="w-5 h-5" />,
   MessageCircle: <MessageCircle className="w-5 h-5" />,
+  MessageSquare: <MessageSquare className="w-5 h-5" />,
   Newspaper: <Newspaper className="w-5 h-5" />,
   Clipboard: <Clipboard className="w-5 h-5" />,
   ClipboardMinus: <ClipboardMinus className="w-5 h-5" />,
   ClipboardCopy: <ClipboardCopy className="w-5 h-5" />,
   ClipboardList: <ClipboardList className="w-5 h-5" />,
+  PartyPopper: <PartyPopper className="w-5 h-5" />,
+  Sparkles: <Sparkles className="w-5 h-5" />,
 };
 
 const formatGrade = (grade: string | null): string => {
@@ -376,7 +387,10 @@ export default function CurrentPageNav({ items }: CurrentPageNavProps) {
                 const itemIcon = item.iconName ? iconMap[item.iconName] : item.icon;
 
                 return (
-                  <li key={item.href}>
+                  <li
+                    key={item.href}
+                    className={cn(item.dividerBefore && "mt-1 pt-2 border-t border-gray-200")}
+                  >
                     {item.external ? (
                       <a
                         href={item.href}

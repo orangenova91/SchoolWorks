@@ -21,11 +21,6 @@ const VolunteerClient = dynamic(() => import("@/components/dashboard/Volunteer")
   loading: () => <div className="rounded-2xl border border-gray-200 bg-white p-6">로딩 중...</div>,
 });
 
-const ClubClient = dynamic(() => import("@/components/dashboard/Club"), {
-  ssr: false,
-  loading: () => <div className="rounded-2xl border border-gray-200 bg-white p-6">로딩 중...</div>,
-});
-
 const OrganizationRolesClient = dynamic(() => import("@/components/dashboard/OrganizationRoles"), {
   ssr: false,
   loading: () => <div className="rounded-2xl border border-gray-200 bg-white p-6">로딩 중...</div>,
@@ -125,7 +120,6 @@ export default async function AcademicPreparationPage({
             { id: "supervision-meal", label: "급식지도/야자감독" },
             { id: "cleaning-area", label: "청소구역" },
             { id: "volunteer", label: "봉사활동" },
-            { id: "club", label: "동아리" },
             { id: "organization", label: "학급 및 학생회 조직" },
             { id: "awards", label: "수상(교내 시상 계획)" },
           ]}
@@ -158,10 +152,6 @@ export default async function AcademicPreparationPage({
 
             <article key="volunteer" className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
               <VolunteerClient />
-            </article>,
-
-            <article key="club" className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-              <ClubClient />
             </article>,
 
             <article key="organization" className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">

@@ -35,6 +35,7 @@ import {
   MessageSquare,
   GraduationCap,
   Sparkles,
+  PartyPopper,
 } from "lucide-react";
 
 export const metadata: Metadata = {
@@ -176,6 +177,12 @@ export default async function DashboardLayout({
             label: t.sidebar.teacher.classManagement,
             icon: <Users className="w-5 h-5" />,
             iconName: "Users"
+          },
+          {
+            href: "/dashboard/teacher/club",
+            label: "동아리",
+            icon: <PartyPopper className="w-5 h-5" />,
+            iconName: "PartyPopper"
           },
 
           {
