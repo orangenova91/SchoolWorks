@@ -257,6 +257,70 @@ model MinimumAchievementPlanFile {
   @@map("minimum_achievement_plan_files")
 }
 
+model ClubBudgetPlanFile {
+  id               String   @id @default(auto()) @map("_id") @db.ObjectId
+  filePath         String   // Vercel Blob URL
+  originalFileName String
+  fileSize         Int?
+  mimeType         String?
+  school           String
+  uploadedById     String   @db.ObjectId
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([school, createdAt])
+  @@map("club_budget_plan_files")
+}
+
+model ClubPlanFile {
+  id               String   @id @default(auto()) @map("_id") @db.ObjectId
+  filePath         String   // Vercel Blob URL
+  originalFileName String
+  fileSize         Int?
+  mimeType         String?
+  school           String
+  uploadedById     String   @db.ObjectId
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([school, createdAt])
+  @@map("club_plan_files")
+}
+
+model ClubActivityPlanFile {
+  id               String   @id @default(auto()) @map("_id") @db.ObjectId
+  clubId           String   @db.ObjectId
+  filePath         String   // Vercel Blob URL
+  originalFileName String
+  fileSize         Int?
+  mimeType         String?
+  school           String
+  uploadedById     String   @db.ObjectId
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([clubId, createdAt])
+  @@index([school, createdAt])
+  @@map("club_activity_plan_files")
+}
+
+model ClubBudgetUsagePlanFile {
+  id               String   @id @default(auto()) @map("_id") @db.ObjectId
+  clubId           String   @db.ObjectId
+  filePath         String   // Vercel Blob URL
+  originalFileName String
+  fileSize         Int?
+  mimeType         String?
+  school           String
+  uploadedById     String   @db.ObjectId
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([clubId, createdAt])
+  @@index([school, createdAt])
+  @@map("club_budget_usage_plan_files")
+}
+
 model ClassGroup {
   id               String       @id @default(auto()) @map("_id") @db.ObjectId
   name             String // 학반명
