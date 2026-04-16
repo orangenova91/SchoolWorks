@@ -946,6 +946,166 @@ export default function CleaningArea() {
                   </tr>
                 ) : (
                   <>
+                {isOpen && (
+                  <tr className="border-b border-gray-200 bg-gray-50">
+                    <td className="py-3 px-4 text-sm text-gray-600 w-16">-</td>
+                    <td className="py-3 px-4 w-24">
+                      <select
+                        name="classGroup"
+                        value={form.classGroup}
+                        onChange={handleChange}
+                        className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                      >
+                        <option value="">학반 선택</option>
+                        {uniqueClassLabels.map((label) => (
+                          <option key={label} value={label}>
+                            {label}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
+                    <td className="py-3 px-4 w-48">
+                      <input
+                        name="area"
+                        value={form.area}
+                        onChange={handleChange}
+                        className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="예: 복도 A구역"
+                      />
+                    </td>
+                    <td className="py-3 px-4 w-32">
+                      <select
+                        name="teacher"
+                        value={form.teacher}
+                        onChange={handleChange}
+                        className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                      >
+                        <option value="">지도교사 선택</option>
+                        {teachers.map((teacher) => {
+                          const allSelectedTeacherNames = getAllSelectedTeacherNames();
+                          const isSelectedInOtherAreas = allSelectedTeacherNames.includes(teacher.name);
+                          const isCurrentSelection = form.teacher === teacher.name;
+                          const isDisabled = isSelectedInOtherAreas && !isCurrentSelection;
+                          
+                          // 이름이 중복인 경우에만 이메일 표시
+                          const isDuplicate = (teacherNameCounts.get(teacher.name) || 0) > 1;
+                          const displayName = isDuplicate 
+                            ? `${teacher.name} (${teacher.email})`
+                            : teacher.name;
+                          
+                          return (
+                            <option 
+                              key={teacher.id} 
+                              value={teacher.name}
+                              disabled={isDisabled}
+                            >
+                              {displayName}
+                              {isDisabled ? " (이미 선택됨)" : ""}
+                            </option>
+                          );
+                        })}
+                      </select>
+                    </td>
+                    <td className="py-3 px-4 w-24">
+                      <input
+                        name="studentCount"
+                        value={form.studentCount}
+                        onChange={handleChange}
+                        type="number"
+                        min={0}
+                        className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="예: 6"
+                      />
+                    </td>
+                    <td className="py-3 px-4" style={{ minWidth: "250px" }}>
+                      {studentSelections.length > 0 ? (
+                        <div className="overflow-x-auto overflow-y-visible">
+                          <div className="flex items-center gap-2 min-w-max pb-1">
+                            {studentSelections.map((selectedId, idx) => (
+                              <select
+                                key={idx}
+                                value={selectedId}
+                                onChange={(e) => handleStudentChange(idx, e.target.value)}
+                                className="px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-[120px] flex-shrink-0 bg-white"
+                                style={{ minHeight: "32px" }}
+                              >
+                                <option value="">학생 선택</option>
+                                {students.length > 0 ? (
+                                  students
+                                    .filter(student => {
+                                      // 현재 선택된 학생은 항상 표시
+                                      if (selectedId === student.id) return true;
+                                      // 학반이 일치하는 학생만 표시
+                                      const currentClassGroup = form.classGroup?.trim();
+                                      if (!currentClassGroup) return false;
+                                      return student.classLabel?.trim() === currentClassGroup;
+                                    })
+                                    .map(student => {
+                                      // 같은 폼 내에서 다른 드롭다운에 선택된 경우
+                                      const isSelectedInSameForm = studentSelections.includes(student.id) && studentSelections.indexOf(student.id) !== idx;
+                                      // 다른 청소구역 목록에서 선택된 경우
+                                      const allSelectedIds = getAllSelectedStudentIds();
+                                      const isSelectedInOtherAreas = allSelectedIds.includes(student.id);
+                                      const isCurrentSelection = selectedId === student.id;
+                                      const isDisabled = (isSelectedInSameForm || isSelectedInOtherAreas) && !isCurrentSelection;
+                                      
+                                      return (
+                                        <option 
+                                          key={student.id} 
+                                          value={student.id}
+                                          disabled={isDisabled}
+                                        >
+                                          {student.studentId ? `${student.studentId} ${student.name}` : student.name}
+                                        </option>
+                                      );
+                                    })
+                                ) : (
+                                  <option disabled>학생 목록 로딩 중...</option>
+                                )}
+                              </select>
+                            ))}
+                          </div>
+                        </div>
+                      ) : (
+                        <span className="text-sm text-gray-400">학반 입력 후 학생수를 입력하면 드롭다운이 표시됩니다.</span>
+                      )}
+                    </td>
+                    <td className="py-3 px-4 w-24">
+                      <input
+                        name="notes"
+                        value={form.notes}
+                        onChange={handleChange}
+                        className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="비고 입력"
+                      />
+                    </td>
+                    <td className="py-3 px-4 w-32">
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={handleSave}
+                          disabled={isLoading}
+                          className="inline-flex items-center px-2 py-1 rounded-md bg-green-600 hover:bg-green-700 text-white text-xs disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {isLoading ? "저장 중..." : "저장"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsOpen(false);
+                            setForm({ classGroup: "", area: "", teacher: "", studentCount: "", notes: "" });
+                            setStudentSelections([]);
+                          }}
+                          disabled={isLoading}
+                          className="inline-flex items-center px-2 py-1 rounded-md bg-gray-100 hover:bg-gray-200 text-xs disabled:opacity-50"
+                        >
+                          취소
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                )}
+
                 {sortedCleaningAreas.map((item, idx) => (
                   editingId === item.id ? (
                     <tr key={item.id} className="border-b border-gray-200 bg-blue-50">
@@ -1144,165 +1304,6 @@ export default function CleaningArea() {
                     </tr>
                   )
                 ))}
-                {isOpen && (
-                  <tr className="border-b border-gray-200 bg-gray-50">
-                    <td className="py-3 px-4 text-sm text-gray-600 w-16">-</td>
-                    <td className="py-3 px-4 w-24">
-                      <select
-                        name="classGroup"
-                        value={form.classGroup}
-                        onChange={handleChange}
-                        className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                      >
-                        <option value="">학반 선택</option>
-                        {uniqueClassLabels.map((label) => (
-                          <option key={label} value={label}>
-                            {label}
-                          </option>
-                        ))}
-                      </select>
-                    </td>
-                    <td className="py-3 px-4 w-48">
-                      <input
-                        name="area"
-                        value={form.area}
-                        onChange={handleChange}
-                        className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="예: 복도 A구역"
-                      />
-                    </td>
-                    <td className="py-3 px-4 w-32">
-                      <select
-                        name="teacher"
-                        value={form.teacher}
-                        onChange={handleChange}
-                        className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                      >
-                        <option value="">지도교사 선택</option>
-                        {teachers.map((teacher) => {
-                          const allSelectedTeacherNames = getAllSelectedTeacherNames();
-                          const isSelectedInOtherAreas = allSelectedTeacherNames.includes(teacher.name);
-                          const isCurrentSelection = form.teacher === teacher.name;
-                          const isDisabled = isSelectedInOtherAreas && !isCurrentSelection;
-                          
-                          // 이름이 중복인 경우에만 이메일 표시
-                          const isDuplicate = (teacherNameCounts.get(teacher.name) || 0) > 1;
-                          const displayName = isDuplicate 
-                            ? `${teacher.name} (${teacher.email})`
-                            : teacher.name;
-                          
-                          return (
-                            <option 
-                              key={teacher.id} 
-                              value={teacher.name}
-                              disabled={isDisabled}
-                            >
-                              {displayName}
-                              {isDisabled ? " (이미 선택됨)" : ""}
-                            </option>
-                          );
-                        })}
-                      </select>
-                    </td>
-                    <td className="py-3 px-4 w-24">
-                      <input
-                        name="studentCount"
-                        value={form.studentCount}
-                        onChange={handleChange}
-                        type="number"
-                        min={0}
-                        className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="예: 6"
-                      />
-                    </td>
-                    <td className="py-3 px-4" style={{ minWidth: "250px" }}>
-                      {studentSelections.length > 0 ? (
-                        <div className="overflow-x-auto overflow-y-visible">
-                          <div className="flex items-center gap-2 min-w-max pb-1">
-                            {studentSelections.map((selectedId, idx) => (
-                              <select
-                                key={idx}
-                                value={selectedId}
-                                onChange={(e) => handleStudentChange(idx, e.target.value)}
-                                className="px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-[120px] flex-shrink-0 bg-white"
-                                style={{ minHeight: "32px" }}
-                              >
-                                <option value="">학생 선택</option>
-                                {students.length > 0 ? (
-                                  students
-                                    .filter(student => {
-                                      // 현재 선택된 학생은 항상 표시
-                                      if (selectedId === student.id) return true;
-                                      // 학반이 일치하는 학생만 표시
-                                      const currentClassGroup = form.classGroup?.trim();
-                                      if (!currentClassGroup) return false;
-                                      return student.classLabel?.trim() === currentClassGroup;
-                                    })
-                                    .map(student => {
-                                      // 같은 폼 내에서 다른 드롭다운에 선택된 경우
-                                      const isSelectedInSameForm = studentSelections.includes(student.id) && studentSelections.indexOf(student.id) !== idx;
-                                      // 다른 청소구역 목록에서 선택된 경우
-                                      const allSelectedIds = getAllSelectedStudentIds();
-                                      const isSelectedInOtherAreas = allSelectedIds.includes(student.id);
-                                      const isCurrentSelection = selectedId === student.id;
-                                      const isDisabled = (isSelectedInSameForm || isSelectedInOtherAreas) && !isCurrentSelection;
-                                      
-                                      return (
-                                        <option 
-                                          key={student.id} 
-                                          value={student.id}
-                                          disabled={isDisabled}
-                                        >
-                                          {student.studentId ? `${student.studentId} ${student.name}` : student.name}
-                                        </option>
-                                      );
-                                    })
-                                ) : (
-                                  <option disabled>학생 목록 로딩 중...</option>
-                                )}
-                              </select>
-                            ))}
-                          </div>
-                        </div>
-                      ) : (
-                        <span className="text-sm text-gray-400">학반 입력 후 학생수를 입력하면 드롭다운이 표시됩니다.</span>
-                      )}
-                    </td>
-                    <td className="py-3 px-4 w-24">
-                      <input
-                        name="notes"
-                        value={form.notes}
-                        onChange={handleChange}
-                        className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="비고 입력"
-                      />
-                    </td>
-                    <td className="py-3 px-4 w-32">
-                      <div className="flex items-center gap-1">
-                        <button
-                          type="button"
-                          onClick={handleSave}
-                          disabled={isLoading}
-                          className="inline-flex items-center px-2 py-1 rounded-md bg-green-600 hover:bg-green-700 text-white text-xs disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          {isLoading ? "저장 중..." : "저장"}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setIsOpen(false);
-                            setForm({ classGroup: "", area: "", teacher: "", studentCount: "", notes: "" });
-                            setStudentSelections([]);
-                          }}
-                          disabled={isLoading}
-                          className="inline-flex items-center px-2 py-1 rounded-md bg-gray-100 hover:bg-gray-200 text-xs disabled:opacity-50"
-                        >
-                          취소
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                )}
                   </>
                 )}
               </tbody>

@@ -1320,6 +1320,109 @@ export default function ClubOrganizationSection() {
                 </tr>
               ) : (
                 <>
+                  {isCreateOpen && (
+                    <tr className="border-b border-gray-200 bg-gray-50">
+                      <td className="py-2 px-1 text-sm text-gray-600 w-12">-</td>
+                      <td className="py-2 px-1 w-[70px]">
+                        <input
+                          name="clubName"
+                          value={createForm.clubName}
+                          onChange={handleCreateFormChange}
+                          className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm"
+                          placeholder="동아리명"
+                        />
+                      </td>
+                      <td className="py-2 px-1 w-[70px]">
+                        <select
+                          name="category"
+                          value={createForm.category}
+                          onChange={handleCreateFormChange}
+                          className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm bg-white"
+                        >
+                          <option value="">구분 선택</option>
+                          <option value="인문">인문</option>
+                          <option value="사회">사회</option>
+                          <option value="수학">수학</option>
+                          <option value="과학">과학</option>
+                          <option value="어학">어학</option>
+                          <option value="독서*토론">독서*토론</option>
+                          <option value="음악">음악</option>
+                          <option value="미술">미술</option>
+                          <option value="체육">체육</option>
+                          <option value="댄스">댄스</option>
+                          <option value="기타">기타</option>
+                        </select>
+                      </td>
+                      <td className="py-2 px-1 w-32">
+                        <input
+                          name="description"
+                          value={createForm.description}
+                          onChange={handleCreateFormChange}
+                          className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm"
+                          placeholder="설명"
+                        />
+                      </td>
+                      <td className="py-2 px-1 w-[70px]">
+                        <select
+                          name="teacher"
+                          value={createForm.teacher}
+                          onChange={handleCreateFormChange}
+                          className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm bg-white"
+                        >
+                          <option value="">교사 선택</option>
+                          {teachers.map((t) => {
+                            const isAssigned = getAssignedTeacherNames().includes(t.name);
+                            const isDuplicate = (teacherNameCounts.get(t.name) || 0) > 1;
+                            const displayName = isDuplicate
+                              ? `${t.name} (${t.email})`
+                              : t.name;
+                            return (
+                              <option key={t.id} value={t.name} disabled={isAssigned}>
+                                {displayName}
+                                {isAssigned ? " (배정됨)" : ""}
+                              </option>
+                            );
+                          })}
+                        </select>
+                      </td>
+                      <td className="py-2 px-1 w-48 text-sm text-gray-500">저장 후 추가</td>
+                      <td className="py-2 px-1 w-24">
+                        <input
+                          name="location"
+                          value={createForm.location}
+                          onChange={handleCreateFormChange}
+                          className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm"
+                          placeholder="활동 장소"
+                        />
+                      </td>
+                      <td className="py-2 px-1 w-[120px] text-sm text-gray-500">저장 후 추가</td>
+                      <td className="py-2 px-1 w-[120px] text-sm text-gray-500">저장 후 추가</td>
+                      <td className="sticky right-0 z-10 bg-white py-2 px-1 w-32">
+                        <div className="flex items-center justify-center gap-1">
+                          <button
+                            type="button"
+                            onClick={handleCreateSave}
+                            disabled={isLoading}
+                            className="inline-flex items-center px-2 py-1 rounded-md bg-green-600 hover:bg-green-700 text-white text-xs disabled:opacity-50"
+                          >
+                            {isLoading ? "저장 중..." : "저장"}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setIsCreateOpen(false);
+                              setCreateForm(EMPTY_FORM);
+                            }}
+                            disabled={isLoading}
+                            className="inline-flex items-center px-2 py-1 rounded-md bg-gray-100 hover:bg-gray-200 text-xs disabled:opacity-50"
+                          >
+                            취소
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+
                   {creativeClubs.map((item, idx) => (
                     <Fragment key={item.id}>
                     <tr className="border-b border-gray-100">
@@ -1629,108 +1732,6 @@ export default function ClubOrganizationSection() {
                     </Fragment>
                   ))}
 
-                  {isCreateOpen && (
-                    <tr className="border-b border-gray-200 bg-gray-50">
-                      <td className="py-2 px-1 text-sm text-gray-600 w-12">-</td>
-                      <td className="py-2 px-1 w-[70px]">
-                        <input
-                          name="clubName"
-                          value={createForm.clubName}
-                          onChange={handleCreateFormChange}
-                          className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm"
-                          placeholder="동아리명"
-                        />
-                      </td>
-                      <td className="py-2 px-1 w-[70px]">
-                        <select
-                          name="category"
-                          value={createForm.category}
-                          onChange={handleCreateFormChange}
-                          className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm bg-white"
-                        >
-                          <option value="">구분 선택</option>
-                          <option value="인문">인문</option>
-                          <option value="사회">사회</option>
-                          <option value="수학">수학</option>
-                          <option value="과학">과학</option>
-                          <option value="어학">어학</option>
-                          <option value="독서*토론">독서*토론</option>
-                          <option value="음악">음악</option>
-                          <option value="미술">미술</option>
-                          <option value="체육">체육</option>
-                          <option value="댄스">댄스</option>
-                          <option value="기타">기타</option>
-                        </select>
-                      </td>
-                      <td className="py-2 px-1 w-32">
-                        <input
-                          name="description"
-                          value={createForm.description}
-                          onChange={handleCreateFormChange}
-                          className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm"
-                          placeholder="설명"
-                        />
-                      </td>
-                      <td className="py-2 px-1 w-[70px]">
-                        <select
-                          name="teacher"
-                          value={createForm.teacher}
-                          onChange={handleCreateFormChange}
-                          className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm bg-white"
-                        >
-                          <option value="">교사 선택</option>
-                          {teachers.map((t) => {
-                            const isAssigned = getAssignedTeacherNames().includes(t.name);
-                            const isDuplicate = (teacherNameCounts.get(t.name) || 0) > 1;
-                            const displayName = isDuplicate
-                              ? `${t.name} (${t.email})`
-                              : t.name;
-                            return (
-                              <option key={t.id} value={t.name} disabled={isAssigned}>
-                                {displayName}
-                                {isAssigned ? " (배정됨)" : ""}
-                              </option>
-                            );
-                          })}
-                        </select>
-                      </td>
-                      <td className="py-2 px-1 w-48 text-sm text-gray-500">저장 후 추가</td>
-                      <td className="py-2 px-1 w-24">
-                        <input
-                          name="location"
-                          value={createForm.location}
-                          onChange={handleCreateFormChange}
-                          className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm"
-                          placeholder="활동 장소"
-                        />
-                      </td>
-                      <td className="py-2 px-1 w-[120px] text-sm text-gray-500">저장 후 추가</td>
-                      <td className="py-2 px-1 w-[120px] text-sm text-gray-500">저장 후 추가</td>
-                      <td className="sticky right-0 z-10 bg-white py-2 px-1 w-32">
-                        <div className="flex items-center justify-center gap-1">
-                          <button
-                            type="button"
-                            onClick={handleCreateSave}
-                            disabled={isLoading}
-                            className="inline-flex items-center px-2 py-1 rounded-md bg-green-600 hover:bg-green-700 text-white text-xs disabled:opacity-50"
-                          >
-                            {isLoading ? "저장 중..." : "저장"}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setIsCreateOpen(false);
-                              setCreateForm(EMPTY_FORM);
-                            }}
-                            disabled={isLoading}
-                            className="inline-flex items-center px-2 py-1 rounded-md bg-gray-100 hover:bg-gray-200 text-xs disabled:opacity-50"
-                          >
-                            취소
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  )}
                 </>
               )}
             </tbody>
@@ -1795,6 +1796,37 @@ export default function ClubOrganizationSection() {
                 </tr>
               ) : (
                 <>
+                  {isAutonomousOpen && (
+                    <tr className="border-b border-gray-200 bg-gray-50">
+                      <td className="py-2 px-1 text-sm text-gray-600 w-12">-</td>
+                      <td className="py-2 px-1 w-[70px]"><input name="clubName" value={autonomousForm.clubName} onChange={handleAutonomousFormChange} className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm" placeholder="동아리명" /></td>
+                      <td className="py-2 px-1 w-[70px]">
+                        <select name="category" value={autonomousForm.category} onChange={handleAutonomousFormChange} className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm bg-white">
+                          <option value="">구분 선택</option><option value="인문">인문</option><option value="사회">사회</option><option value="수학">수학</option><option value="과학">과학</option><option value="어학">어학</option><option value="독서*토론">독서*토론</option><option value="음악">음악</option><option value="미술">미술</option><option value="체육">체육</option><option value="댄스">댄스</option><option value="기타">기타</option>
+                        </select>
+                      </td>
+                      <td className="py-2 px-1 w-32"><input name="description" value={autonomousForm.description} onChange={handleAutonomousFormChange} className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm" placeholder="설명" /></td>
+                      <td className="py-2 px-1 w-[70px]">
+                        <select name="teacher" value={autonomousForm.teacher} onChange={handleAutonomousFormChange} className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm bg-white">
+                          <option value="">교사 선택</option>
+                          {teachers.map((t) => (
+                            <option key={t.id} value={t.name}>{(teacherNameCounts.get(t.name) || 0) > 1 ? `${t.name} (${t.email})` : t.name}</option>
+                          ))}
+                        </select>
+                      </td>
+                      <td className="py-2 px-1 w-48 text-sm text-gray-500">저장 후 추가</td>
+                      <td className="py-2 px-1 w-24"><input name="location" value={autonomousForm.location} onChange={handleAutonomousFormChange} className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm" placeholder="활동 장소" /></td>
+                      <td className="py-2 px-1 w-[120px] text-sm text-gray-500">저장 후 추가</td>
+                      <td className="py-2 px-1 w-[120px] text-sm text-gray-500">저장 후 추가</td>
+                      <td className="sticky right-0 z-10 bg-white py-2 px-1 w-32">
+                        <div className="flex items-center justify-center gap-1">
+                          <button type="button" onClick={handleAutonomousSave} disabled={isLoading} className="inline-flex items-center px-2 py-1 rounded-md bg-green-600 hover:bg-green-700 text-white text-xs disabled:opacity-50">{isLoading ? "저장 중..." : "저장"}</button>
+                          <button type="button" onClick={() => { setIsAutonomousOpen(false); setAutonomousForm(EMPTY_FORM); }} disabled={isLoading} className="inline-flex items-center px-2 py-1 rounded-md bg-gray-100 hover:bg-gray-200 text-xs disabled:opacity-50">취소</button>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+
                   {autonomousClubs.map((item, idx) => (
                     <Fragment key={item.id}>
                       <tr className="border-b border-gray-100">
@@ -2018,36 +2050,6 @@ export default function ClubOrganizationSection() {
                     </Fragment>
                   ))}
 
-                  {isAutonomousOpen && (
-                    <tr className="border-b border-gray-200 bg-gray-50">
-                      <td className="py-2 px-1 text-sm text-gray-600 w-12">-</td>
-                      <td className="py-2 px-1 w-[70px]"><input name="clubName" value={autonomousForm.clubName} onChange={handleAutonomousFormChange} className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm" placeholder="동아리명" /></td>
-                      <td className="py-2 px-1 w-[70px]">
-                        <select name="category" value={autonomousForm.category} onChange={handleAutonomousFormChange} className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm bg-white">
-                          <option value="">구분 선택</option><option value="인문">인문</option><option value="사회">사회</option><option value="수학">수학</option><option value="과학">과학</option><option value="어학">어학</option><option value="독서*토론">독서*토론</option><option value="음악">음악</option><option value="미술">미술</option><option value="체육">체육</option><option value="댄스">댄스</option><option value="기타">기타</option>
-                        </select>
-                      </td>
-                      <td className="py-2 px-1 w-32"><input name="description" value={autonomousForm.description} onChange={handleAutonomousFormChange} className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm" placeholder="설명" /></td>
-                      <td className="py-2 px-1 w-[70px]">
-                        <select name="teacher" value={autonomousForm.teacher} onChange={handleAutonomousFormChange} className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm bg-white">
-                          <option value="">교사 선택</option>
-                          {teachers.map((t) => (
-                            <option key={t.id} value={t.name}>{(teacherNameCounts.get(t.name) || 0) > 1 ? `${t.name} (${t.email})` : t.name}</option>
-                          ))}
-                        </select>
-                      </td>
-                      <td className="py-2 px-1 w-48 text-sm text-gray-500">저장 후 추가</td>
-                      <td className="py-2 px-1 w-24"><input name="location" value={autonomousForm.location} onChange={handleAutonomousFormChange} className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm" placeholder="활동 장소" /></td>
-                      <td className="py-2 px-1 w-[120px] text-sm text-gray-500">저장 후 추가</td>
-                      <td className="py-2 px-1 w-[120px] text-sm text-gray-500">저장 후 추가</td>
-                      <td className="sticky right-0 z-10 bg-white py-2 px-1 w-32">
-                        <div className="flex items-center justify-center gap-1">
-                          <button type="button" onClick={handleAutonomousSave} disabled={isLoading} className="inline-flex items-center px-2 py-1 rounded-md bg-green-600 hover:bg-green-700 text-white text-xs disabled:opacity-50">{isLoading ? "저장 중..." : "저장"}</button>
-                          <button type="button" onClick={() => { setIsAutonomousOpen(false); setAutonomousForm(EMPTY_FORM); }} disabled={isLoading} className="inline-flex items-center px-2 py-1 rounded-md bg-gray-100 hover:bg-gray-200 text-xs disabled:opacity-50">취소</button>
-                        </div>
-                      </td>
-                    </tr>
-                  )}
                 </>
               )}
             </tbody>
