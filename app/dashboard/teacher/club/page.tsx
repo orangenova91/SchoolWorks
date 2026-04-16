@@ -54,6 +54,18 @@ const ClubOrganizationSection = dynamic(
   }
 );
 
+const MyClubManagementSection = dynamic(
+  () => import("@/components/dashboard/MyClubManagementSection"),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="rounded-2xl border border-gray-200 bg-white p-6">
+        로딩 중...
+      </div>
+    ),
+  }
+);
+
 export default async function ClubPage() {
   const session = await getServerSession(authOptions);
 
@@ -105,14 +117,11 @@ export default async function ClubPage() {
               <ClubOrganizationSection />
             </article>,
 
-            <article
-              key="my-club-management"
-              className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm"
-            >
-              <h2 className="text-lg font-semibold text-gray-900">내 동아리 관리</h2>
-              <p className="mt-2 text-sm text-gray-600">
-                서비스 준비중입니다. 곧 제공될 예정입니다.
-              </p>
+            <article key="my-club-management" className="min-w-0">
+              <MyClubManagementSection
+                teacherName={session.user.name}
+                teacherEmail={session.user.email}
+              />
             </article>,
           ]}
         </CourseTabs>
