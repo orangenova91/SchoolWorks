@@ -1,7 +1,7 @@
 "use client";
 
 import { Fragment, useEffect, useMemo, useState } from "react";
-import { Download, Edit2, HelpCircle, Plus, Trash2, X } from "lucide-react";
+import { ChevronDown, ChevronUp, Download, Edit2, HelpCircle, Plus, Trash2, X } from "lucide-react";
 import { StudentAutocomplete } from "./StudentAutocomplete";
 
 type Teacher = {
@@ -52,6 +52,9 @@ type ClubForm = {
   maxMembers: string;
   location: string;
 };
+
+type ClubSortKey = "createdAt" | "clubName" | "category" | "teacher" | "location";
+type SortDirection = "asc" | "desc";
 
 const EMPTY_FORM: ClubForm = {
   clubName: "",
@@ -117,6 +120,10 @@ export default function ClubOrganizationSection() {
   const [budgetUsagePlanDragOverClubId, setBudgetUsagePlanDragOverClubId] = useState<
     string | null
   >(null);
+  const [creativeSortKey, setCreativeSortKey] = useState<ClubSortKey>("createdAt");
+  const [creativeSortDirection, setCreativeSortDirection] = useState<SortDirection>("desc");
+  const [autonomousSortKey, setAutonomousSortKey] = useState<ClubSortKey>("createdAt");
+  const [autonomousSortDirection, setAutonomousSortDirection] = useState<SortDirection>("desc");
 
   const fetchTeachers = async () => {
     try {
@@ -233,6 +240,57 @@ export default function ClubOrganizationSection() {
     });
     return counts;
   }, [teachers]);
+
+  const compareClubValues = (
+    a: ClubItem,
+    b: ClubItem,
+    sortKey: ClubSortKey,
+    sortDirection: SortDirection
+  ) => {
+    const direction = sortDirection === "asc" ? 1 : -1;
+
+    if (sortKey === "createdAt") {
+      const aTime = new Date(a.createdAt).getTime();
+      const bTime = new Date(b.createdAt).getTime();
+      return (aTime - bTime) * direction;
+    }
+
+    const getNormalized = (value: string | null | undefined) => (value || "").trim().toLowerCase();
+    const aValue = getNormalized(a[sortKey]);
+    const bValue = getNormalized(b[sortKey]);
+
+    return aValue.localeCompare(bValue, "ko") * direction;
+  };
+
+  const sortedCreativeClubs = useMemo(() => {
+    return [...creativeClubs].sort((a, b) =>
+      compareClubValues(a, b, creativeSortKey, creativeSortDirection)
+    );
+  }, [creativeClubs, creativeSortKey, creativeSortDirection]);
+
+  const sortedAutonomousClubs = useMemo(() => {
+    return [...autonomousClubs].sort((a, b) =>
+      compareClubValues(a, b, autonomousSortKey, autonomousSortDirection)
+    );
+  }, [autonomousClubs, autonomousSortKey, autonomousSortDirection]);
+
+  const handleCreativeSort = (key: Exclude<ClubSortKey, "createdAt">) => {
+    if (creativeSortKey === key) {
+      setCreativeSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
+      return;
+    }
+    setCreativeSortKey(key);
+    setCreativeSortDirection("asc");
+  };
+
+  const handleAutonomousSort = (key: Exclude<ClubSortKey, "createdAt">) => {
+    if (autonomousSortKey === key) {
+      setAutonomousSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
+      return;
+    }
+    setAutonomousSortKey(key);
+    setAutonomousSortDirection("asc");
+  };
 
   const getAssignedTeacherNames = (excludeClubId?: string): string[] => {
     return creativeClubs
@@ -1279,34 +1337,78 @@ export default function ClubOrganizationSection() {
           <table className="w-full" style={{ tableLayout: "fixed" }}>
             <thead>
               <tr className="border-b border-gray-200">
-                <th className="text-center py-3 px-4 text-sm font-semibold text-gray-700 w-12">
+                <th className="text-center py-3 px-4 text-sm font-semibold text-gray-700 whitespace-nowrap w-12">
                   순
                 </th>
-                <th className="text-center py-3 px-4 text-sm font-semibold text-gray-700 w-[70px]">
-                  동아리명
+                <th
+                  className="text-center py-3 px-4 text-sm font-semibold text-gray-700 whitespace-nowrap w-[70px] cursor-pointer hover:bg-gray-100 select-none"
+                  onClick={() => handleCreativeSort("clubName")}
+                >
+                  <span className="inline-flex items-center gap-0.5">
+                    동아리명
+                    {creativeSortKey === "clubName" &&
+                      (creativeSortDirection === "asc" ? (
+                        <ChevronUp className="w-4 h-4" />
+                      ) : (
+                        <ChevronDown className="w-4 h-4" />
+                      ))}
+                  </span>
                 </th>
-                <th className="text-center py-3 px-4 text-sm font-semibold text-gray-700 w-[70px]">
-                  구분
+                <th
+                  className="text-center py-3 px-4 text-sm font-semibold text-gray-700 whitespace-nowrap w-[70px] cursor-pointer hover:bg-gray-100 select-none"
+                  onClick={() => handleCreativeSort("category")}
+                >
+                  <span className="inline-flex items-center gap-0.5">
+                    구분
+                    {creativeSortKey === "category" &&
+                      (creativeSortDirection === "asc" ? (
+                        <ChevronUp className="w-4 h-4" />
+                      ) : (
+                        <ChevronDown className="w-4 h-4" />
+                      ))}
+                  </span>
                 </th>
-                <th className="text-center py-3 px-4 text-sm font-semibold text-gray-700 w-32">
+                <th className="text-center py-3 px-4 text-sm font-semibold text-gray-700 whitespace-nowrap w-32">
                   설명
                 </th>
-                <th className="text-center py-3 px-4 text-sm font-semibold text-gray-700 w-[70px]">
-                  담당교사
+                <th
+                  className="text-center py-3 px-4 text-sm font-semibold text-gray-700 whitespace-nowrap w-[70px] cursor-pointer hover:bg-gray-100 select-none"
+                  onClick={() => handleCreativeSort("teacher")}
+                >
+                  <span className="inline-flex items-center gap-0.5">
+                    담당교사
+                    {creativeSortKey === "teacher" &&
+                      (creativeSortDirection === "asc" ? (
+                        <ChevronUp className="w-4 h-4" />
+                      ) : (
+                        <ChevronDown className="w-4 h-4" />
+                      ))}
+                  </span>
                 </th>
-                <th className="text-center py-3 px-4 text-sm font-semibold text-gray-700 w-48">
+                <th className="text-center py-3 px-4 text-sm font-semibold text-gray-700 whitespace-nowrap w-48">
                   학생 배정
                 </th>
-                <th className="text-center py-3 px-4 text-sm font-semibold text-gray-700 w-24">
-                  활동 장소
+                <th
+                  className="text-center py-3 px-4 text-sm font-semibold text-gray-700 whitespace-nowrap w-24 cursor-pointer hover:bg-gray-100 select-none"
+                  onClick={() => handleCreativeSort("location")}
+                >
+                  <span className="inline-flex items-center gap-0.5">
+                    활동 장소
+                    {creativeSortKey === "location" &&
+                      (creativeSortDirection === "asc" ? (
+                        <ChevronUp className="w-4 h-4" />
+                      ) : (
+                        <ChevronDown className="w-4 h-4" />
+                      ))}
+                  </span>
                 </th>
-                <th className="text-center py-3 px-4 text-sm font-semibold text-gray-700 w-[120px]">
+                <th className="text-center py-3 px-4 text-sm font-semibold text-gray-700 whitespace-nowrap w-[120px]">
                   활동 계획서
                 </th>
-                <th className="text-center py-3 px-4 text-sm font-semibold text-gray-700 w-[120px]">
+                <th className="text-center py-3 px-4 text-sm font-semibold text-gray-700 whitespace-nowrap w-[120px]">
                   예산 사용 계획서
                 </th>
-                <th className="sticky right-0 z-20 bg-white text-center py-3 px-4 text-sm font-semibold text-gray-700 w-32">
+                <th className="sticky right-0 z-20 bg-white text-center py-3 px-4 text-sm font-semibold text-gray-700 whitespace-nowrap w-32">
                   작업
                 </th>
               </tr>
@@ -1320,7 +1422,110 @@ export default function ClubOrganizationSection() {
                 </tr>
               ) : (
                 <>
-                  {creativeClubs.map((item, idx) => (
+                  {isCreateOpen && (
+                    <tr className="border-b border-gray-200 bg-gray-50">
+                      <td className="py-2 px-1 text-sm text-gray-600 w-12">-</td>
+                      <td className="py-2 px-1 w-[70px]">
+                        <input
+                          name="clubName"
+                          value={createForm.clubName}
+                          onChange={handleCreateFormChange}
+                          className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm"
+                          placeholder="동아리명"
+                        />
+                      </td>
+                      <td className="py-2 px-1 w-[70px]">
+                        <select
+                          name="category"
+                          value={createForm.category}
+                          onChange={handleCreateFormChange}
+                          className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm bg-white"
+                        >
+                          <option value="">구분 선택</option>
+                          <option value="인문">인문</option>
+                          <option value="사회">사회</option>
+                          <option value="수학">수학</option>
+                          <option value="과학">과학</option>
+                          <option value="어학">어학</option>
+                          <option value="독서*토론">독서*토론</option>
+                          <option value="음악">음악</option>
+                          <option value="미술">미술</option>
+                          <option value="체육">체육</option>
+                          <option value="댄스">댄스</option>
+                          <option value="기타">기타</option>
+                        </select>
+                      </td>
+                      <td className="py-2 px-1 w-32">
+                        <input
+                          name="description"
+                          value={createForm.description}
+                          onChange={handleCreateFormChange}
+                          className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm"
+                          placeholder="설명"
+                        />
+                      </td>
+                      <td className="py-2 px-1 w-[70px]">
+                        <select
+                          name="teacher"
+                          value={createForm.teacher}
+                          onChange={handleCreateFormChange}
+                          className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm bg-white"
+                        >
+                          <option value="">교사 선택</option>
+                          {teachers.map((t) => {
+                            const isAssigned = getAssignedTeacherNames().includes(t.name);
+                            const isDuplicate = (teacherNameCounts.get(t.name) || 0) > 1;
+                            const displayName = isDuplicate
+                              ? `${t.name} (${t.email})`
+                              : t.name;
+                            return (
+                              <option key={t.id} value={t.name} disabled={isAssigned}>
+                                {displayName}
+                                {isAssigned ? " (배정됨)" : ""}
+                              </option>
+                            );
+                          })}
+                        </select>
+                      </td>
+                      <td className="py-2 px-1 w-48 text-sm text-gray-500 text-center">저장 후 추가</td>
+                      <td className="py-2 px-1 w-24">
+                        <input
+                          name="location"
+                          value={createForm.location}
+                          onChange={handleCreateFormChange}
+                          className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm"
+                          placeholder="활동 장소"
+                        />
+                      </td>
+                      <td className="py-2 px-1 w-[120px] text-sm text-gray-500 text-center">저장 후 추가</td>
+                      <td className="py-2 px-1 w-[120px] text-sm text-gray-500 text-center">저장 후 추가</td>
+                      <td className="sticky right-0 z-10 bg-white py-2 px-1 w-32">
+                        <div className="flex items-center justify-center gap-1">
+                          <button
+                            type="button"
+                            onClick={handleCreateSave}
+                            disabled={isLoading}
+                            className="inline-flex items-center px-2 py-1 rounded-md bg-green-600 hover:bg-green-700 text-white text-xs disabled:opacity-50"
+                          >
+                            {isLoading ? "저장 중..." : "저장"}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setIsCreateOpen(false);
+                              setCreateForm(EMPTY_FORM);
+                            }}
+                            disabled={isLoading}
+                            className="inline-flex items-center px-2 py-1 rounded-md bg-gray-100 hover:bg-gray-200 text-xs disabled:opacity-50"
+                          >
+                            취소
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+
+                  {sortedCreativeClubs.map((item, idx) => (
                     <Fragment key={item.id}>
                     <tr className="border-b border-gray-100">
                       {editingId === item.id ? (
@@ -1629,108 +1834,6 @@ export default function ClubOrganizationSection() {
                     </Fragment>
                   ))}
 
-                  {isCreateOpen && (
-                    <tr className="border-b border-gray-200 bg-gray-50">
-                      <td className="py-2 px-1 text-sm text-gray-600 w-12">-</td>
-                      <td className="py-2 px-1 w-[70px]">
-                        <input
-                          name="clubName"
-                          value={createForm.clubName}
-                          onChange={handleCreateFormChange}
-                          className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm"
-                          placeholder="동아리명"
-                        />
-                      </td>
-                      <td className="py-2 px-1 w-[70px]">
-                        <select
-                          name="category"
-                          value={createForm.category}
-                          onChange={handleCreateFormChange}
-                          className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm bg-white"
-                        >
-                          <option value="">구분 선택</option>
-                          <option value="인문">인문</option>
-                          <option value="사회">사회</option>
-                          <option value="수학">수학</option>
-                          <option value="과학">과학</option>
-                          <option value="어학">어학</option>
-                          <option value="독서*토론">독서*토론</option>
-                          <option value="음악">음악</option>
-                          <option value="미술">미술</option>
-                          <option value="체육">체육</option>
-                          <option value="댄스">댄스</option>
-                          <option value="기타">기타</option>
-                        </select>
-                      </td>
-                      <td className="py-2 px-1 w-32">
-                        <input
-                          name="description"
-                          value={createForm.description}
-                          onChange={handleCreateFormChange}
-                          className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm"
-                          placeholder="설명"
-                        />
-                      </td>
-                      <td className="py-2 px-1 w-[70px]">
-                        <select
-                          name="teacher"
-                          value={createForm.teacher}
-                          onChange={handleCreateFormChange}
-                          className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm bg-white"
-                        >
-                          <option value="">교사 선택</option>
-                          {teachers.map((t) => {
-                            const isAssigned = getAssignedTeacherNames().includes(t.name);
-                            const isDuplicate = (teacherNameCounts.get(t.name) || 0) > 1;
-                            const displayName = isDuplicate
-                              ? `${t.name} (${t.email})`
-                              : t.name;
-                            return (
-                              <option key={t.id} value={t.name} disabled={isAssigned}>
-                                {displayName}
-                                {isAssigned ? " (배정됨)" : ""}
-                              </option>
-                            );
-                          })}
-                        </select>
-                      </td>
-                      <td className="py-2 px-1 w-48 text-sm text-gray-500">저장 후 추가</td>
-                      <td className="py-2 px-1 w-24">
-                        <input
-                          name="location"
-                          value={createForm.location}
-                          onChange={handleCreateFormChange}
-                          className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm"
-                          placeholder="활동 장소"
-                        />
-                      </td>
-                      <td className="py-2 px-1 w-[120px] text-sm text-gray-500">저장 후 추가</td>
-                      <td className="py-2 px-1 w-[120px] text-sm text-gray-500">저장 후 추가</td>
-                      <td className="sticky right-0 z-10 bg-white py-2 px-1 w-32">
-                        <div className="flex items-center justify-center gap-1">
-                          <button
-                            type="button"
-                            onClick={handleCreateSave}
-                            disabled={isLoading}
-                            className="inline-flex items-center px-2 py-1 rounded-md bg-green-600 hover:bg-green-700 text-white text-xs disabled:opacity-50"
-                          >
-                            {isLoading ? "저장 중..." : "저장"}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setIsCreateOpen(false);
-                              setCreateForm(EMPTY_FORM);
-                            }}
-                            disabled={isLoading}
-                            className="inline-flex items-center px-2 py-1 rounded-md bg-gray-100 hover:bg-gray-200 text-xs disabled:opacity-50"
-                          >
-                            취소
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  )}
                 </>
               )}
             </tbody>
@@ -1774,16 +1877,68 @@ export default function ClubOrganizationSection() {
           <table className="w-full" style={{ tableLayout: "fixed" }}>
             <thead>
               <tr className="border-b border-gray-200">
-                <th className="text-center py-3 px-4 text-sm font-semibold text-gray-700 w-12">순</th>
-                <th className="text-center py-3 px-4 text-sm font-semibold text-gray-700 w-[70px]">동아리명</th>
-                <th className="text-center py-3 px-4 text-sm font-semibold text-gray-700 w-[70px]">구분</th>
-                <th className="text-center py-3 px-4 text-sm font-semibold text-gray-700 w-32">설명</th>
-                <th className="text-center py-3 px-4 text-sm font-semibold text-gray-700 w-[70px]">담당교사</th>
-                <th className="text-center py-3 px-4 text-sm font-semibold text-gray-700 w-48">학생 배정</th>
-                <th className="text-center py-3 px-4 text-sm font-semibold text-gray-700 w-24">활동 장소</th>
-                <th className="text-center py-3 px-4 text-sm font-semibold text-gray-700 w-[120px]">활동 계획서</th>
-                <th className="text-center py-3 px-4 text-sm font-semibold text-gray-700 w-[120px]">예산 사용 계획서</th>
-                <th className="sticky right-0 z-20 bg-white text-center py-3 px-4 text-sm font-semibold text-gray-700 w-32">작업</th>
+                <th className="text-center py-3 px-4 text-sm font-semibold text-gray-700 whitespace-nowrap w-12">순</th>
+                <th
+                  className="text-center py-3 px-4 text-sm font-semibold text-gray-700 whitespace-nowrap w-[70px] cursor-pointer hover:bg-gray-100 select-none"
+                  onClick={() => handleAutonomousSort("clubName")}
+                >
+                  <span className="inline-flex items-center gap-0.5">
+                    동아리명
+                    {autonomousSortKey === "clubName" &&
+                      (autonomousSortDirection === "asc" ? (
+                        <ChevronUp className="w-4 h-4" />
+                      ) : (
+                        <ChevronDown className="w-4 h-4" />
+                      ))}
+                  </span>
+                </th>
+                <th
+                  className="text-center py-3 px-4 text-sm font-semibold text-gray-700 whitespace-nowrap w-[70px] cursor-pointer hover:bg-gray-100 select-none"
+                  onClick={() => handleAutonomousSort("category")}
+                >
+                  <span className="inline-flex items-center gap-0.5">
+                    구분
+                    {autonomousSortKey === "category" &&
+                      (autonomousSortDirection === "asc" ? (
+                        <ChevronUp className="w-4 h-4" />
+                      ) : (
+                        <ChevronDown className="w-4 h-4" />
+                      ))}
+                  </span>
+                </th>
+                <th className="text-center py-3 px-4 text-sm font-semibold text-gray-700 whitespace-nowrap w-32">설명</th>
+                <th
+                  className="text-center py-3 px-4 text-sm font-semibold text-gray-700 whitespace-nowrap w-[70px] cursor-pointer hover:bg-gray-100 select-none"
+                  onClick={() => handleAutonomousSort("teacher")}
+                >
+                  <span className="inline-flex items-center gap-0.5">
+                    담당교사
+                    {autonomousSortKey === "teacher" &&
+                      (autonomousSortDirection === "asc" ? (
+                        <ChevronUp className="w-4 h-4" />
+                      ) : (
+                        <ChevronDown className="w-4 h-4" />
+                      ))}
+                  </span>
+                </th>
+                <th className="text-center py-3 px-4 text-sm font-semibold text-gray-700 whitespace-nowrap w-48">학생 배정</th>
+                <th
+                  className="text-center py-3 px-4 text-sm font-semibold text-gray-700 whitespace-nowrap w-24 cursor-pointer hover:bg-gray-100 select-none"
+                  onClick={() => handleAutonomousSort("location")}
+                >
+                  <span className="inline-flex items-center gap-0.5">
+                    활동 장소
+                    {autonomousSortKey === "location" &&
+                      (autonomousSortDirection === "asc" ? (
+                        <ChevronUp className="w-4 h-4" />
+                      ) : (
+                        <ChevronDown className="w-4 h-4" />
+                      ))}
+                  </span>
+                </th>
+                <th className="text-center py-3 px-4 text-sm font-semibold text-gray-700 whitespace-nowrap w-[120px]">활동 계획서</th>
+                <th className="text-center py-3 px-4 text-sm font-semibold text-gray-700 whitespace-nowrap w-[120px]">예산 사용 계획서</th>
+                <th className="sticky right-0 z-20 bg-white text-center py-3 px-4 text-sm font-semibold text-gray-700 whitespace-nowrap w-32">작업</th>
               </tr>
             </thead>
             <tbody>
@@ -1795,7 +1950,38 @@ export default function ClubOrganizationSection() {
                 </tr>
               ) : (
                 <>
-                  {autonomousClubs.map((item, idx) => (
+                  {isAutonomousOpen && (
+                    <tr className="border-b border-gray-200 bg-gray-50">
+                      <td className="py-2 px-1 text-sm text-gray-600 w-12">-</td>
+                      <td className="py-2 px-1 w-[70px]"><input name="clubName" value={autonomousForm.clubName} onChange={handleAutonomousFormChange} className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm" placeholder="동아리명" /></td>
+                      <td className="py-2 px-1 w-[70px]">
+                        <select name="category" value={autonomousForm.category} onChange={handleAutonomousFormChange} className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm bg-white">
+                          <option value="">구분 선택</option><option value="인문">인문</option><option value="사회">사회</option><option value="수학">수학</option><option value="과학">과학</option><option value="어학">어학</option><option value="독서*토론">독서*토론</option><option value="음악">음악</option><option value="미술">미술</option><option value="체육">체육</option><option value="댄스">댄스</option><option value="기타">기타</option>
+                        </select>
+                      </td>
+                      <td className="py-2 px-1 w-32"><input name="description" value={autonomousForm.description} onChange={handleAutonomousFormChange} className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm" placeholder="설명" /></td>
+                      <td className="py-2 px-1 w-[70px]">
+                        <select name="teacher" value={autonomousForm.teacher} onChange={handleAutonomousFormChange} className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm bg-white">
+                          <option value="">교사 선택</option>
+                          {teachers.map((t) => (
+                            <option key={t.id} value={t.name}>{(teacherNameCounts.get(t.name) || 0) > 1 ? `${t.name} (${t.email})` : t.name}</option>
+                          ))}
+                        </select>
+                      </td>
+                      <td className="py-2 px-1 w-48 text-sm text-gray-500 text-center">저장 후 추가</td>
+                      <td className="py-2 px-1 w-24"><input name="location" value={autonomousForm.location} onChange={handleAutonomousFormChange} className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm" placeholder="활동 장소" /></td>
+                      <td className="py-2 px-1 w-[120px] text-sm text-gray-500 text-center">저장 후 추가</td>
+                      <td className="py-2 px-1 w-[120px] text-sm text-gray-500 text-center">저장 후 추가</td>
+                      <td className="sticky right-0 z-10 bg-white py-2 px-1 w-32">
+                        <div className="flex items-center justify-center gap-1">
+                          <button type="button" onClick={handleAutonomousSave} disabled={isLoading} className="inline-flex items-center px-2 py-1 rounded-md bg-green-600 hover:bg-green-700 text-white text-xs disabled:opacity-50">{isLoading ? "저장 중..." : "저장"}</button>
+                          <button type="button" onClick={() => { setIsAutonomousOpen(false); setAutonomousForm(EMPTY_FORM); }} disabled={isLoading} className="inline-flex items-center px-2 py-1 rounded-md bg-gray-100 hover:bg-gray-200 text-xs disabled:opacity-50">취소</button>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+
+                  {sortedAutonomousClubs.map((item, idx) => (
                     <Fragment key={item.id}>
                       <tr className="border-b border-gray-100">
                         {autonomousEditingId === item.id ? (
@@ -2018,36 +2204,6 @@ export default function ClubOrganizationSection() {
                     </Fragment>
                   ))}
 
-                  {isAutonomousOpen && (
-                    <tr className="border-b border-gray-200 bg-gray-50">
-                      <td className="py-2 px-1 text-sm text-gray-600 w-12">-</td>
-                      <td className="py-2 px-1 w-[70px]"><input name="clubName" value={autonomousForm.clubName} onChange={handleAutonomousFormChange} className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm" placeholder="동아리명" /></td>
-                      <td className="py-2 px-1 w-[70px]">
-                        <select name="category" value={autonomousForm.category} onChange={handleAutonomousFormChange} className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm bg-white">
-                          <option value="">구분 선택</option><option value="인문">인문</option><option value="사회">사회</option><option value="수학">수학</option><option value="과학">과학</option><option value="어학">어학</option><option value="독서*토론">독서*토론</option><option value="음악">음악</option><option value="미술">미술</option><option value="체육">체육</option><option value="댄스">댄스</option><option value="기타">기타</option>
-                        </select>
-                      </td>
-                      <td className="py-2 px-1 w-32"><input name="description" value={autonomousForm.description} onChange={handleAutonomousFormChange} className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm" placeholder="설명" /></td>
-                      <td className="py-2 px-1 w-[70px]">
-                        <select name="teacher" value={autonomousForm.teacher} onChange={handleAutonomousFormChange} className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm bg-white">
-                          <option value="">교사 선택</option>
-                          {teachers.map((t) => (
-                            <option key={t.id} value={t.name}>{(teacherNameCounts.get(t.name) || 0) > 1 ? `${t.name} (${t.email})` : t.name}</option>
-                          ))}
-                        </select>
-                      </td>
-                      <td className="py-2 px-1 w-48 text-sm text-gray-500">저장 후 추가</td>
-                      <td className="py-2 px-1 w-24"><input name="location" value={autonomousForm.location} onChange={handleAutonomousFormChange} className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm" placeholder="활동 장소" /></td>
-                      <td className="py-2 px-1 w-[120px] text-sm text-gray-500">저장 후 추가</td>
-                      <td className="py-2 px-1 w-[120px] text-sm text-gray-500">저장 후 추가</td>
-                      <td className="sticky right-0 z-10 bg-white py-2 px-1 w-32">
-                        <div className="flex items-center justify-center gap-1">
-                          <button type="button" onClick={handleAutonomousSave} disabled={isLoading} className="inline-flex items-center px-2 py-1 rounded-md bg-green-600 hover:bg-green-700 text-white text-xs disabled:opacity-50">{isLoading ? "저장 중..." : "저장"}</button>
-                          <button type="button" onClick={() => { setIsAutonomousOpen(false); setAutonomousForm(EMPTY_FORM); }} disabled={isLoading} className="inline-flex items-center px-2 py-1 rounded-md bg-gray-100 hover:bg-gray-200 text-xs disabled:opacity-50">취소</button>
-                        </div>
-                      </td>
-                    </tr>
-                  )}
                 </>
               )}
             </tbody>

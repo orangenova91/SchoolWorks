@@ -253,6 +253,12 @@ export default async function DashboardLayout({
             iconName: "Sparkles",
           },
           {
+            href: "/dashboard/student/club",
+            label: "동아리",
+            icon: <PartyPopper className="w-5 h-5" />,
+            iconName: "PartyPopper",
+          },
+          {
             href: "/dashboard/student/classroom",
             label: t.sidebar.student.classroom,
             icon: <BookOpen className="w-5 h-5" />,
