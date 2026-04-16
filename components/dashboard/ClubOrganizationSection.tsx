@@ -120,6 +120,8 @@ export default function ClubOrganizationSection() {
   const [budgetUsagePlanDragOverClubId, setBudgetUsagePlanDragOverClubId] = useState<
     string | null
   >(null);
+  const [downloadingActivityPlanZip, setDownloadingActivityPlanZip] = useState(false);
+  const [downloadingBudgetUsagePlanZip, setDownloadingBudgetUsagePlanZip] = useState(false);
   const [creativeSortKey, setCreativeSortKey] = useState<ClubSortKey>("createdAt");
   const [creativeSortDirection, setCreativeSortDirection] = useState<SortDirection>("desc");
   const [autonomousSortKey, setAutonomousSortKey] = useState<ClubSortKey>("createdAt");
@@ -1223,6 +1225,81 @@ export default function ClubOrganizationSection() {
     URL.revokeObjectURL(url);
   };
 
+  const hasCreativeActivityPlanFile = useMemo(
+    () =>
+      creativeClubs.some((club) => Boolean(activityPlanByClubId[club.id])),
+    [creativeClubs, activityPlanByClubId]
+  );
+
+  const hasAutonomousActivityPlanFile = useMemo(
+    () =>
+      autonomousClubs.some((club) => Boolean(activityPlanByClubId[club.id])),
+    [autonomousClubs, activityPlanByClubId]
+  );
+
+  const handleActivityPlanDownloadZip = (clubType: "creative" | "autonomous") => {
+    const hasTargetFiles =
+      clubType === "creative"
+        ? hasCreativeActivityPlanFile
+        : hasAutonomousActivityPlanFile;
+    if (
+      downloadingActivityPlanZip ||
+      activityPlanUploadingClubId ||
+      !hasTargetFiles
+    ) {
+      return;
+    }
+
+    setDownloadingActivityPlanZip(true);
+
+    const link = document.createElement("a");
+    link.href = `/api/club-activity-plan/download?clubType=${clubType}`;
+    link.rel = "noopener noreferrer";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+
+    window.setTimeout(() => setDownloadingActivityPlanZip(false), 2500);
+  };
+
+  const hasCreativeBudgetUsagePlanFile = useMemo(
+    () =>
+      creativeClubs.some((club) => Boolean(budgetUsagePlanByClubId[club.id])),
+    [creativeClubs, budgetUsagePlanByClubId]
+  );
+
+  const hasAutonomousBudgetUsagePlanFile = useMemo(
+    () =>
+      autonomousClubs.some((club) => Boolean(budgetUsagePlanByClubId[club.id])),
+    [autonomousClubs, budgetUsagePlanByClubId]
+  );
+
+  const handleBudgetUsagePlanDownloadZip = (clubType: "creative" | "autonomous") => {
+    const hasTargetFiles =
+      clubType === "creative"
+        ? hasCreativeBudgetUsagePlanFile
+        : hasAutonomousBudgetUsagePlanFile;
+
+    if (
+      downloadingBudgetUsagePlanZip ||
+      budgetUsagePlanUploadingClubId ||
+      !hasTargetFiles
+    ) {
+      return;
+    }
+
+    setDownloadingBudgetUsagePlanZip(true);
+
+    const link = document.createElement("a");
+    link.href = `/api/club-budget-usage/download?clubType=${clubType}`;
+    link.rel = "noopener noreferrer";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+
+    window.setTimeout(() => setDownloadingBudgetUsagePlanZip(false), 2500);
+  };
+
   return (
     <div className="space-y-6">
     <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
@@ -1403,10 +1480,32 @@ export default function ClubOrganizationSection() {
                   </span>
                 </th>
                 <th className="text-center py-3 px-4 text-sm font-semibold text-gray-700 whitespace-nowrap w-[120px]">
-                  활동 계획서
+                  <span className="inline-flex items-center gap-1">
+                    활동 계획서
+                    <button
+                      type="button"
+                      onClick={() => handleActivityPlanDownloadZip("creative")}
+                      disabled={!hasCreativeActivityPlanFile || downloadingActivityPlanZip}
+                      className="p-1 rounded text-blue-600 hover:text-blue-700 hover:bg-blue-50 disabled:text-gray-400 disabled:hover:bg-transparent"
+                      title="활동 계획서 전체 다운로드"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                    </button>
+                  </span>
                 </th>
                 <th className="text-center py-3 px-4 text-sm font-semibold text-gray-700 whitespace-nowrap w-[120px]">
-                  예산 사용 계획서
+                  <span className="inline-flex items-center gap-1">
+                    예산 사용 계획서
+                    <button
+                      type="button"
+                      onClick={() => handleBudgetUsagePlanDownloadZip("creative")}
+                      disabled={!hasCreativeBudgetUsagePlanFile || downloadingBudgetUsagePlanZip}
+                      className="p-1 rounded text-blue-600 hover:text-blue-700 hover:bg-blue-50 disabled:text-gray-400 disabled:hover:bg-transparent"
+                      title="예산 사용 계획서 전체 다운로드"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                    </button>
+                  </span>
                 </th>
                 <th className="sticky right-0 z-20 bg-white text-center py-3 px-4 text-sm font-semibold text-gray-700 whitespace-nowrap w-32">
                   작업
@@ -1936,8 +2035,34 @@ export default function ClubOrganizationSection() {
                       ))}
                   </span>
                 </th>
-                <th className="text-center py-3 px-4 text-sm font-semibold text-gray-700 whitespace-nowrap w-[120px]">활동 계획서</th>
-                <th className="text-center py-3 px-4 text-sm font-semibold text-gray-700 whitespace-nowrap w-[120px]">예산 사용 계획서</th>
+                <th className="text-center py-3 px-4 text-sm font-semibold text-gray-700 whitespace-nowrap w-[120px]">
+                  <span className="inline-flex items-center gap-1">
+                    활동 계획서
+                    <button
+                      type="button"
+                      onClick={() => handleActivityPlanDownloadZip("autonomous")}
+                      disabled={!hasAutonomousActivityPlanFile || downloadingActivityPlanZip}
+                      className="p-1 rounded text-blue-600 hover:text-blue-700 hover:bg-blue-50 disabled:text-gray-400 disabled:hover:bg-transparent"
+                      title="활동 계획서 전체 다운로드"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                    </button>
+                  </span>
+                </th>
+                <th className="text-center py-3 px-4 text-sm font-semibold text-gray-700 whitespace-nowrap w-[120px]">
+                  <span className="inline-flex items-center gap-1">
+                    예산 사용 계획서
+                    <button
+                      type="button"
+                      onClick={() => handleBudgetUsagePlanDownloadZip("autonomous")}
+                      disabled={!hasAutonomousBudgetUsagePlanFile || downloadingBudgetUsagePlanZip}
+                      className="p-1 rounded text-blue-600 hover:text-blue-700 hover:bg-blue-50 disabled:text-gray-400 disabled:hover:bg-transparent"
+                      title="예산 사용 계획서 전체 다운로드"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                    </button>
+                  </span>
+                </th>
                 <th className="sticky right-0 z-20 bg-white text-center py-3 px-4 text-sm font-semibold text-gray-700 whitespace-nowrap w-32">작업</th>
               </tr>
             </thead>
