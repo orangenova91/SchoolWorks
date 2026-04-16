@@ -841,6 +841,21 @@ model ClubStudentActivity {
   @@map("club_student_activities")
 }
 
+model ClubStudentExpression {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  clubId     String   @db.ObjectId
+  studentId  String
+  content    String?
+  school     String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([clubId, studentId])
+  @@index([clubId, updatedAt])
+  @@index([school])
+  @@map("club_student_expressions")
+}
+
 model SupervisionMealSchedule {
   id                 String    @id @default(auto()) @map("_id") @db.ObjectId
   date               DateTime  // 날짜 (시간은 00:00:00)

@@ -90,6 +90,7 @@ export default function MyClubManagementSection({ teacherName, teacherEmail }: P
   const [students, setStudents] = useState<Student[]>([]);
   const [selectedClubId, setSelectedClubId] = useState<string>("");
   const [activityDrafts, setActivityDrafts] = useState<Record<string, string>>({});
+  const [studentExpressionDrafts, setStudentExpressionDrafts] = useState<Record<string, string>>({});
   const [isActivityLoading, setIsActivityLoading] = useState(false);
   const [savingStudentIds, setSavingStudentIds] = useState<Record<string, boolean>>({});
 
@@ -208,6 +209,41 @@ export default function MyClubManagementSection({ teacherName, teacherEmail }: P
     };
 
     loadActivities();
+  }, [selectedClubId]);
+
+  useEffect(() => {
+    const loadStudentExpressions = async () => {
+      if (!selectedClubId) {
+        setStudentExpressionDrafts({});
+        return;
+      }
+
+      try {
+        const response = await fetch(
+          `/api/teacher/club-student-expressions?clubId=${encodeURIComponent(selectedClubId)}`
+        );
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(data.error || "학생 활동 표현을 불러오는 데 실패했습니다.");
+        }
+
+        const nextDrafts: Record<string, string> = {};
+        if (Array.isArray(data.expressions)) {
+          data.expressions.forEach((item: { studentId?: string; content?: string }) => {
+            if (!item.studentId) return;
+            nextDrafts[item.studentId] = item.content || "";
+          });
+        }
+        setStudentExpressionDrafts(nextDrafts);
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : "학생 활동 표현을 불러오는 데 실패했습니다.";
+        window.alert(message);
+        setStudentExpressionDrafts({});
+      }
+    };
+
+    loadStudentExpressions();
   }, [selectedClubId]);
 
   const updateActivityDraft = (studentId: string, value: string) => {
@@ -335,6 +371,9 @@ export default function MyClubManagementSection({ teacherName, teacherEmail }: P
                 이름
               </th>
               <th className="border-b border-gray-200 px-3 py-2 text-center text-xs font-semibold text-gray-700">
+                학생 활동 표현
+              </th>
+              <th className="border-b border-gray-200 px-3 py-2 text-center text-xs font-semibold text-gray-700">
                 활동 내용 입력
               </th>
             </tr>
@@ -342,7 +381,7 @@ export default function MyClubManagementSection({ teacherName, teacherEmail }: P
           <tbody>
             {selectedStudents.length === 0 ? (
               <tr>
-                <td colSpan={4} className="px-3 py-8 text-center text-sm text-gray-500">
+                <td colSpan={5} className="px-3 py-8 text-center text-sm text-gray-500">
                   배정된 학생이 없습니다.
                 </td>
               </tr>
@@ -357,6 +396,15 @@ export default function MyClubManagementSection({ teacherName, teacherEmail }: P
                   </td>
                   <td className="border-b border-gray-100 px-3 py-2 text-center text-sm text-gray-900">
                     {student.name}
+                  </td>
+                  <td className="border-b border-gray-100 px-3 py-2">
+                    <textarea
+                      value={studentExpressionDrafts[student.id] || ""}
+                      readOnly
+                      disabled
+                      placeholder="학생이 작성한 활동 표현이 없습니다."
+                      className="min-h-[72px] w-full rounded-md border border-gray-200 bg-gray-50 px-2 py-1.5 text-sm text-gray-700"
+                    />
                   </td>
                   <td className="border-b border-gray-100 px-3 py-2">
                     <div className="flex items-start gap-2">
