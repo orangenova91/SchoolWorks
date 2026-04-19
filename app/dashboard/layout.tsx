@@ -1,5 +1,6 @@
 import { ReactNode } from "react";
 import type { Metadata } from "next";
+import Link from "next/link";
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
@@ -423,7 +424,9 @@ export default async function DashboardLayout({
                 </span>
               )}
               <h1 className="text-xl font-bold text-gray-900">
-                SchoolWorks
+                <Link href="/dashboard" className="hover:text-blue-700 transition-colors">
+                  SchoolWorks
+                </Link>
                 <span className="text-sm font-normal"> {t.app.version}</span>
               </h1>
               <CurrentPageNav items={navItems} />
