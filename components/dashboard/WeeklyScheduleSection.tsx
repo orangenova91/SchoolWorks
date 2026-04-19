@@ -26,11 +26,18 @@ type SupervisionMealInfo = {
   mealGuidance: string[];
 };
 
+type WeeklyMealInfo = {
+  mealType: string;
+  menu: string;
+  calories?: string;
+};
+
 type WeeklyScheduleDay = {
   dateLabel: string;
   isoDate: string;
   events: WeeklyScheduleEvent[];
   supervisionMeal?: SupervisionMealInfo;
+  meals?: WeeklyMealInfo[];
 };
 
 type WeeklyScheduleSectionProps = {
@@ -132,7 +139,7 @@ export default function WeeklyScheduleSection({
             );
           })}
         </div>
-        <div className="grid grid-cols-7 divide-x divide-gray-100 max-h-[280px]">
+        <div className="grid grid-cols-7 divide-x divide-gray-100">
           {schedule.map((day) => {
             const isToday = day.isoDate === todayIsoDate;
             const dayOfWeek = getDayOfWeek(day.isoDate);
@@ -152,17 +159,18 @@ export default function WeeklyScheduleSection({
               day.supervisionMeal &&
               ((day.supervisionMeal.eveningSupervision?.length || 0) > 0 ||
                 (day.supervisionMeal.mealGuidance?.length || 0) > 0);
+            const hasMeals = (day.meals?.length || 0) > 0;
 
             return (
               <div
                 key={`${day.dateLabel}-body`}
-                className={`py-3 px-2 flex flex-col max-h-[240px] min-h-0 ${bodyBgClass}`}
+                className={`py-3 px-2 flex flex-col min-h-0 ${bodyBgClass}`}
               >
                 <p className="hidden text-sm font-semibold text-gray-900 mb-2">
                   {day.dateLabel}
                 </p>
                 <div className="flex-1 min-h-0 overflow-y-auto space-y-1">
-                  {day.events.length === 0 && !hasSupervisionMeal ? (
+                  {day.events.length === 0 && !hasSupervisionMeal && !hasMeals ? (
                     <p className="text-xs text-gray-400">등록된 일정이 없습니다.</p>
                   ) : (
                     day.events.map((event) => {
@@ -261,6 +269,16 @@ export default function WeeklyScheduleSection({
                         </div>
                       )}
                     </Link>
+                  )}
+                  {hasMeals && (
+                    <div className="pt-1 space-y-1">
+                      {day.meals?.map((meal, idx) => (
+                        <div key={`${day.isoDate}-${meal.mealType}-${idx}`} className="text-[11px] text-gray-600 leading-snug">
+                          <span className="font-semibold text-emerald-700">{meal.mealType}</span>
+                          <span className="ml-1 whitespace-pre-line break-words">{meal.menu || "-"}</span>
+                        </div>
+                      ))}
+                    </div>
                   )}
                 </div>
               </div>

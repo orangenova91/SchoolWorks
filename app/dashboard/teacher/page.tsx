@@ -10,6 +10,7 @@ import TodaySummaryBanner from "@/components/dashboard/teacher/TodaySummaryBanne
 import { WeeklySchedulePanel } from "@/components/dashboard/teacher/WeeklySchedulePanel";
 import CollaborativeDocLinksSection from "@/components/dashboard/teacher/CollaborativeDocLinksSection";
 import TeacherBoardQuickLinks from "@/components/dashboard/teacher/TeacherBoardQuickLinks";
+import { buildWeeklyMealDays, fetchWeeklyMealDiet } from "@/lib/neisMeal";
 import { Paperclip } from "lucide-react";
 
 const t = getTranslations("ko");
@@ -492,6 +493,38 @@ export default async function TeacherDashboardPage() {
     };
   });
 
+  const mealWeekDates = Array.from({ length: 5 }, (_, index) => {
+    const date = getKoreaDayStart(weekStart, index + 1);
+    return toIsoDate(date);
+  });
+  const mealDateLabelByIso = Object.fromEntries(
+    mealWeekDates.map((isoDate) => {
+      const date = new Date(`${isoDate}T00:00:00+09:00`);
+      return [isoDate, dayFormatter.format(date)];
+    })
+  );
+
+  let weeklyMeals = buildWeeklyMealDays(mealWeekDates, mealDateLabelByIso, []);
+  if (school) {
+    try {
+      const fromYmd = mealWeekDates[0].replace(/-/g, "");
+      const toYmd = mealWeekDates[mealWeekDates.length - 1].replace(/-/g, "");
+      const mealResult = await fetchWeeklyMealDiet(school, fromYmd, toYmd);
+      weeklyMeals = buildWeeklyMealDays(mealWeekDates, mealDateLabelByIso, mealResult.rows);
+    } catch (error) {
+      console.error("NEIS meal diet fetch error:", error);
+    }
+  }
+
+  const mealMapByIso = Object.fromEntries(
+    weeklyMeals.map((day) => [day.isoDate, day.meals])
+  ) as Record<string, Array<{ mealType: string; menu: string; calories?: string }>>;
+
+  const weeklyScheduleWithMeals = weeklySchedule.map((day) => ({
+    ...day,
+    meals: mealMapByIso[day.isoDate] ?? [],
+  }));
+
   // 주간 시간표 데이터 생성
   const weekDays = ["월", "화", "수", "목", "금"];
   const periods = ["1", "2", "3", "4", "점심", "5", "6", "7", "8", "9"];
@@ -752,7 +785,7 @@ export default async function TeacherDashboardPage() {
         </header>
 
         <WeeklyScheduleSection
-          schedule={weeklySchedule}
+          schedule={weeklyScheduleWithMeals}
           todayIsoDate={isoToday}
           moreHref="/dashboard/teacher/schedule"
           moreLabel="더보기 →"
